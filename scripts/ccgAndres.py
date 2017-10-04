@@ -1,0 +1,87 @@
+"""
+CCG-style inference with fixed syntax and a fixed lexicon. (For now..)
+"""
+
+from nltk.ccg import chart, lexicon
+
+question = "Are there any other things that are the same shape as the big metallic object?"
+parse = "exist(same_shape(unique(filter_material(filter_size(scene, 'large'), 'metal'))))"
+
+semantics = True
+
+lex2 = lexicon.fromstring(r"""
+    :- NN, INP, ADJ, DET, IN
+
+    DET :: NN/NN
+    ADJ :: NN/NN
+    IN :: (NN\NN)/NN
+    ADV :: NN/NN
+
+    same => ADJ {\x.same_(x)}
+
+    material => NN {'material'}
+    color => NN {'color'}
+    shape => NN {'shape'}
+    size => NN {'size'}
+
+    as => IN {\x.(x)}
+    of => IN {\x y.pair(x,y)}
+    to => IN {\x.relate(x)}
+
+    the => DET {\P.unique(P)}
+    a => DET {\P.(P)}
+    an => DET {\P.(P)}
+    any => DET {\P.(P)}
+
+
+    metallic => ADJ {\x.filter_material(x,'metal')}
+    metal => ADJ {\x.filter_material(x,'metal')}
+    shiny => ADJ {\x.filter_material(x,'metal')}
+    rubber => ADJ {\x.filter_material(x,'rubber')}
+    matte => ADJ {\x.filter_material(x,'rubber')}
+
+    gray => ADJ {\x.filter_color(x,'gray')}
+    red => ADJ {\x.filter_color(x,'red')}
+    blue => ADJ {\x.filter_color(x,'blue')}
+    green => ADJ {\x.filter_color(x,'green')}
+    brown => ADJ {\x.filter_color(x,'brown')}
+    purple => ADJ {\x.filter_color(x,'purple')}
+    cyan => ADJ {\x.filter_color(x,'cyan')}
+    yellow => ADJ {\x.filter_color(x,'yellow')}
+
+    big => ADJ {\x.filter_size(x,'large')}
+    large => ADJ {\x.filter_size(x,'large')}
+    small => ADJ {\x.filter_size(x,'small')}
+    tiny => ADJ {\x.filter_size(x,'small')}
+
+    left => ADJ {\x.left(x,'prueba')}
+    left => NN {'left'}
+    right => ADJ {\x.right(x,'right')}
+    right => NN {'right'}
+    front => ADJ {\x.front(x)}
+    front => NN {'front'}
+    behind => ADV {\x.filter_size(x,'behind')}
+    behind => NN {'behind'}
+
+
+    cube => NN {'cube'}
+    block => NN {'cube'}
+    sphere => NN {'sphere'}
+    ball => NN {'sphere'}
+    cylinder => NN {'cylinder'}
+
+    
+
+    
+    object => NN {scene}
+    thing => NN {scene}
+    it => NN {scene}
+
+    """, include_semantics=semantics)
+
+
+parser = chart.CCGChartParser(lex2, chart.DefaultRuleSet)
+results = list(parser.parse("the same shape as the big metallic object".split()))
+chart.printCCGDerivation(results[-1])
+
+    #are there any other things that are => S {\x.exist(x)} 
