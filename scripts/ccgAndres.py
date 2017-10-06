@@ -16,6 +16,7 @@ lex2 = lexicon.fromstring(r"""
     ADJ :: NN/NN
     IN :: (NN\NN)/NN
     ADV :: NN/NN
+    QS :: NN/NN
 
     same => ADJ {\x.same_(x)}
 
@@ -70,7 +71,11 @@ lex2 = lexicon.fromstring(r"""
     ball => NN {'sphere'}
     cylinder => NN {'cylinder'}
 
+    what_is => QS {\x.query_(x)}
     
+    are_there => QS {\x.query_(x)}
+    is_there => QS {\x.query_(x)}
+
 
     
     object => NN {scene}
@@ -79,7 +84,12 @@ lex2 = lexicon.fromstring(r"""
 
     """, include_semantics=semantics)
 
-
+#TODO: 
+#Left, right, etc
+#that
+#Hard one:
+    #Is the purple thing the same shape as the large gray rubber thing?
+    #equal_shape(query_shape(unique(filter_color(scene,u'purple'))),query_shape(unique(filter_material(filter_color(filter_size(scene,u'large'),u'gray'),u'rubber'))))
 parser = chart.CCGChartParser(lex2, chart.DefaultRuleSet)
 results = list(parser.parse("the same shape as the big metallic object".split()))
 chart.printCCGDerivation(results[-1])
