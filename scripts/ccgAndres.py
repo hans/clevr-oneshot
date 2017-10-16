@@ -127,12 +127,12 @@ lex_inference = lexicon.fromstring(r"""
    
     """, include_semantics=semantics)
 
-print(lex_inference.__string__())
+print(lex_inference.__str__())
 parser = chart.CCGChartParser(lex_inference, chart.DefaultRuleSet)
 
 sentence = "the purple big object"
 new_lex = parser.genlex(sentence) 
-print(new_lex.__string__())
+print(new_lex.__str__())
 
 
 
