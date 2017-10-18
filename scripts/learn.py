@@ -38,7 +38,7 @@ def learn(lexicon, data):
     for x, y in data:
         weighted_results = parser.parse(x, return_weights=True)
 
-        # Very dumb: upweight correct parse weights; downweight others
+        # Very dumb perceptron learning
         for result, score in weighted_results:
             print("================= %f" % score)
             chart.printCCGDerivation(result)
