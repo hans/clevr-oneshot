@@ -131,7 +131,7 @@ print(lex_inference.__str__())
 parser = chart.CCGChartParser(lex_inference, chart.DefaultRuleSet)
 
 sentence = "the purple big object"
-new_lex = parser.genlex(sentence) 
+new_lex = parser.genlex(sentence, "unique(filter_color(filter_size(scene,'big'), 'purple'))")
 print(new_lex.__str__())
 
 
