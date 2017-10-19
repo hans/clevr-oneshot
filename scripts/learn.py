@@ -11,23 +11,26 @@ import numpy as np
 semantics = True
 
 lex = lexicon.fromstring(r"""
-    :- NN, DET
+    :- NN, DET, ADJ
 
     DET :: NN/NN
+    ADJ :: NN/NN
 
     the => DET {\x.unique(x)}
 
-    blue => NN {red}
-    blue => NN {blue}
+    blue => ADJ {\x.color(x,red)}
+    blue => ADJ {\x.color(x,blue)}
 
-    red => NN {red}
-    red => NN {blue}
+    red => ADJ {\x.color(x,red)}
+    red => ADJ {\x.color(x,blue)}
+
+    ball => NN {ball}
     """, include_semantics=semantics)
 
 
 data = [
-    ("the blue".split(), "unique(blue)"),
-    ("the red".split(), "unique(red)"),
+    ("the blue ball".split(), "unique(color(ball,blue))"),
+    ("the red ball".split(), "unique(color(ball,red))"),
 ]
 
 
@@ -40,7 +43,8 @@ def learn(lexicon, data):
 
         # Very dumb perceptron learning
         for result, score in weighted_results:
-            print("================= %f" % score)
+            print("\n================= %s / %s / %f" %
+                  (" ".join(x), result.label()[0].semantics(), score))
             chart.printCCGDerivation(result)
 
             root_token, _ = result.label()
@@ -50,6 +54,9 @@ def learn(lexicon, data):
             for _, leaf_token in result.pos():
                 leaf_token._weight += sign * 1
 
+        print()
 
-for _ in range(3):
+
+for _ in range(2):
     learn(lex, data)
+    print("\n\n")
