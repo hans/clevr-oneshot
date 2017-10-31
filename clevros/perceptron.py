@@ -2,6 +2,8 @@
 Structured perceptron algorithm for learning CCG weights.
 """
 
+from nltk.ccg import chart
+
 
 def update_perceptron_batch(lexicon, data, learning_rate=0.1):
     """
