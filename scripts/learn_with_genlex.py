@@ -9,6 +9,7 @@ import numpy as np
 from clevros.chart import WeightedCCGChartParser
 from clevros.lexicon import augment_lexicon, filter_lexicon_entry
 from clevros.perceptron import update_perceptron_batch
+from clevros.rsa import infer_listener_rsa
 
 
 semantics = True
@@ -38,7 +39,8 @@ update_perceptron_batch(lex, data_phase1)
 
 # Now augment lexicon to account for new data.
 lex_aug = augment_lexicon(lex, data_phase2[0][0], data_phase2[0][1])
-lex_aug = filter_lexicon_entry(lex_aug, "blue", data_phase2[0][0], data_phase2[0][1])
+#lex_aug = filter_lexicon_entry(lex_aug, "blue", data_phase2[0][0], data_phase2[0][1])
+infer_listener_rsa(lex_aug, "blue")
 print(lex_aug)
 
 # Strengthen weights for phase 2.
