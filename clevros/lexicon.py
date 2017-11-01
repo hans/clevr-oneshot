@@ -4,9 +4,11 @@ Tools for updating and expanding lexicons, dealing with logical forms, etc.
 
 import copy
 
-from nltk.ccg import chart, lexicon
+from nltk.ccg import lexicon
 from nltk.ccg.api import PrimitiveCategory
 from nltk.sem.logic import *
+
+from clevros.chart import WeightedCCGChartParser
 
 
 def augment_lexicon(old_lex, sentence, lf):
@@ -46,6 +48,45 @@ def augment_lexicon(old_lex, sentence, lf):
 
           new_token = lexicon.Token(word, category, lf_cand, 1.0)
           new_lex._entries[word].append(new_token)
+
+  return new_lex
+
+
+def filter_lexicon_entry(lexicon, entry, sentence, lf):
+  """
+  Filter possible syntactic/semantic mappings for a given lexicon entry s.t.
+  the given sentence renders the given LF, holding everything else
+  constant.
+
+  This process is of course not fail-safe -- the rest of the lexicon must
+  provide the necessary definitions to guarantee that any valid parse can
+  result.
+
+  Args:
+    lexicon: CCGLexicon
+    entry: string word
+    sentence: list of word tokens, must contain `entry`
+    lf: logical form string
+  """
+  if entry not in sentence:
+    raise ValueError("Sentence does not contain given entry")
+
+  entry_idxs = [i for i, val in enumerate(sentence) if val == entry]
+  parse_results = WeightedCCGChartParser(lexicon).parse(sentence, True)
+
+  valid_cands = [set() for _ in entry_idxs]
+  for _, _, edge_cands in parse_results:
+    for entry_idx, valid_cands_set in zip(entry_idxs, valid_cands):
+      valid_cands_set.add(edge_cands[entry_idx])
+
+  # Find valid interpretations across all uses of the word in the
+  # sentence.
+  valid_cands = list(reduce(lambda x, y: x & y, valid_cands))
+  if not valid_cands:
+    raise ValueError("no consistent interpretations of word found.")
+
+  new_lex = copy.deepcopy(lexicon)
+  new_lex._entries[entry] = [cand.token() for cand in valid_cands]
 
   return new_lex
 

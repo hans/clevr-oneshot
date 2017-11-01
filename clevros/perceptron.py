@@ -24,8 +24,8 @@ def update_perceptron_batch(lexicon, data, learning_rate=0.1, parser=None):
 
   norm = 0.0
   for x, y in data:
-    weighted_results = parser.parse(x, return_weights=True)
-    for result, score in weighted_results:
+    weighted_results = parser.parse(x, return_aux=True)
+    for result, score, _ in weighted_results:
       root_token, _ = result.label()
       correct = str(root_token.semantics()) == y
       sign = 1 if correct else -1

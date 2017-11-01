@@ -47,7 +47,20 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
     parses = chart.parses(self._lexicon.start())
     return parses
 
-  def parse(self, tokens, return_weights=False):
+  def parse(self, tokens, return_aux=False):
+    """
+    Args:
+      tokens: list of string tokens
+      return_aux: return auxiliary information (`weights`, `valid_edges`)
+
+    Returns:
+      parses: list of CCG derivation results
+      if return_aux, the list is actually a tuple with `parses` as its first
+      element and the other following elements:
+        weight: float parse weight
+        edges: `tokens`-length list of the edge tokens used to generate this
+          parse
+    """
     tokens = list(tokens)
     lex = self._lexicon
 
@@ -59,19 +72,26 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
     # Run a parse for each of the product of possible leaf nodes,
     # and merge results.
     results = []
+    used_edges = []
     for edge_sequence in itertools.product(*edge_cands):
       chart = nchart.CCGChart(list(tokens))
       for leaf_edge in edge_sequence:
         chart.insert(leaf_edge, ())
 
-      results.extend(self._parse_inner(chart))
+      partial_results = list(self._parse_inner(chart))
+      results.extend(partial_results)
+
+      if return_aux:
+        # Track which edge values were used to generate these parses.
+        used_edges.extend([edge_sequence] * len(partial_results))
 
     # Sort by weights derived from lexicon.
     def score_parse(parse):
       return sum(np.log(max(token.weight(), 1e-6)) for _, token in parse.pos())
 
     results = sorted(results, key=score_parse)
-    if not return_weights:
+    if not return_aux:
       return results
-    return [(parse, score_parse(parse)) for parse in results]
+    return [(parse, score_parse(parse), used_edges_i)
+            for parse, used_edges_i in zip(results, used_edges)]
 
