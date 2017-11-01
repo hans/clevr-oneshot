@@ -6,6 +6,7 @@ basic CCG perceptron-style inference and update lexicon weights.
 from nltk.ccg import chart, lexicon
 import numpy as np
 
+from clevros.chart import WeightedCCGChartParser
 from clevros.lexicon import augment_lexicon
 from clevros.perceptron import update_perceptron_batch
 
@@ -43,6 +44,6 @@ print(lex_aug)
 update_perceptron_batch(lex_aug, data_phase2)
 
 # Demo.
-parser = chart.CCGChartParser(lex_aug, chart.DefaultRuleSet)
+parser = WeightedCCGChartParser(lex_aug)
 results = parser.parse(data_phase2[0][0])
 chart.printCCGDerivation(results[0])

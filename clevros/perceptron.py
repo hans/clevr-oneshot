@@ -2,10 +2,10 @@
 Structured perceptron algorithm for learning CCG weights.
 """
 
-from nltk.ccg import chart
+from clevros.chart import WeightedCCGChartParser
 
 
-def update_perceptron_batch(lexicon, data, learning_rate=0.1):
+def update_perceptron_batch(lexicon, data, learning_rate=0.1, parser=None):
     """
     Execute a batch perceptron weight update with the given training data.
 
@@ -19,8 +19,8 @@ def update_perceptron_batch(lexicon, data, learning_rate=0.1):
         l2 norm of total weight updates
     """
 
-    # TODO share
-    parser = chart.CCGChartParser(lexicon, chart.DefaultRuleSet)
+    if parser is None:
+        parser = WeightedCCGChartParser(lexicon)
 
     norm = 0.0
     for x, y in data:
