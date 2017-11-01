@@ -10,117 +10,117 @@ from nltk.sem.logic import *
 
 
 def augment_lexicon(old_lex, sentence, lf):
-    """
-    Augment an existing lexicon to cover the elements present in a new
-    sentence--logical form pair.
+  """
+  Augment an existing lexicon to cover the elements present in a new
+  sentence--logical form pair.
 
-    This is the first step of the standard "GENLEX" routine.
-    Will create an explosion of possible word-meaning pairs. Many of these
-    form-meaning pairs won't be valid -- i.e., they won't combine with other
-    elements of the lexicon in any way to yield the original parse `lf`.
+  This is the first step of the standard "GENLEX" routine.
+  Will create an explosion of possible word-meaning pairs. Many of these
+  form-meaning pairs won't be valid -- i.e., they won't combine with other
+  elements of the lexicon in any way to yield the original parse `lf`.
 
-    Args:
-        lexicon: CCGLexicon
-        sentence: list of string tokens
-        lf: LF string
-    Returns:
-        A modified deep copy of `lexicon`.
-    """
+  Args:
+    lexicon: CCGLexicon
+    sentence: list of string tokens
+    lf: LF string
+  Returns:
+    A modified deep copy of `lexicon`.
+  """
 
-    new_lex = copy.deepcopy(old_lex)
+  new_lex = copy.deepcopy(old_lex)
 
-    lf_cands = lf_parts(lf)
-    cat_cands = set([lexicon.augParseCategory(prim, new_lex._primitives, new_lex._families)[0]
-                 for prim in new_lex._primitives])
-    for word in sentence:
-        if not new_lex.categories(word):
-            for category in cat_cands:
-                for lf_cand in lf_cands:
-                    if (isinstance(lf_cand, ConstantExpression)
-                        and not isinstance(category, PrimitiveCategory)):
-                        # Syntactic type does not match semantic type. Skip.
-                        # TODO: Handle more than the dichotomy between
-                        # constant and argument-taking expressions (e.g.
-                        # multi-argument lambdas).
-                        continue
+  lf_cands = lf_parts(lf)
+  cat_cands = set([lexicon.augParseCategory(prim, new_lex._primitives, new_lex._families)[0]
+         for prim in new_lex._primitives])
+  for word in sentence:
+    if not new_lex.categories(word):
+      for category in cat_cands:
+        for lf_cand in lf_cands:
+          if (isinstance(lf_cand, ConstantExpression)
+            and not isinstance(category, PrimitiveCategory)):
+            # Syntactic type does not match semantic type. Skip.
+            # TODO: Handle more than the dichotomy between
+            # constant and argument-taking expressions (e.g.
+            # multi-argument lambdas).
+            continue
 
-                    new_token = lexicon.Token(word, category, lf_cand, 1.0)
-                    new_lex._entries[word].append(new_token)
+          new_token = lexicon.Token(word, category, lf_cand, 1.0)
+          new_lex._entries[word].append(new_token)
 
-    return new_lex
+  return new_lex
 
 
 def lf_parts(lf_str):
-    """
-    Parse a logical form string into a set of candidate lexical items which
-    could be combined to produce the original LF.
+  """
+  Parse a logical form string into a set of candidate lexical items which
+  could be combined to produce the original LF.
 
-    >>> sorted(map(str, lf_parts("filter_shape(scene,'sphere')")))
-    ["'sphere'", "\\\\x.filter_shape(scene,'sphere')", '\\\\x.filter_shape(scene,x)', "\\\\x.filter_shape(x,'sphere')", 'scene']
-    """
-    # TODO avoid producing lambda expressions which don't make use of
-    # their arguments.
+  >>> sorted(map(str, lf_parts("filter_shape(scene,'sphere')")))
+  ["'sphere'", "\\\\x.filter_shape(scene,'sphere')", '\\\\x.filter_shape(scene,x)', "\\\\x.filter_shape(x,'sphere')", 'scene']
+  """
+  # TODO avoid producing lambda expressions which don't make use of
+  # their arguments.
 
-    # Parse into a lambda calculus expression.
-    expr = Expression.fromstring(lf_str)
-    assert isinstance(expr, ApplicationExpression)
+  # Parse into a lambda calculus expression.
+  expr = Expression.fromstring(lf_str)
+  assert isinstance(expr, ApplicationExpression)
 
-    # First candidates: all available constants
-    candidates = set([ConstantExpression(const)
-                      for const in expr.constants()])
+  # First candidates: all available constants
+  candidates = set([ConstantExpression(const)
+            for const in expr.constants()])
 
-    # All level-1 abstractions of the LF
-    queue = [expr]
-    while queue:
-        node = queue.pop()
+  # All level-1 abstractions of the LF
+  queue = [expr]
+  while queue:
+    node = queue.pop()
 
-        n_constants = 0
-        for arg in node.args:
-            if isinstance(arg, ConstantExpression):
-                n_constants += 1
-            elif isinstance(arg, ApplicationExpression):
-                queue.append(arg)
-            else:
-                assert False, "Unexpected type " + str(arg)
+    n_constants = 0
+    for arg in node.args:
+      if isinstance(arg, ConstantExpression):
+        n_constants += 1
+      elif isinstance(arg, ApplicationExpression):
+        queue.append(arg)
+      else:
+        assert False, "Unexpected type " + str(arg)
 
-        # Hard constraint for now: all but one variable should be a
-        # constant expression.
-        if n_constants < len(node.args) - 1:
-            continue
+    # Hard constraint for now: all but one variable should be a
+    # constant expression.
+    if n_constants < len(node.args) - 1:
+      continue
 
-        # Create the candidate node(s).
-        variable = Variable("x")
-        for i, arg in enumerate(node.args):
-            if isinstance(arg, ApplicationExpression):
-                new_arg_cands = [VariableExpression(variable)]
-            else:
-                new_arg_cands = [arg]
-                if n_constants == len(node.args):
-                    # All args are constant, so turning each constant into
-                    # a variable is also legal. Do that.
-                    new_arg_cands.append(VariableExpression(variable))
+    # Create the candidate node(s).
+    variable = Variable("x")
+    for i, arg in enumerate(node.args):
+      if isinstance(arg, ApplicationExpression):
+        new_arg_cands = [VariableExpression(variable)]
+      else:
+        new_arg_cands = [arg]
+        if n_constants == len(node.args):
+          # All args are constant, so turning each constant into
+          # a variable is also legal. Do that.
+          new_arg_cands.append(VariableExpression(variable))
 
-            # Enumerate candidate new arguments and yield candidate new exprs.
-            for new_arg_cand in new_arg_cands:
-                new_args = node.args[:i] + [new_arg_cand] + node.args[i + 1:]
-                app_expr = ApplicationExpression(node.pred, new_args[0])
-                app_expr = reduce(lambda x, y: ApplicationExpression(x, y), new_args[1:], app_expr)
-                candidates.add(LambdaExpression(variable, app_expr))
+      # Enumerate candidate new arguments and yield candidate new exprs.
+      for new_arg_cand in new_arg_cands:
+        new_args = node.args[:i] + [new_arg_cand] + node.args[i + 1:]
+        app_expr = ApplicationExpression(node.pred, new_args[0])
+        app_expr = reduce(lambda x, y: ApplicationExpression(x, y), new_args[1:], app_expr)
+        candidates.add(LambdaExpression(variable, app_expr))
 
-    return candidates
+  return candidates
 
 
 if __name__ == '__main__':
-    print(list(map(str, lf_parts("filter_shape(scene,'sphere')"))))
-    print(list(map(str, lf_parts("filter_shape(filter_size(scene, 'big'), 'sphere')"))))
+  print(list(map(str, lf_parts("filter_shape(scene,'sphere')"))))
+  print(list(map(str, lf_parts("filter_shape(filter_size(scene, 'big'), 'sphere')"))))
 
-    lex = lexicon.fromstring(r"""
-    :- NN, DET, ADJ
+  lex = lexicon.fromstring(r"""
+  :- NN, DET, ADJ
 
-    DET :: NN/NN
-    ADJ :: NN/NN
+  DET :: NN/NN
+  ADJ :: NN/NN
 
-    the => DET {\x.unique(x)}
-    big => ADJ {\x.filter_size(x,big)}
-    dog => NN {dog}""", include_semantics=True)
-    print(augment_lexicon(lex, "the small dog".split(), "unique(filter_size(dog,small))"))
+  the => DET {\x.unique(x)}
+  big => ADJ {\x.filter_size(x,big)}
+  dog => NN {dog}""", include_semantics=True)
+  print(augment_lexicon(lex, "the small dog".split(), "unique(filter_size(dog,small))"))

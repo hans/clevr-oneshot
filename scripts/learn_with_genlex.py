@@ -14,23 +14,23 @@ from clevros.perceptron import update_perceptron_batch
 semantics = True
 
 lex = lexicon.fromstring(r"""
-    :- NN, DET, ADJ
+  :- NN, DET, ADJ
 
-    DET :: NN/NN
-    ADJ :: NN/NN
+  DET :: NN/NN
+  ADJ :: NN/NN
 
-    the => DET {\x.unique(x)}
-    red => ADJ {\x.color(x,red)}
-    ball => NN {ball}
-    """, include_semantics=semantics)
+  the => DET {\x.unique(x)}
+  red => ADJ {\x.color(x,red)}
+  ball => NN {ball}
+  """, include_semantics=semantics)
 
 
 data_phase1 = [
-    ("the red ball".split(), "unique(color(ball,red))"),
+  ("the red ball".split(), "unique(color(ball,red))"),
 ]
 
 data_phase2 = [
-    ("the blue ball".split(), "unique(color(ball,blue))"),
+  ("the blue ball".split(), "unique(color(ball,blue))"),
 ]
 
 # Strengthen weights for phase 1.
