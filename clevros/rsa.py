@@ -9,7 +9,7 @@ from nltk.ccg.lexicon import Token
 import numpy as np
 
 
-def infer_listener_rsa(lexicon, entry, step_size=5.0):
+def infer_listener_rsa(lexicon, entry, alpha=1.0, step_size=5.0):
   """
   Infer the semantic form of an entry in a weighted lexicon via RSA
   inference.
@@ -17,6 +17,7 @@ def infer_listener_rsa(lexicon, entry, step_size=5.0):
   Args:
     lexicon: CCGLexicon
     entry: string word
+    alpha: RSA optimality parameter
     step_size: total amount of weight mass to add to potential token
       weights. percent of allocated mass for each token is determined by
       RSA probability of entry -> token mapping
@@ -35,7 +36,9 @@ def infer_listener_rsa(lexicon, entry, step_size=5.0):
   # derive pragmatic speaker weights
   # p(u|s)
   speaker_weights = defaultdict(dict)
-  for token, weight in ll_weights.items():
+  # iterate over tokens allowed by listener (for now, anything in the
+  # lexicon)
+  for token in ll_tokens:
     # gather possible ways to express the meaning
     # TODO cache this reverse lookup?
     semantic_weights = {}
@@ -44,7 +47,7 @@ def infer_listener_rsa(lexicon, entry, step_size=5.0):
       for alt_token in alt_tokens:
         if alt_token.categ() == token.categ() \
             and alt_token.semantics() == token.semantics():
-          semantic_weights[alt_token._token] = alt_token.weight()
+          semantic_weights[alt_token._token] = np.exp(alpha * alt_token.weight())
 
     # Normalize.
     total = sum(semantic_weights.values())
