@@ -53,8 +53,8 @@ def infer_listener_rsa(lexicon, entry, step_size=5.0):
 
   # derive pragmatic listener weights: transpose and renormalize
   pl_weights = {}
+  total = 0
   for token, word_weights in speaker_weights.items():
-    total = 0
     for word, weight in word_weights.items():
       if word == entry:
         pl_weights[token] = weight
