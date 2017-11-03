@@ -89,7 +89,7 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
     def score_parse(parse):
       return sum(np.log(max(token.weight(), 1e-6)) for _, token in parse.pos())
 
-    results = sorted(results, key=score_parse)
+    results = sorted(results, key=score_parse, reverse=True)
     if not return_aux:
       return results
     return [(parse, score_parse(parse), used_edges_i)
