@@ -9,6 +9,16 @@ from nltk.ccg.api import PrimitiveCategory
 from nltk.sem.logic import *
 
 from clevros.chart import WeightedCCGChartParser
+from clevros.clevr import scene_candidate_referents
+
+
+def token_categories(lex):
+  """
+  Return a set of categories which a new token can take on.
+  """
+  return set([lexicon.augParseCategory(prim, lex._primitives,
+                                       lex._families)[0]
+              for prim in lex._primitives])
 
 
 def augment_lexicon(old_lex, sentence, lf):
@@ -32,8 +42,7 @@ def augment_lexicon(old_lex, sentence, lf):
   new_lex = copy.deepcopy(old_lex)
 
   lf_cands = lf_parts(lf)
-  cat_cands = set([lexicon.augParseCategory(prim, new_lex._primitives, new_lex._families)[0]
-         for prim in new_lex._primitives])
+  cat_cands = token_categories(old_lex)
   for word in sentence:
     if not new_lex.categories(word):
       for category in cat_cands:
@@ -50,6 +59,40 @@ def augment_lexicon(old_lex, sentence, lf):
           new_lex._entries[word].append(new_token)
 
   return new_lex
+
+
+def augment_lexicon_scene(old_lex, sentence, scene):
+  """
+  Augment a lexicon to cover the words in a new sentence uttered in some
+  scene context.
+
+  Args:
+    old_lex: CCGLexicon
+    sentence: list of word tokens
+    scene: CLEVR scene
+  """
+
+  lex = copy.deepcopy(old_lex)
+
+  # TODO(long term): first run a parse without semantics and see which
+  # syntactic categories allow new words to yield valid parses (and maybe
+  # also answer questions correctly). Use these type restrictions to
+  # constrain the lexicon augmentation.
+
+  # For now, every new word receives a similarly enormous explosion of LF
+  # candidates.
+
+  lf_cands = scene_candidate_referents(scene)
+  cat_cands = token_categories(lex)
+
+  for word in sentence:
+    if not lex.categories(word):
+      for category in cat_cands:
+        for lf_cand in lf_cands:
+          new_token = lexicon.Token(word, category, lf_cand, 1.0)
+          lex._entries[word].append(new_token)
+
+  return lex
 
 
 def filter_lexicon_entry(lexicon, entry, sentence, lf):
