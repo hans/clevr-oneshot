@@ -26,19 +26,15 @@ def infer_listener_rsa(lexicon, entry, alpha=1.0, step_size=5.0):
     tokens: list of tokens with newly inferred weights
   """
 
-  # derive literal listener weights
-  # p(s|u)
-  ll_tokens = lexicon._entries[entry]
-  ll_weights = np.array([token.weight() for token in ll_tokens])
-  ll_weights /= ll_weights.sum()
-  ll_weights = dict(zip(ll_tokens, ll_weights))
+  # literal listener weights p(s|u) are encoded in lexicon token weights
+  # -- no need to calculate.
 
   # derive pragmatic speaker weights
   # p(u|s)
   speaker_weights = defaultdict(dict)
   # iterate over tokens allowed by listener (for now, anything in the
   # lexicon)
-  for token in ll_tokens:
+  for token in lexicon._entries[entry]:
     # gather possible ways to express the meaning
     # TODO cache this reverse lookup?
     semantic_weights = {}
