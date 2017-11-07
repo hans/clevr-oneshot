@@ -19,6 +19,12 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     return ccg_lexicon.fromstring(lex_str, include_semantics=False,
                                   cls=cls)
 
+  def clone(self):
+    """
+    Return a clone of the current lexicon instance.
+    """
+    return copy.deepcopy(self)
+
 
 def token_categories(lex):
   """
@@ -47,7 +53,7 @@ def augment_lexicon(old_lex, sentence, lf):
     A modified deep copy of `lexicon`.
   """
 
-  new_lex = copy.deepcopy(old_lex)
+  new_lex = old_lex.clone()
 
   lf_cands = lf_parts(lf)
   cat_cands = token_categories(old_lex)
@@ -80,7 +86,7 @@ def augment_lexicon_scene(old_lex, sentence, scene):
     scene: CLEVR scene
   """
 
-  lex = copy.deepcopy(old_lex)
+  lex = old_lex.clone()
 
   # TODO(long term): first run a parse without semantics and see which
   # syntactic categories allow new words to yield valid parses (and maybe
@@ -136,7 +142,7 @@ def filter_lexicon_entry(lexicon, entry, sentence, lf):
   if not valid_cands:
     raise ValueError("no consistent interpretations of word found.")
 
-  new_lex = copy.deepcopy(lexicon)
+  new_lex = lexicon.clone()
   new_lex._entries[entry] = [cand.token() for cand in valid_cands]
 
   return new_lex
