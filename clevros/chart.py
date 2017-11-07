@@ -4,6 +4,9 @@ from nltk.ccg import chart as nchart
 import numpy as np
 
 
+printCCGDerivation = nchart.printCCGDerivation
+
+
 class WeightedCCGChartParser(nchart.CCGChartParser):
   """
   CCG chart parser building off of the basic NLTK parser.

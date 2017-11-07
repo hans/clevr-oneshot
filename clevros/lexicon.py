@@ -8,7 +8,7 @@ from nltk.ccg import lexicon as ccg_lexicon
 from nltk.ccg.api import PrimitiveCategory
 from nltk.sem.logic import *
 
-from clevros.chart import WeightedCCGChartParser
+from clevros import chart
 from clevros.clevr import scene_candidate_referents
 
 
@@ -19,11 +19,18 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     return ccg_lexicon.fromstring(lex_str, include_semantics=False,
                                   cls=cls)
 
-  def clone(self):
+  def clone(self, retain_semantics=True):
     """
     Return a clone of the current lexicon instance.
     """
-    return copy.deepcopy(self)
+    ret = copy.deepcopy(self)
+
+    if not retain_semantics:
+      for entry_tokens in ret._entries.values():
+        for token in entry_tokens:
+          token._semantics = None
+
+    return ret
 
 
 def token_categories(lex):
@@ -86,15 +93,14 @@ def augment_lexicon_scene(old_lex, sentence, scene):
     scene: CLEVR scene
   """
 
+  # Build a "minimal" clone of the given lexicon which tracks only
+  # syntax. This minimal lexicon will be used to impose syntactic
+  # constraints and prune the candidates for new words.
+  old_lex_minimal = old_lex.clone(retain_semantics=False)
+  minimal_parser = chart.WeightedCCGChartParser(old_lex_minimal)
+
+  # Target lexicon to be returned.
   lex = old_lex.clone()
-
-  # TODO(long term): first run a parse without semantics and see which
-  # syntactic categories allow new words to yield valid parses (and maybe
-  # also answer questions correctly). Use these type restrictions to
-  # constrain the lexicon augmentation.
-
-  # For now, every new word receives a similarly enormous explosion of LF
-  # candidates.
 
   lf_cands = scene_candidate_referents(scene)
   cat_cands = token_categories(lex)
@@ -102,6 +108,20 @@ def augment_lexicon_scene(old_lex, sentence, scene):
   for word in sentence:
     if not lex.categories(word):
       for category in cat_cands:
+        # Run a test syntactic parse to determine whether this word can
+        # plausibly have this syntactic category under the grammar rules.
+        #
+        # TODO: It could be the case that a single word appears multiple times
+        # in a sentence and has different syntactic interpretations among
+        # those instances. This pruning would fail, causing that
+        # sentence to have zero valid interpretations.
+        minimal_token = ccg_lexicon.Token(word, category)
+        old_lex_minimal._entries[word].append(minimal_token)
+        results = minimal_parser.parse(sentence)
+        if not results:
+          # Syntactically invalid candidate.
+          continue
+
         for lf_cand in lf_cands:
           new_token = ccg_lexicon.Token(word, category, lf_cand, 1.0)
           lex._entries[word].append(new_token)
@@ -129,7 +149,7 @@ def filter_lexicon_entry(lexicon, entry, sentence, lf):
     raise ValueError("Sentence does not contain given entry")
 
   entry_idxs = [i for i, val in enumerate(sentence) if val == entry]
-  parse_results = WeightedCCGChartParser(lexicon).parse(sentence, True)
+  parse_results = chart.WeightedCCGChartParser(lexicon).parse(sentence, True)
 
   valid_cands = [set() for _ in entry_idxs]
   for _, _, edge_cands in parse_results:
