@@ -33,6 +33,34 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     return ret
 
 
+def is_compatible(category, lf):
+  """
+  Determine if a syntactic category and a logical form are functionally
+  compatible. (They should have the same number of arguments.)
+  """
+  # Get category arity by DFS.
+  def get_category_arity(cat):
+    if isinstance(cat, PrimitiveCategory):
+      return 0
+    else:
+      return 1 + get_category_arity(cat.arg()) \
+          + get_category_arity(cat.res())
+  category_arity = get_category_arity(category)
+
+  def visit_node(node):
+    delta = 1 if isinstance(node, LambdaExpression) else 0
+
+    try:
+      res = node.visit(visit_node, sum)
+    except NotImplementedError:
+      res = 0
+    return delta + res
+
+  lf_arity = visit_node(lf)
+
+  return category_arity == lf_arity
+
+
 def token_categories(lex):
   """
   Return a set of categories which a new token can take on.
@@ -123,6 +151,8 @@ def augment_lexicon_scene(old_lex, sentence, scene):
           continue
 
         for lf_cand in lf_cands:
+          if not is_compatible(category, lf_cand):
+            continue
           new_token = ccg_lexicon.Token(word, category, lf_cand, 1.0)
           lex._entries[word].append(new_token)
 
