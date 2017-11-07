@@ -4,7 +4,7 @@ Tools for updating and expanding lexicons, dealing with logical forms, etc.
 
 import copy
 
-from nltk.ccg import lexicon
+from nltk.ccg import lexicon as ccg_lexicon
 from nltk.ccg.api import PrimitiveCategory
 from nltk.sem.logic import *
 
@@ -12,12 +12,20 @@ from clevros.chart import WeightedCCGChartParser
 from clevros.clevr import scene_candidate_referents
 
 
+class Lexicon(ccg_lexicon.CCGLexicon):
+
+  @classmethod
+  def fromstring(cls, lex_str, include_semantics=False):
+    return ccg_lexicon.fromstring(lex_str, include_semantics=False,
+                                  cls=cls)
+
+
 def token_categories(lex):
   """
   Return a set of categories which a new token can take on.
   """
-  return set([lexicon.augParseCategory(prim, lex._primitives,
-                                       lex._families)[0]
+  return set([ccg_lexicon.augParseCategory(prim, lex._primitives,
+                                           lex._families)[0]
               for prim in lex._primitives])
 
 
@@ -55,7 +63,7 @@ def augment_lexicon(old_lex, sentence, lf):
             # multi-argument lambdas).
             continue
 
-          new_token = lexicon.Token(word, category, lf_cand, 1.0)
+          new_token = ccg_lexicon.Token(word, category, lf_cand, 1.0)
           new_lex._entries[word].append(new_token)
 
   return new_lex
@@ -89,7 +97,7 @@ def augment_lexicon_scene(old_lex, sentence, scene):
     if not lex.categories(word):
       for category in cat_cands:
         for lf_cand in lf_cands:
-          new_token = lexicon.Token(word, category, lf_cand, 1.0)
+          new_token = ccg_lexicon.Token(word, category, lf_cand, 1.0)
           lex._entries[word].append(new_token)
 
   return lex
@@ -198,7 +206,7 @@ if __name__ == '__main__':
   print(list(map(str, lf_parts("filter_shape(scene,'sphere')"))))
   print(list(map(str, lf_parts("filter_shape(filter_size(scene, 'big'), 'sphere')"))))
 
-  lex = lexicon.fromstring(r"""
+  lex = Lexicon.fromstring(r"""
   :- NN, DET, ADJ
 
   DET :: NN/NN
