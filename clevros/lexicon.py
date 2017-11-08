@@ -16,7 +16,8 @@ class Lexicon(ccg_lexicon.CCGLexicon):
 
   @classmethod
   def fromstring(cls, lex_str, include_semantics=False):
-    return ccg_lexicon.fromstring(lex_str, include_semantics=False,
+    return ccg_lexicon.fromstring(lex_str,
+                                  include_semantics=include_semantics,
                                   cls=cls)
 
   def clone(self, retain_semantics=True):
