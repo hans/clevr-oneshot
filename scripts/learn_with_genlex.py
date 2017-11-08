@@ -3,18 +3,18 @@ Given an incomplete lexicon and fully supervised training data, run a
 basic CCG perceptron-style inference and update lexicon weights.
 """
 
-from nltk.ccg import chart, lexicon
+from nltk.ccg import chart
 import numpy as np
 
 from clevros.chart import WeightedCCGChartParser
-from clevros.lexicon import augment_lexicon, filter_lexicon_entry
+from clevros.lexicon import augment_lexicon, filter_lexicon_entry, Lexicon
 from clevros.perceptron import update_perceptron_batch
 from clevros.rsa import infer_listener_rsa, update_weights_rsa
 
 
 semantics = True
 
-lex = lexicon.fromstring(r"""
+lex = Lexicon.fromstring(r"""
   :- NN, DET, ADJ
 
   DET :: NN/NN
