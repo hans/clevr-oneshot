@@ -47,3 +47,22 @@ def scene_candidate_referents(scene):
           candidates.add(template.applyto(v_expr).simplify())
 
   return candidates
+
+
+def functionalize_program(program):
+  """
+  Convert a CLEVR question program into a nice LoT string format,
+  amenable to semantic parsing.
+  """
+
+  def inner(p):
+    if p['function'] == 'scene':
+      return 'scene'
+    ret = '%s(%s' % (p['function'],
+             ','.join(inner(program[x]) for x in p['inputs']))
+    if p['value_inputs']:
+      ret += ',' + ','.join(map(repr, p['value_inputs']))
+    ret += ')'
+    return ret
+  return inner(program[-1])
+

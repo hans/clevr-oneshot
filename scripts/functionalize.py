@@ -6,6 +6,9 @@ parsing.
 import json
 from pathlib import Path
 
+from clevros.clevr import functionalize_program
+
+
 split = "train"
 data_file = Path(__file__).parents[0] / ".." / "data" / "CLEVR_v1.0" / "questions" / ("CLEVR_%s_questions.json" % split)
 with data_file.open() as f:
