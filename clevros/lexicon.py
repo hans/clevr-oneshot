@@ -97,12 +97,8 @@ def augment_lexicon(old_lex, sentence, lf):
     if not new_lex.categories(word):
       for category in cat_cands:
         for lf_cand in lf_cands:
-          if (isinstance(lf_cand, ConstantExpression)
-            and not isinstance(category, PrimitiveCategory)):
-            # Syntactic type does not match semantic type. Skip.
-            # TODO: Handle more than the dichotomy between
-            # constant and argument-taking expressions (e.g.
-            # multi-argument lambdas).
+          if not is_compatible(category, lf_cand):
+            # Arities of syntactic form and semantic form do not match.
             continue
 
           new_token = ccg_lexicon.Token(word, category, lf_cand, 1.0)
