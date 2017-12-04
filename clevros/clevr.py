@@ -49,19 +49,64 @@ def scene_candidate_referents(scene):
   return candidates
 
 
-def functionalize_program(program):
+def functionalize_program(program, merge_filters=True):
   """
-  Convert a CLEVR question program into a nice LoT string format,
+  Convert a CLEVR question program into a sexpr format,
   amenable to semantic parsing.
   """
+
+  if merge_filters:
+    # Traverse the program structure and merge nested filter operations.
+    def merge_inner(idx):
+      node = program[idx]
+      fn = node["function"]
+      if not fn.startswith("filter"):
+        node["inputs"] = [merge_inner(input) for input in node["inputs"]]
+        return idx
+
+      assert len(node["inputs"]) == 1
+      assert len(node["value_inputs"]) == 1
+
+      filter_type = fn[fn.index("_") + 1:]
+
+      reduced_form = {
+        "function": filter_type,
+        "inputs": [],
+        "value_inputs": node["value_inputs"]
+      }
+      program.append(reduced_form)
+      reduced_form_idx = len(program) - 1
+
+      child_idx = node["inputs"][0]
+      merge_inner(child_idx)
+      if program[child_idx]["function"] == "filter":
+        # Child is already merged. Add a reduced form of this node to the child
+        # and return.
+        program[child_idx]["inputs"].append(reduced_form_idx)
+        return child_idx
+      else:
+        # Child is not a merged filter. Create a new function call.
+        filter_call = {
+          "function": "filter",
+          "inputs": [
+            child_idx,
+            reduced_form_idx
+          ],
+          "value_inputs": [],
+        }
+
+        program.append(filter_call)
+        return len(program) - 1
+
+    merge_inner(len(program) - 1)
 
   def inner(p):
     if p['function'] == 'scene':
       return 'scene'
-    ret = '%s(%s' % (p['function'],
-             ','.join(inner(program[x]) for x in p['inputs']))
+    ret = '(%s %s' % (p['function'],
+                      ' '.join(inner(program[x]) for x in p['inputs']))
     if p['value_inputs']:
-      ret += ',' + ','.join(map(repr, p['value_inputs']))
+      ret += ' ' + ' '.join(map(repr, p['value_inputs']))
     ret += ')'
     return ret
   return inner(program[-1])
