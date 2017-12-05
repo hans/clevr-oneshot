@@ -126,57 +126,6 @@ def functionalize_program(program, merge_filters=True):
   amenable to semantic parsing.
   """
 
-  program_root_idx = len(program) - 1
-  if merge_filters:
-    filter_name = "filter_and"
-
-    # Traverse the program structure and merge nested filter operations.
-    def merge_inner(idx):
-      node = program[idx]
-      fn = node["function"]
-      if not fn.startswith("filter"):
-        node["inputs"] = [merge_inner(input) for input in node["inputs"]]
-        return idx
-
-      assert len(node["inputs"]) == 1
-      assert len(node["value_inputs"]) == 1
-
-      filter_type = fn[fn.index("_") + 1:]
-
-      # reduced form: (green obj)
-      reduced_form = {
-        "function": node["value_inputs"][0].replace("'", ""),
-        "inputs": [0],
-        "value_inputs": [],
-      }
-      program.append(reduced_form)
-      reduced_form_idx = len(program) - 1
-
-      child_idx = node["inputs"][0]
-      child_idx = merge_inner(child_idx)
-      if program[child_idx]["function"] == filter_name:
-        # Child is already merged. Add a reduced form of this node to the child
-        # and return.
-        program[child_idx]["inputs"].append(reduced_form_idx)
-        return child_idx
-      else:
-        # Child is not a merged filter. Create a new function call.
-        inputs = []
-        if program[child_idx]["function"] != "scene":
-          inputs.append(child_idx)
-        inputs.append(reduced_form_idx)
-
-        filter_call = {
-          "function": filter_name,
-          "inputs": inputs,
-          "value_inputs": [],
-        }
-
-        program.append(filter_call)
-        return len(program) - 1
-
-    merge_inner(program_root_idx)
-
   def inner(p):
     if p['function'] == 'scene':
       return 'scene'
@@ -186,10 +135,13 @@ def functionalize_program(program, merge_filters=True):
       ret += ',' + ','.join(map(repr, p['value_inputs']))
     ret += ')'
     return ret
-  program_str = inner(program[program_root_idx])
+  program_str = inner(program[-1])
 
   expr = Expression.fromstring(program_str)
-  print(expr)
+  if merge_filters:
+    expr = lf_merge_filters(expr)
+
+  return str(expr)
 
 
 if __name__ == '__main__':
