@@ -69,16 +69,17 @@ def functionalize_program(program, merge_filters=True):
 
       filter_type = fn[fn.index("_") + 1:]
 
+      # reduced form: (green obj)
       reduced_form = {
-        "function": filter_type,
-        "inputs": [],
-        "value_inputs": node["value_inputs"]
+        "function": node["value_inputs"].replace("'", ""),
+        "inputs": [0],
+        "value_inputs": [],
       }
       program.append(reduced_form)
       reduced_form_idx = len(program) - 1
 
       child_idx = node["inputs"][0]
-      merge_inner(child_idx)
+      child_idx = merge_inner(child_idx)
       if program[child_idx]["function"] == "filter":
         # Child is already merged. Add a reduced form of this node to the child
         # and return.
@@ -111,3 +112,9 @@ def functionalize_program(program, merge_filters=True):
     return ret
   return inner(program[-1])
 
+
+if __name__ == '__main__':
+  question = "Are there any other things that are the same shape as the big metallic object?"
+  program = None
+  print(functionalize_program(program, merge_filters=False))
+  print(functionalize_program(program, merge_filters=True))
