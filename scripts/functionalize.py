@@ -23,10 +23,12 @@ import pickle
 with open("val.pkl", "rb") as f:
   qs = pickle.load(f)
 
-for question in qs:
+for i, question in enumerate(qs):
   print(question["question"])
   print(question["program"])
   print(functionalize_program(question["program"], merge_filters=False))
   print(functionalize_program(question["program"]))
   print()
-  sys.exit()
+
+  if i == 5:
+    sys.exit()

@@ -2,7 +2,9 @@
 Contains CLEVR metadata and minor utilities for working with CLEVR.
 """
 
-from nltk.sem.logic import Expression
+from functools import reduce
+
+from nltk.sem.logic import *
 
 
 # CLEVR constants
@@ -49,13 +51,85 @@ def scene_candidate_referents(scene):
   return candidates
 
 
+## CLEVR LF processing functions.
+
+def make_application(fn_name, args):
+  expr = ApplicationExpression(ConstantExpression(Variable(fn_name)),
+                               args[0])
+  return reduce(lambda x, y: ApplicationExpression(x, y), args[1:], expr)
+
+
+def lf_merge_filters(lf):
+  # this closure variable is a list so that it can be written to within the
+  # recursive function
+  lambda_counter = [0]
+
+  def inner(lf, lambda_context=None):
+    filter_name = "filter_and"
+    def is_merged_filter(lf):
+      return isinstance(lf, ApplicationExpression) \
+          and lf.pred.variable.name == filter_name
+
+    # TODO handle lambda expression?
+    if not isinstance(lf, ApplicationExpression):
+      return lf
+
+    if not lf.pred.variable.name.startswith("filter_"):
+      args = [inner(arg) for arg in lf.args]
+      return make_application(lf.pred.variable.name, args)
+    else:
+      assert len(lf.args) == 2
+      child, feature_val = lf.args
+      assert isinstance(feature_val, ConstantExpression)
+      feature_val = feature_val.variable.name.replace("'", "")
+
+      fn = lf.pred.variable.name
+      filter_type = fn[fn.index("_") + 1:]
+
+      spawned_lambda = False
+      if lambda_context is None:
+        lambda_context = [Variable(chr(lambda_counter[0] + 97))]
+        lambda_counter[0] += 1
+        spawned_lambda = True
+
+      # reduced form: green(obj)
+      reduced_form = make_application(feature_val,
+          [VariableExpression(lambda_context[-1])])
+
+      child = inner(child, lambda_context)
+      if is_merged_filter(child):
+        # child is already merged; add reduced form and return
+        new_args = child.args
+        new_args.append(reduced_form)
+        ret = make_application(child.pred.variable.name, new_args)
+      else:
+        # create a new function call
+        args = []
+        # TODO
+        if not isinstance(child, ConstantExpression):
+          args.append(child)
+        args.append(reduced_form)
+
+        ret = make_application(filter_name, args)
+
+      if spawned_lambda:
+        return LambdaExpression(lambda_context[-1], ret)
+      else:
+        return ret
+
+  return inner(lf)
+
+
 def functionalize_program(program, merge_filters=True):
   """
   Convert a CLEVR question program into a sexpr format,
   amenable to semantic parsing.
   """
 
+  program_root_idx = len(program) - 1
   if merge_filters:
+    filter_name = "filter_and"
+
     # Traverse the program structure and merge nested filter operations.
     def merge_inner(idx):
       node = program[idx]
@@ -71,7 +145,7 @@ def functionalize_program(program, merge_filters=True):
 
       # reduced form: (green obj)
       reduced_form = {
-        "function": node["value_inputs"].replace("'", ""),
+        "function": node["value_inputs"][0].replace("'", ""),
         "inputs": [0],
         "value_inputs": [],
       }
@@ -80,41 +154,46 @@ def functionalize_program(program, merge_filters=True):
 
       child_idx = node["inputs"][0]
       child_idx = merge_inner(child_idx)
-      if program[child_idx]["function"] == "filter":
+      if program[child_idx]["function"] == filter_name:
         # Child is already merged. Add a reduced form of this node to the child
         # and return.
         program[child_idx]["inputs"].append(reduced_form_idx)
         return child_idx
       else:
         # Child is not a merged filter. Create a new function call.
+        inputs = []
+        if program[child_idx]["function"] != "scene":
+          inputs.append(child_idx)
+        inputs.append(reduced_form_idx)
+
         filter_call = {
-          "function": "filter",
-          "inputs": [
-            child_idx,
-            reduced_form_idx
-          ],
+          "function": filter_name,
+          "inputs": inputs,
           "value_inputs": [],
         }
 
         program.append(filter_call)
         return len(program) - 1
 
-    merge_inner(len(program) - 1)
+    merge_inner(program_root_idx)
 
   def inner(p):
     if p['function'] == 'scene':
       return 'scene'
-    ret = '(%s %s' % (p['function'],
-                      ' '.join(inner(program[x]) for x in p['inputs']))
+    ret = '%s(%s' % ('exist_' if p['function'] == 'exist' else p['function'],
+                     ','.join(inner(program[x]) for x in p['inputs']))
     if p['value_inputs']:
-      ret += ' ' + ' '.join(map(repr, p['value_inputs']))
+      ret += ',' + ','.join(map(repr, p['value_inputs']))
     ret += ')'
     return ret
-  return inner(program[-1])
+  program_str = inner(program[program_root_idx])
+
+  expr = Expression.fromstring(program_str)
+  print(expr)
 
 
 if __name__ == '__main__':
   question = "Are there any other things that are the same shape as the big metallic object?"
-  program = None
+  program = [{'inputs': [], 'function': 'scene', 'value_inputs': []}, {'inputs': [0], 'function': 'filter_size', 'value_inputs': ['large']}, {'inputs': [1], 'function': 'filter_material', 'value_inputs': ['metal']}, {'inputs': [2], 'function': 'unique', 'value_inputs': []}, {'inputs': [3], 'function': 'same_shape', 'value_inputs': []}, {'inputs': [4], 'function': 'exist', 'value_inputs': []}]
   print(functionalize_program(program, merge_filters=False))
   print(functionalize_program(program, merge_filters=True))
