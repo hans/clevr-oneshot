@@ -2,6 +2,7 @@
 Functions for dealing with a logical language.
 """
 
+import copy
 import functools
 import inspect
 import itertools
@@ -32,6 +33,46 @@ def listify(fn=None, wrapper=list):
   return listify_return(fn)
 
 
+def extract_lambda(expr):
+  """
+  Extract `LambdaExpression` arguments to the top of a semantic form.
+  This makes them compatible with the CCG parsing setup, which needs top-level
+  lambdas in order to perform function application during parsing.
+  """
+  variables = []
+  expr = copy.deepcopy(expr)
+
+  def process_lambda(lambda_expr):
+    # Create a new unique variable and substitute.
+    unique = unique_variable()
+    new_expr = lambda_expr.term.replace(lambda_expr.variable, IndividualVariableExpression(unique))
+    return unique, new_expr
+
+  # Traverse the LF and replace lambda expressions wherever necessary.
+  def inner(node):
+    if isinstance(node, ApplicationExpression):
+      new_args = []
+
+      for arg in node.args:
+        if isinstance(arg, LambdaExpression):
+          new_var, new_arg = process_lambda(arg)
+
+          variables.append(new_var)
+          new_args.append(new_arg)
+        else:
+          new_args.append(inner(arg))
+
+      return make_application(node.pred.variable.name, new_args)
+    else:
+      return node
+
+  expr = inner(expr)
+  for variable in variables[::-1]:
+    expr = LambdaExpression(variable, expr)
+
+  return expr.normalize()
+
+
 class Ontology(object):
   """
   TODO
@@ -57,9 +98,17 @@ class Ontology(object):
     name = chr(97 + name_id)
     return Variable(name * name_length)
 
+  def iter_expressions(self, max_depth=3):
+    ret = self._iter_expressions_inner(max_depth, bound_vars=())
+
+    # Extract lambda arguments to the top level.
+    ret = [extract_lambda(expr) for expr in ret]
+
+    return ret
+
   @functools.lru_cache(maxsize=None)
   @listify
-  def iter_expressions(self, max_depth=3, bound_vars=()):
+  def _iter_expressions_inner(self, max_depth, bound_vars):
     if max_depth == 0:
       return
 
@@ -67,8 +116,8 @@ class Ontology(object):
       if expr_type == ApplicationExpression and max_depth > 1:
         for arity, fns in self.functions_by_arity.items():
           for fn_name in fns:
-            sub_args = self.iter_expressions(max_depth=max_depth - 1,
-                                             bound_vars=bound_vars)
+            sub_args = self._iter_expressions_inner(max_depth=max_depth - 1,
+                                                    bound_vars=bound_vars)
 
             for arg_combs in itertools.product(sub_args, repeat=arity):
               candidate = make_application(fn_name, arg_combs)
@@ -77,8 +126,8 @@ class Ontology(object):
       elif expr_type == LambdaExpression and max_depth > 1:
         bound_var = self.next_bound_var(bound_vars)
 
-        results = self.iter_expressions(max_depth=max_depth - 1,
-                                        bound_vars=bound_vars + (bound_var,))
+        results = self._iter_expressions_inner(max_depth=max_depth - 1,
+                                               bound_vars=bound_vars + (bound_var,))
         for expr in results:
           candidate = LambdaExpression(bound_var, expr)
           if self._valid_lambda_expr(candidate):

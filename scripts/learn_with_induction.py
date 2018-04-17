@@ -4,6 +4,7 @@ basic CCG perceptron-style inference and update lexicon weights.
 """
 
 import inspect
+import numbers
 from pprint import pprint
 
 from frozendict import frozendict
@@ -89,9 +90,20 @@ def fn_unique(xs):
   assert len(true_xs) == 1
   return true_xs[0]
 
+def fn_lt(x, y):
+  assert isinstance(x, numbers.Number) and not isinstance(x, bool)
+  assert isinstance(y, numbers.Number) and not isinstance(y, bool)
+  return x < y
+
+def fn_gt(x, y):
+  assert isinstance(x, numbers.Number) and not isinstance(x, bool)
+  assert isinstance(y, numbers.Number) and not isinstance(y, bool)
+  return x > y
+
+
 functions = {
-  "lt": lambda x, y: x < y,
-  "gt": lambda x, y: x > y,
+  "lt": fn_lt,
+  "gt": fn_gt,
   "pos_x": lambda a: a["3d_coords"][0],
   "pos_y": lambda a: a["3d_coords"][1],
   "pos_z": lambda a: a["3d_coords"][2],

@@ -51,6 +51,15 @@ class Lexicon(ccg_lexicon.CCGLexicon):
                 for token in token_list])
 
 
+class Token(ccg_lexicon.Token):
+
+  def __str__(self):
+    return "Token(%s => %s%s)" % (self._token, self._categ,
+                                  " {%s}" % self._semantics if self._semantics else "")
+
+  __repr__ = __str__
+
+
 def is_compatible(category, lf):
   """
   Determine if a syntactic category and a logical form are functionally
@@ -101,7 +110,7 @@ def get_candidate_categories(lex, tokens, sentence):
   # interpretations for the sentence to parse
   for cat_assignment in itertools.product(candidate_categories, repeat=len(tokens)):
     for token, category in zip(tokens, cat_assignment):
-      lex._entries[token] = [ccg_lexicon.Token(token, category)]
+      lex._entries[token] = [Token(token, category)]
 
     # Attempt a parse.
     results = chart.WeightedCCGChartParser(lex).parse(sentence)
@@ -142,7 +151,7 @@ def augment_lexicon(old_lex, sentence, lf):
             # Arities of syntactic form and semantic form do not match.
             continue
 
-          new_token = ccg_lexicon.Token(word, category, lf_cand, 1.0)
+          new_token = Token(word, category, lf_cand, 1.0)
           new_lex._entries[word].append(new_token)
 
   return new_lex
@@ -180,7 +189,7 @@ def augment_lexicon_scene(old_lex, sentence, scene):
         # in a sentence and has different syntactic interpretations among
         # those instances. This pruning would fail, causing that
         # sentence to have zero valid interpretations.
-        minimal_token = ccg_lexicon.Token(word, category)
+        minimal_token = Token(word, category)
         old_lex_minimal._entries[word].append(minimal_token)
         results = minimal_parser.parse(sentence)
         if not results:
@@ -190,7 +199,7 @@ def augment_lexicon_scene(old_lex, sentence, scene):
         for lf_cand in lf_cands:
           if not is_compatible(category, lf_cand):
             continue
-          new_token = ccg_lexicon.Token(word, category, lf_cand, 1.0)
+          new_token = Token(word, category, lf_cand, 1.0)
           lex._entries[word].append(new_token)
 
   return lex
@@ -233,7 +242,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
         if not is_compatible(category, expr):
           continue
 
-        lex._entries[token] = [ccg_lexicon.Token(token, category, expr)]
+        lex._entries[token] = [Token(token, category, expr)]
 
         # Attempt a parse.
         results = chart.WeightedCCGChartParser(lex).parse(sentence)
@@ -242,15 +251,24 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
           for result in results:
             # TODO skip re-checking parses with the same semantics
             semantics = result.label()[0].semantics()
-            pred_answer = model.evaluate(semantics)
+
+            try:
+              pred_answer = model.evaluate(semantics)
+            except TypeError:
+              # Type inconsistency. TODO catch this in the iter_expression stage.
+              continue
+            except AssertionError:
+              # Precondition of semantics failed to pass.
+              continue
 
             if pred_answer == answer:
               # Parse succeeded with correct meaning. Add to the EC frontier.
-              print("here", result)
-              successes[token].append(ccg_lexicon.Token(token, category, expr))
+              successes[token].append(Token(token, category, expr))
 
-  print(successes)
-  # TODO augment lexicon
+  for token in query_tokens:
+    lex._entries[token] = successes[token]
+
+  return lex
 
 
 def filter_lexicon_entry(lexicon, entry, sentence, lf):
