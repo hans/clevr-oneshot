@@ -71,19 +71,50 @@ class Ontology(object):
                                              bound_vars=bound_vars)
 
             for arg_combs in itertools.product(sub_args, repeat=arity):
-              yield make_application(fn_name, arg_combs)
-      # elif expr_type == ConstantExpression:
-      #   for constant in self.constants:
-      #     yield ConstantExpression(Variable(constant))
+              candidate = make_application(fn_name, arg_combs)
+              if self._valid_application_expr(application_expr):
+                yield application_expr
       elif expr_type == LambdaExpression and max_depth > 1:
         bound_var = self.next_bound_var(bound_vars)
 
         results = self.iter_expressions(max_depth=max_depth - 1,
                                         bound_vars=bound_vars + (bound_var,))
         for expr in results:
-          # Skip meaningless bodies.
-          if not isinstance(expr, IndividualVariableExpression):
-            yield LambdaExpression(bound_var, expr)
+          candidate = LambdaExpression(bound_var, expr)
+          if self._valid_lambda_expr(candidate):
+            yield candidate
       elif expr_type == IndividualVariableExpression:
         for bound_var in bound_vars:
           yield IndividualVariableExpression(bound_var)
+
+  def _valid_application_expr(self, application_expr):
+    """
+    Check whether this `ApplicationExpression` should be considered when
+    enumerating programs.
+    """
+    # TODO check type consistency
+    return True
+
+  def _valid_lambda_expr(self, lambda_expr):
+    """
+    Check whether this `LambdaExpression` should be considered when enumerating
+    programs.
+    """
+
+    # Collect bound arguments and the body expression.
+    bound_args = []
+    expr = lambda_expr
+    while isinstance(expr, LambdaExpression):
+      bound_args.append(expr.variable)
+      expr = expr.term
+    body = expr
+
+    # Exclude exprs which do not use all of their bound arguments.
+    if set(bound_args) != set(body.variables()):
+      return False
+
+    # Exclude exprs with simplistic bodies.
+    if isinstance(body, IndividualVariableExpression):
+      return False
+
+    return True
