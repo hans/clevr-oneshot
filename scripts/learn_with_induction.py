@@ -11,7 +11,7 @@ import numpy as np
 
 from clevros.chart import WeightedCCGChartParser
 from clevros.lexicon import Lexicon, augment_lexicon, \
-    filter_lexicon_entry, augment_lexicon_scene
+    filter_lexicon_entry, augment_lexicon_scene, augment_lexicon_distant
 from clevros.logic import Ontology
 from clevros.model import Model
 from clevros.perceptron import update_perceptron_batch
@@ -101,7 +101,6 @@ functions = {
 
 
 ontology = Ontology(functions)
-print(list(ontology.iter_expressions(max_depth=5)))
 
 
 #############
@@ -113,9 +112,13 @@ for sentence, scene, answer in examples:
   model = Model(scene, functions)
   parse_results = WeightedCCGChartParser(lex).parse(sentence)
   if not parse_results:
-    # TODO: Lexicon induction
     print("ERROR: Parse failed for sentence '%s'" % " ".join(sentence))
-    continue
+
+    novel_words = [word for word in sentence if not lex._entries.get(word, [])]
+    print("\tNovel words: ", " ".join(novel_words))
+    lex = augment_lexicon_distant(lex, novel_words, sentence, ontology, model, answer)
+
+    # TODO retry parsing
 
   final_sem = parse_results[0].label()[0].semantics()
 

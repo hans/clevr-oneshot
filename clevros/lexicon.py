@@ -37,7 +37,8 @@ class Lexicon(ccg_lexicon.CCGLexicon):
 def is_compatible(category, lf):
   """
   Determine if a syntactic category and a logical form are functionally
-  compatible. (They should have the same number of arguments.)
+  compatible. (They should have the same number of arguments, unless the
+  syntactic category is a simple category.)
   """
   # Get category arity by DFS.
   def get_category_arity(cat):
@@ -59,7 +60,7 @@ def is_compatible(category, lf):
 
   lf_arity = visit_node(lf)
 
-  return category_arity == lf_arity
+  return category_arity == 0 or category_arity == lf_arity
 
 
 def token_categories(lex):
@@ -154,6 +155,36 @@ def augment_lexicon_scene(old_lex, sentence, scene):
           lex._entries[word].append(new_token)
 
   return lex
+
+
+def augment_lexicon_distant(old_lex, query_words, sentence, ontology, model, answer):
+  """
+  Augment a lexicon with candidate meanings for a given word using distant
+  supervision. (The induced meanings for the queried words must yield parses
+  that lead to `answer` under the `model`.)
+  """
+
+  # Target lexicon to be returned.
+  lex = old_lex.clone()
+
+  # TODO may overwrite
+  for word in query_words:
+    lex._entries[word] = []
+
+  cat_cands = token_categories(lex)
+
+  # TODO need to work on *product space* for multiple query words
+  for expr in ontology.iter_expressions(max_depth=4):
+    for category in cat_cands:
+      if not is_compatible(category, expr):
+        continue
+
+      lex._entries[word] = [ccg_lexicon.Token(word, category, expr, 1.0)]
+
+      # Attempt a parse.
+      results = chart.WeightedCCGChartParser(lex).parse(sentence)
+      if results:
+        print("here", results)
 
 
 def filter_lexicon_entry(lexicon, entry, sentence, lf):

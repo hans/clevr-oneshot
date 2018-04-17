@@ -72,8 +72,8 @@ class Ontology(object):
 
             for arg_combs in itertools.product(sub_args, repeat=arity):
               candidate = make_application(fn_name, arg_combs)
-              if self._valid_application_expr(application_expr):
-                yield application_expr
+              if self._valid_application_expr(candidate):
+                yield candidate
       elif expr_type == LambdaExpression and max_depth > 1:
         bound_var = self.next_bound_var(bound_vars)
 
