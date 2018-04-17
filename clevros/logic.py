@@ -40,30 +40,37 @@ class Ontology(object):
     name = chr(97 + name_id)
     return Variable(name * name_length)
 
-  #@functools.lru_cache(maxsize=None)
+  @functools.lru_cache(maxsize=None)
   def iter_expressions(self, max_depth=3, bound_vars=()):
     if max_depth == 0:
       return
 
+    ret = []
     for expr_type in self.EXPR_TYPES:
       if expr_type == ApplicationExpression and max_depth > 1:
         for arity, fns in self.functions_by_arity.items():
           for fn_name in fns:
             sub_args = self.iter_expressions(max_depth=max_depth - 1, bound_vars=bound_vars)
 
-            for arg_combs in itertools.product(sub_args, repeat=arity):
-              yield make_application(fn_name, arg_combs)
+            print(fn_name, max_depth - 1, bound_vars)
+            sub_args = list(sub_args)
+            print(fn_name, sub_args, "======")
+
+            ret.extend([make_application(fn_name, arg_combs)
+                        for arg_combs in itertools.product(sub_args, repeat=arity)])
       # elif expr_type == ConstantExpression:
       #   for constant in self.constants:
       #     yield ConstantExpression(Variable(constant))
       elif expr_type == LambdaExpression and max_depth > 1:
         bound_var = self.next_bound_var(bound_vars)
-        for expr in self.iter_expressions(
-            max_depth=max_depth - 1,
-            bound_vars=bound_vars + (bound_var,)):
-          # Skip meaningless lambda bodies.
-          if not isinstance(expr, IndividualVariableExpression):
-            yield LambdaExpression(bound_var, expr)
+
+        results = self.iter_expressions(max_depth=max_depth - 1,
+                                        bound_vars=bound_vars + (bound_var,))
+        ret.extend([LambdaExpression(bound_var, expr) for expr in results
+                    # Skip meaningless lambda bodies.
+                    if not isinstance(expr, IndividualVariableExpression)])
       elif expr_type == IndividualVariableExpression:
-        for bound_var in bound_vars:
-          yield IndividualVariableExpression(bound_var)
+        ret.extend([IndividualVariableExpression(bound_var)
+                    for bound_var in bound_vars])
+
+    return ret

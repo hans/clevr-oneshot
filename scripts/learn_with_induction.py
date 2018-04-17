@@ -101,7 +101,7 @@ functions = {
 
 
 ontology = Ontology(functions)
-print(list(ontology.iter_expressions()))
+print(list(ontology.iter_expressions(max_depth=3)))
 
 
 #############
