@@ -3,6 +3,7 @@ Given an incomplete lexicon and fully supervised training data, run a
 basic CCG perceptron-style inference and update lexicon weights.
 """
 
+from frozendict import frozendict
 from nltk.ccg import chart
 import numpy as np
 
@@ -15,7 +16,7 @@ from clevros.rsa import infer_listener_rsa, update_weights_rsa
 
 
 # Teeny subset of CLEVR dataset :)
-scenes = [
+scene = \
   {'directions': {'above': [0.0, 0.0, 1.0],
                   'behind': [-0.754490315914154, 0.6563112735748291, 0.0],
                   'below': [-0.0, -0.0, -1.0],
@@ -25,26 +26,26 @@ scenes = [
  'image_filename': 'CLEVR_train_000002.png',
  'image_index': 2,
  'objects': [
-             {'3d_coords': [2.1141371726989746,
+             frozendict(
+               {'3d_coords': (2.1141371726989746,
                             -0.5752051472663879,
-                            0.699999988079071],
+                            0.699999988079071),
               'color': 'yellow',
               'material': 'metal',
-              'pixel_coords': [291, 180, 9.147775650024414],
+              'pixel_coords': (291, 180, 9.147775650024414),
               'rotation': 308.49217566676606,
               'shape': 'sphere',
-              'size': 'large'},
-             {'3d_coords': [-2.3854215145111084,
+              'size': 'large'}),
+             frozendict({'3d_coords': (-2.3854215145111084,
                             -0.57520514,
-                            0.699999988079071],
+                            0.699999988079071),
               'color': 'blue',
               'material': 'rubber',
-              'pixel_coords': [188, 94, 12.699371337890625],
+              'pixel_coords': (188, 94, 12.699371337890625),
               'rotation': 82.51702981683107,
               'shape': 'cube',
-              'size': 'large'}],
- 'split': 'train'},
-]
+              'size': 'large'})],
+ 'split': 'train'}
 
 
 semantics = True
@@ -52,8 +53,8 @@ semantics = True
 lex = Lexicon.fromstring(r"""
   :- Nd, N
 
-  cube => N {cube}
-  sphere => N {sphere}
+  cube => N {\x.cube(x)}
+  sphere => N {\x.sphere(x)}
 
   the => Nd/N {\x.unique(x)}
 
@@ -71,13 +72,9 @@ final_sem = results[0].label()[0].semantics()
 print(final_sem)
 
 def fn_unique(xs):
-  assert len(xs) == 1
-  return xs[0]
-
-valuation_fns = {
-  "cube": lambda scene: list(filter(lambda x: x["shape"] == "cube", scene["objects"])),
-  "sphere": lambda scene: list(filter(lambda x: x["shape"] == "sphere", scene["objects"])),
-}
+  true_xs = [x for x, matches in xs.items() if matches]
+  assert len(true_xs) == 1
+  return true_xs[0]
 
 functions = {
   "lt": lambda x, y: x < y,
@@ -86,10 +83,13 @@ functions = {
   "pos_y": lambda a: a["3d_coords"][1],
   "pos_z": lambda a: a["3d_coords"][2],
   "unique": fn_unique,
+
+  "cube": lambda x: x["shape"] == "cube",
+  "sphere": lambda x: x["shape"] == "sphere",
 }
 
-model = Model(valuation_fns, functions)
-print(model.evaluate(final_sem, scenes[0]))
+model = Model(scene, functions)
+print(model.evaluate(final_sem))
 
 sys.exit(0)
 

@@ -2,6 +2,8 @@
 Model for evaluation of logical forms on CLEVR-like scenes.
 """
 
+from copy import deepcopy
+
 from nltk.sem.logic import *
 
 
@@ -10,50 +12,54 @@ class Model(object):
   Grounded logical evaluation model, mostly stolen from `nltk.sem.evaluate`.
   """
 
-  def __init__(self, valuation, functions=None):
-    self.valuation = valuation
+  def __init__(self, scene, functions=None):
     self.functions = functions or []
 
-  def evaluate(self, expr, scene):
-    return self.satisfy(expr, scene)
+    self.scene = scene
+    self.domain = deepcopy(scene["objects"])
 
-  def satisfy(self, expr, scene):
+  def evaluate(self, expr):
+    return self.satisfy(expr)
+
+  def satisfy(self, expr, assignments=None):
     """
     Recursively interpret an expression in the context of some scene.
     """
-    print(expr)
+    if assignments is None:
+      assignments = {}
+
     if isinstance(expr, ApplicationExpression):
       function, arguments = expr.uncurry()
       if isinstance(function, AbstractVariableExpression):
         #It's a predicate expression ("P(x,y)"), so used uncurried arguments
-        funval = self.satisfy(function, scene)
-        argvals = tuple(self.satisfy(arg, scene) for arg in arguments)
+        funval = self.satisfy(function, assignments)
+        argvals = tuple(self.satisfy(arg, assignments) for arg in arguments)
 
         if callable(funval):
           return funval(*argvals)
         return argvals in funval
       else:
         #It must be a lambda expression, so use curried form
-        funval = self.satisfy(expr.function, scene)
-        argval = self.satisfy(expr.argument, scene)
+        funval = self.satisfy(expr.function, assignments)
+        argval = self.satisfy(expr.argument, assignments)
         return funval[argval]
     elif isinstance(expr, NegatedExpression):
-      return not self.satisfy(expr.term, scene)
+      return not self.satisfy(expr.term, assignments)
     elif isinstance(expr, AndExpression):
-      return self.satisfy(expr.first, scene) and \
-              self.satisfy(expr.second, scene)
+      return self.satisfy(expr.first) and \
+              self.satisfy(expr.second, assignments)
     elif isinstance(expr, OrExpression):
-      return self.satisfy(expr.first, scene) or \
-              self.satisfy(expr.second, scene)
+      return self.satisfy(expr.first) or \
+              self.satisfy(expr.second, assignments)
     elif isinstance(expr, ImpExpression):
-      return (not self.satisfy(expr.first, scene)) or \
-              self.satisfy(expr.second, scene)
+      return (not self.satisfy(expr.first)) or \
+              self.satisfy(expr.second, assignments)
     elif isinstance(expr, IffExpression):
-      return self.satisfy(expr.first, scene) == \
-              self.satisfy(expr.second, scene)
+      return self.satisfy(expr.first) == \
+              self.satisfy(expr.second, assignments)
     elif isinstance(expr, EqualityExpression):
-      return self.satisfy(expr.first, scene) == \
-              self.satisfy(expr.second, scene)
+      return self.satisfy(expr.first) == \
+              self.satisfy(expr.second, assignments)
     elif isinstance(expr, AllExpression):
       new_g = g.copy()
       for u in self.domain:
@@ -72,7 +78,10 @@ class Model(object):
       cf = {}
       var = expr.variable.name
       for u in self.domain:
-        val = self.satisfy(expr.term, g.add(var, u))
+        assignments = deepcopy(assignments)
+        assignments[var] = u
+
+        val = self.satisfy(expr.term, assignments)
         # NB the dict would be a lot smaller if we do this:
         # if val: cf[u] = val
         # But then need to deal with cases where f(a) should yield
@@ -80,9 +89,9 @@ class Model(object):
         cf[u] = val
       return cf
     else:
-      return self.i(expr, scene)
+      return self.i(expr, assignments)
 
-  def i(self, expr, scene):
+  def i(self, expr, assignments):
     """
     An interpretation function.
 
@@ -102,12 +111,7 @@ class Model(object):
     # So there is a procedural consequence to the ordering of clauses here:
     if expr.variable.name in self.functions:
       return self.functions[expr.variable.name]
-    elif expr.variable.name in self.valuation:
-      valuation = self.valuation[expr.variable.name]
-      if callable(valuation):
-        return valuation(scene)
-      return valuation
     elif isinstance(expr, IndividualVariableExpression):
-      return g[expr.variable.name]
+      return assignments[expr.variable.name]
     else:
       raise Undefined("Can't find a value for %s" % expr)
