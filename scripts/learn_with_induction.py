@@ -28,7 +28,7 @@ scene = \
  'objects': [
              frozendict(
                {'3d_coords': (2.1141371726989746,
-                            -0.5752051472663879,
+                            -0.57520514,
                             0.699999988079071),
               'color': 'yellow',
               'material': 'metal',
@@ -46,6 +46,14 @@ scene = \
               'shape': 'cube',
               'size': 'large'})],
  'split': 'train'}
+
+
+examples = [
+  ("is the cube left_of the sphere", scene, True),
+  ("is the sphere left_of the cube", scene, False),
+  ("is the cube above the sphere", scene, False),
+  ("is the sphere above the cube", scene, False),
+]
 
 
 #####################
@@ -68,13 +76,6 @@ lex = Lexicon.fromstring(r"""
   """, include_semantics=semantics)
 
 
-sentence = "is the cube left_of the sphere".split()
-
-results = WeightedCCGChartParser(lex).parse(sentence)
-chart.printCCGDerivation(results[0])
-
-final_sem = results[0].label()[0].semantics()
-print(final_sem)
 
 def fn_unique(xs):
   true_xs = [x for x, matches in xs.items() if matches]
@@ -93,8 +94,16 @@ functions = {
   "sphere": lambda x: x["shape"] == "sphere",
 }
 
-model = Model(scene, functions)
-print(model.evaluate(final_sem))
+
+for sentence, scene, answer in examples:
+  sentence = sentence.split()
+
+  model = Model(scene, functions)
+  parse_results = WeightedCCGChartParser(lex).parse(sentence)
+  final_sem = parse_results[0].label()[0].semantics()
+
+  print(" ".join(sentence), final_sem)
+  print("\t", model.evaluate(final_sem))
 
 sys.exit(0)
 
