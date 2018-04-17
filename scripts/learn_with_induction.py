@@ -4,6 +4,7 @@ basic CCG perceptron-style inference and update lexicon weights.
 """
 
 import inspect
+from pprint import pprint
 
 from frozendict import frozendict
 from nltk.ccg import chart
@@ -11,7 +12,8 @@ import numpy as np
 
 from clevros.chart import WeightedCCGChartParser
 from clevros.lexicon import Lexicon, augment_lexicon, \
-    filter_lexicon_entry, augment_lexicon_scene, augment_lexicon_distant
+    filter_lexicon_entry, augment_lexicon_scene, augment_lexicon_distant, \
+    get_candidate_categories
 from clevros.logic import Ontology
 from clevros.model import Model
 from clevros.perceptron import update_perceptron_batch
@@ -105,7 +107,6 @@ ontology = Ontology(functions)
 
 #############
 
-
 for sentence, scene, answer in examples:
   sentence = sentence.split()
 
@@ -114,9 +115,14 @@ for sentence, scene, answer in examples:
   if not parse_results:
     print("ERROR: Parse failed for sentence '%s'" % " ".join(sentence))
 
-    novel_words = [word for word in sentence if not lex._entries.get(word, [])]
-    print("\tNovel words: ", " ".join(novel_words))
-    lex = augment_lexicon_distant(lex, novel_words, sentence, ontology, model, answer)
+    query_tokens = [word for word in sentence if not lex._entries.get(word, [])]
+    print("\tNovel words: ", " ".join(query_tokens))
+    query_token_syntaxes = get_candidate_categories(lex, query_tokens, sentence)
+    print("\tCandidate categories:")
+    pprint(query_token_syntaxes)
+
+    lex = augment_lexicon_distant(lex, query_tokens, query_token_syntaxes,
+                                  sentence, ontology, model, answer)
 
     # TODO retry parsing
 

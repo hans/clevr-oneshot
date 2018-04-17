@@ -2,7 +2,9 @@
 Tools for updating and expanding lexicons, dealing with logical forms, etc.
 """
 
+from collections import defaultdict
 import copy
+import itertools
 
 from nltk.ccg import lexicon as ccg_lexicon
 from nltk.ccg.api import PrimitiveCategory
@@ -32,6 +34,21 @@ class Lexicon(ccg_lexicon.CCGLexicon):
           token._semantics = None
 
     return ret
+
+  @property
+  def primitive_categories(self):
+    return set([ccg_lexicon.augParseCategory(prim, self._primitives,
+                                             self._families)[0]
+                for prim in self._primitives])
+
+  @property
+  def observed_categories(self):
+    """
+    Find categories (both primitive and functional) attested in the lexicon.
+    """
+    return set([token.categ()
+                for token_list in self._entries.values()
+                for token in token_list])
 
 
 def is_compatible(category, lf):
@@ -63,13 +80,37 @@ def is_compatible(category, lf):
   return category_arity == 0 or category_arity == lf_arity
 
 
-def token_categories(lex):
+def get_candidate_categories(lex, tokens, sentence):
   """
-  Return a set of categories which a new token can take on.
+  Find candidate categories for the given tokens which appear in `sentence` such
+  that `sentence` yields a parse.
   """
-  return set([ccg_lexicon.augParseCategory(prim, lex._primitives,
-                                           lex._families)[0]
-              for prim in lex._primitives])
+  assert set(tokens).issubset(set(sentence))
+
+  # Make a minimal copy of `lex` which does not track semantics.
+  lex = lex.clone(retain_semantics=False)
+
+  # Remove entries for the queried tokens.
+  for token in tokens:
+    lex._entries[token] = []
+
+  candidate_categories = lex.observed_categories
+  ret = defaultdict(set)
+
+  # NB does not cover the case where a single token needs multiple syntactic
+  # interpretations for the sentence to parse
+  for cat_assignment in itertools.product(candidate_categories, repeat=len(tokens)):
+    for token, category in zip(tokens, cat_assignment):
+      lex._entries[token] = [ccg_lexicon.Token(token, category)]
+
+    # Attempt a parse.
+    results = chart.WeightedCCGChartParser(lex).parse(sentence)
+    if results:
+      # Good, we have a parse. Add candidate categories to return.
+      for token, category in zip(tokens, cat_assignment):
+        ret[token].add(category)
+
+  return dict(ret)
 
 
 def augment_lexicon(old_lex, sentence, lf):
@@ -93,10 +134,9 @@ def augment_lexicon(old_lex, sentence, lf):
   new_lex = old_lex.clone()
 
   lf_cands = lf_parts(lf)
-  cat_cands = token_categories(old_lex)
   for word in sentence:
     if not new_lex.categories(word):
-      for category in cat_cands:
+      for category in old_lex.primitive_categories:
         for lf_cand in lf_cands:
           if not is_compatible(category, lf_cand):
             # Arities of syntactic form and semantic form do not match.
@@ -129,11 +169,10 @@ def augment_lexicon_scene(old_lex, sentence, scene):
   lex = old_lex.clone()
 
   lf_cands = scene_candidate_referents(scene)
-  cat_cands = token_categories(lex)
 
   for word in sentence:
     if not lex.categories(word):
-      for category in cat_cands:
+      for category in lex.primitive_categories:
         # Run a test syntactic parse to determine whether this word can
         # plausibly have this syntactic category under the grammar rules.
         #
@@ -157,34 +196,61 @@ def augment_lexicon_scene(old_lex, sentence, scene):
   return lex
 
 
-def augment_lexicon_distant(old_lex, query_words, sentence, ontology, model, answer):
+def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
+                            sentence, ontology, model, answer):
   """
   Augment a lexicon with candidate meanings for a given word using distant
   supervision. (The induced meanings for the queried words must yield parses
   that lead to `answer` under the `model`.)
+
+  Arguments:
+    old_lex: Existing lexicon which needs to be augmented. Do not write
+      in-place.
+    query_words: Set of tokens for which we need to search for novel lexical
+      entries.
+    query_word_syntaxes: Possible syntactic categories for each of the query
+      words. A dict mapping from token to set of CCG category instances.
+    sentence: Token list sentence.
+    ontology: Available logical ontology -- used to enumerate possible logical
+      forms.
+    model: Scene model which evaluates logical forms to answers.
+    answer: Ground-truth answer to `sentence`.
   """
 
   # Target lexicon to be returned.
   lex = old_lex.clone()
 
   # TODO may overwrite
-  for word in query_words:
-    lex._entries[word] = []
-
-  cat_cands = token_categories(lex)
+  for token in query_tokens:
+    lex._entries[token] = []
 
   # TODO need to work on *product space* for multiple query words
-  for expr in ontology.iter_expressions(max_depth=4):
-    for category in cat_cands:
-      if not is_compatible(category, expr):
-        continue
+  successes = defaultdict(list)
+  for token in query_tokens:
+    cand_syntaxes = query_token_syntaxes[token]
+    for expr in ontology.iter_expressions(max_depth=4):
+      for category in cand_syntaxes:
+        if not is_compatible(category, expr):
+          continue
 
-      lex._entries[word] = [ccg_lexicon.Token(word, category, expr, 1.0)]
+        lex._entries[token] = [ccg_lexicon.Token(token, category, expr)]
 
-      # Attempt a parse.
-      results = chart.WeightedCCGChartParser(lex).parse(sentence)
-      if results:
-        print("here", results)
+        # Attempt a parse.
+        results = chart.WeightedCCGChartParser(lex).parse(sentence)
+        if results:
+          # Parse succeeded -- check the candidate results.
+          for result in results:
+            # TODO skip re-checking parses with the same semantics
+            semantics = result.label()[0].semantics()
+            pred_answer = model.evaluate(semantics)
+
+            if pred_answer == answer:
+              # Parse succeeded with correct meaning. Add to the EC frontier.
+              print("here", result)
+              successes[token].append(ccg_lexicon.Token(token, category, expr))
+
+  print(successes)
+  # TODO augment lexicon
 
 
 def filter_lexicon_entry(lexicon, entry, sentence, lf):
