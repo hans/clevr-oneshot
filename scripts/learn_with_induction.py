@@ -3,6 +3,8 @@ Given an incomplete lexicon and fully supervised training data, run a
 basic CCG perceptron-style inference and update lexicon weights.
 """
 
+import inspect
+
 from frozendict import frozendict
 from nltk.ccg import chart
 import numpy as np
@@ -10,6 +12,7 @@ import numpy as np
 from clevros.chart import WeightedCCGChartParser
 from clevros.lexicon import Lexicon, augment_lexicon, \
     filter_lexicon_entry, augment_lexicon_scene
+from clevros.logic import Ontology
 from clevros.model import Model
 from clevros.perceptron import update_perceptron_batch
 from clevros.rsa import infer_listener_rsa, update_weights_rsa
@@ -53,6 +56,8 @@ examples = [
   ("is the sphere left_of the cube", scene, False),
   ("is the cube above the sphere", scene, False),
   ("is the sphere above the cube", scene, False),
+  ("is the cube right_of the sphere", scene, False),
+  ("is the sphere right_of the cube", scene, True),
 ]
 
 
@@ -95,11 +100,23 @@ functions = {
 }
 
 
+ontology = Ontology(functions)
+print(list(ontology.iter_expressions()))
+
+
+#############
+
+
 for sentence, scene, answer in examples:
   sentence = sentence.split()
 
   model = Model(scene, functions)
   parse_results = WeightedCCGChartParser(lex).parse(sentence)
+  if not parse_results:
+    # TODO: Lexicon induction
+    print("ERROR: Parse failed for sentence '%s'" % " ".join(sentence))
+    continue
+
   final_sem = parse_results[0].label()[0].semantics()
 
   print(" ".join(sentence), final_sem)
