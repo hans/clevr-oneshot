@@ -136,22 +136,10 @@ for sentence, scene, answer in examples:
     lex = augment_lexicon_distant(lex, query_tokens, query_token_syntaxes,
                                   sentence, ontology, model, answer)
 
-    # TODO retry parsing
+    parse_results = WeightedCCGChartParser(lex).parse(sentence)
 
   final_sem = parse_results[0].label()[0].semantics()
 
   print(" ".join(sentence), final_sem)
   print("\t", model.evaluate(final_sem))
 
-sys.exit(0)
-
-# Now augment lexicon to account for new data.
-lex_aug = augment_lexicon_scene(lex, sentence, scenes[0])
-#lex_aug = filter_lexicon_entry(lex_aug, "blue", data_phase2[0][0], data_phase2[0][1])
-lex_aug = update_weights_rsa(lex_aug, "cube")
-print(lex_aug)
-
-# Demo.
-parser = WeightedCCGChartParser(lex_aug)
-results = parser.parse(sentence)
-chart.printCCGDerivation(results[0])
