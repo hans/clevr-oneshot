@@ -48,13 +48,18 @@ scene = \
  'split': 'train'}
 
 
+#####################
+
+
 semantics = True
 
 lex = Lexicon.fromstring(r"""
-  :- Nd, N
+  :- S, Nd, N
 
   cube => N {\x.cube(x)}
   sphere => N {\x.sphere(x)}
+
+  is => S/Nd {\x.x}
 
   the => Nd/N {\x.unique(x)}
 
@@ -63,7 +68,7 @@ lex = Lexicon.fromstring(r"""
   """, include_semantics=semantics)
 
 
-sentence = "the cube left_of the sphere".split()
+sentence = "is the cube left_of the sphere".split()
 
 results = WeightedCCGChartParser(lex).parse(sentence)
 chart.printCCGDerivation(results[0])
