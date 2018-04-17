@@ -15,6 +15,23 @@ def make_application(fn_name, args):
   return reduce(lambda x, y: ApplicationExpression(x, y), args[1:], expr)
 
 
+def listify(fn=None, wrapper=list):
+  """
+  A decorator which wraps a function's return value in ``list(...)``.
+
+  Useful when an algorithm can be expressed more cleanly as a generator but
+  the function should return an list.
+  """
+  def listify_return(fn):
+    @functools.wraps(fn)
+    def listify_helper(*args, **kw):
+      return wrapper(fn(*args, **kw))
+    return listify_helper
+  if fn is None:
+    return listify_return
+  return listify_return(fn)
+
+
 class Ontology(object):
   """
   TODO
@@ -41,23 +58,20 @@ class Ontology(object):
     return Variable(name * name_length)
 
   @functools.lru_cache(maxsize=None)
+  @listify
   def iter_expressions(self, max_depth=3, bound_vars=()):
     if max_depth == 0:
       return
 
-    ret = []
     for expr_type in self.EXPR_TYPES:
       if expr_type == ApplicationExpression and max_depth > 1:
         for arity, fns in self.functions_by_arity.items():
           for fn_name in fns:
-            sub_args = self.iter_expressions(max_depth=max_depth - 1, bound_vars=bound_vars)
+            sub_args = self.iter_expressions(max_depth=max_depth - 1,
+                                             bound_vars=bound_vars)
 
-            print(fn_name, max_depth - 1, bound_vars)
-            sub_args = list(sub_args)
-            print(fn_name, sub_args, "======")
-
-            ret.extend([make_application(fn_name, arg_combs)
-                        for arg_combs in itertools.product(sub_args, repeat=arity)])
+            for arg_combs in itertools.product(sub_args, repeat=arity):
+              yield make_application(fn_name, arg_combs)
       # elif expr_type == ConstantExpression:
       #   for constant in self.constants:
       #     yield ConstantExpression(Variable(constant))
@@ -66,11 +80,10 @@ class Ontology(object):
 
         results = self.iter_expressions(max_depth=max_depth - 1,
                                         bound_vars=bound_vars + (bound_var,))
-        ret.extend([LambdaExpression(bound_var, expr) for expr in results
-                    # Skip meaningless lambda bodies.
-                    if not isinstance(expr, IndividualVariableExpression)])
+        for expr in results:
+          # Skip meaningless bodies.
+          if not isinstance(expr, IndividualVariableExpression):
+            yield LambdaExpression(bound_var, expr)
       elif expr_type == IndividualVariableExpression:
-        ret.extend([IndividualVariableExpression(bound_var)
-                    for bound_var in bound_vars])
-
-    return ret
+        for bound_var in bound_vars:
+          yield IndividualVariableExpression(bound_var)
