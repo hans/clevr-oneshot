@@ -136,6 +136,18 @@ for sentence, scene, answer in examples:
     lex = augment_lexicon_distant(lex, query_tokens, query_token_syntaxes,
                                   sentence, ontology, model, answer)
 
+    #Max added
+    frontiers = extract_frontiers_from_lexicon(lex)
+
+    grammar = ontology_to_grammar(ontology)
+
+    #EC compression phase 
+    new_grammar, new_frontier = induceGrammar(grammar, frontiers, extra_args) #TODO
+
+    ontology = grammar_to_ontology(grammar)
+
+    lex = frontiers_to_lexicon(frontiers) #I think grammar not necessary
+
     parse_results = WeightedCCGChartParser(lex).parse(sentence)
 
   final_sem = parse_results[0].label()[0].semantics()
