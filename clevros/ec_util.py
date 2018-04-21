@@ -24,7 +24,13 @@ from clevros.rsa import infer_listener_rsa, update_weights_rsa
 from ec import Grammar
 from ec import Primitive
 
-def ontology_to_grammar(ontology):
+def ontology_to_grammar_initial(ontology):
+	"""
+	turns an ontology into a grammar. 
+	This should only be done once per experiment. 
+	Otherwise, it will mess with the fact that EC uses the knowledge 
+	that some productions are prims and some are invented
+	"""
 
 	#get a list of types for all prims
 	#we will change this when we have more sophisticated types
@@ -77,9 +83,14 @@ def frontiers_to_lexicon(frontiers):
 	
 	class FrontierEntry(object):
     def __init__(self, program, _=None, logPrior=None, logLikelihood=None, logPosterior=None):
-	
+
 	class Task(object):
     	def __init__(self, name, request, examples, features=None, cache=False):
+
+
+   	from compressor we can see (https://github.com/ellisk42/ec/blob/480b51bb56f583ec5332608f054bf934db67cd66/fragmentGrammar.py#L396)
+	need 
+
 	"""
 
 

@@ -116,6 +116,7 @@ functions = {
 
 ontology = Ontology(functions)
 
+grammar = ontology_to_grammar_initial(ontology)
 
 #############
 
@@ -138,8 +139,7 @@ for sentence, scene, answer in examples:
 
     #Max added
     frontiers = extract_frontiers_from_lexicon(lex)
-
-    grammar = ontology_to_grammar(ontology)
+    
 
     #EC compression phase 
     new_grammar, new_frontiers = induceGrammar(grammar, frontiers, extra_args) #TODO
