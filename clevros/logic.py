@@ -73,27 +73,32 @@ def extract_lambda(expr):
   return expr.normalize()
 
 
+def get_callable_arity(c):
+  return len(inspect.getargspec(c).args)
+
+
 class Ontology(object):
   """
   TODO
   """
 
-  # function_names: k strings
-  # function_defs: k Python functions
-  # function_weights: ndarray of dim k
-
-  def __init__(self, functions):
-    self.functions = functions
-
-    self.functions_by_arity = {
-        count: set(fns)
-        for count, fns in itertools.groupby(self.functions.keys(),
-          lambda fn_name: len(inspect.getargspec(self.functions[fn_name]).args))}
-
-    self.constants = ["sphere"] # TODO
-
-    print(self.functions_by_arity)
-    self.max_arity = max(self.functions_by_arity.keys())
+  def __init__(self, function_names, function_defs, function_weights, variable_weight=0.1):
+    """
+    Arguments:
+      function_names: List of `k` function name strings
+      function_defs: List of `k` Python functions
+      function_weights: ndarray of dim `k`; a total ordering over the `k` functions.
+      variable_weight: log-probability of observing any variable
+    """
+    # TODO do we need to require explicit (log-)probability distributions here?
+    # I don't think so. Just need a total ordering.
+    assert len(function_names) == len(function_defs)
+    assert len(function_defs) == len(function_weights)
+    self.function_names = function_names
+    self.function_defs = function_defs
+    self.function_arities = [get_callable_arity(defn) for defn in self.function_defs]
+    self.function_weights = function_weights
+    self.variable_weight = variable_weight
 
   EXPR_TYPES = [ApplicationExpression, ConstantExpression, IndividualVariableExpression, LambdaExpression]
 
@@ -119,15 +124,19 @@ class Ontology(object):
 
     for expr_type in self.EXPR_TYPES:
       if expr_type == ApplicationExpression and max_depth > 1:
-        for arity, fns in self.functions_by_arity.items():
-          for fn_name in fns:
-            sub_args = self._iter_expressions_inner(max_depth=max_depth - 1,
-                                                    bound_vars=bound_vars)
+        # Loop over functions according to their weights.
+        fns_sorted = sorted(enumerate(self.function_names),
+                            key=lambda val: self.function_weights[val[0]],
+                            reverse=True)
+        for idx, fn_name in fns_sorted:
+          arity = self.function_arities[idx]
+          sub_args = self._iter_expressions_inner(max_depth=max_depth - 1,
+                                                  bound_vars=bound_vars)
 
-            for arg_combs in itertools.product(sub_args, repeat=arity):
-              candidate = make_application(fn_name, arg_combs)
-              if self._valid_application_expr(candidate):
-                yield candidate
+          for arg_combs in itertools.product(sub_args, repeat=arity):
+            candidate = make_application(fn_name, arg_combs)
+            if self._valid_application_expr(candidate):
+              yield candidate
       elif expr_type == LambdaExpression and max_depth > 1:
         bound_var = self.next_bound_var(bound_vars)
 

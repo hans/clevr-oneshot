@@ -114,7 +114,8 @@ functions = {
 }
 
 
-ontology = Ontology(functions)
+function_weights = np.log(np.repeat(1, len(functions)) / len(functions))
+ontology = Ontology(functions.keys(), functions.values(), function_weights)
 
 grammar = ontology_to_grammar_initial(ontology)
 
@@ -139,9 +140,9 @@ for sentence, scene, answer in examples:
 
     #Max added
     frontiers = extract_frontiers_from_lexicon(lex)
-    
 
-    #EC compression phase 
+
+    #EC compression phase
     new_grammar, new_frontiers = induceGrammar(grammar, frontiers, extra_args) #TODO
 
     ontology = grammar_to_ontology(new_grammar)
