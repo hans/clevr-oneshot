@@ -65,10 +65,24 @@ def grammar_to_ontology(grammar):
 
 def extract_frontiers_from_lexicon(lex):
 
+
 	return frontiers
 
 
 def frontiers_to_lexicon(frontiers):
+	"""
+	frontier has properties:
+		frontier.entries, a list of frontierEntry's (presumably)
+		frontier.task
+	
+	class FrontierEntry(object):
+    def __init__(self, program, _=None, logPrior=None, logLikelihood=None, logPosterior=None):
+	
+	class Task(object):
+    	def __init__(self, name, request, examples, features=None, cache=False):
+	"""
+
+
 
 	return lexicon 
 
