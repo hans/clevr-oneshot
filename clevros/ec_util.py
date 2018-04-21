@@ -21,25 +21,32 @@ from clevros.rsa import infer_listener_rsa, update_weights_rsa
 
 #TODO:
 #ec imports
-from EC import Grammar
-from EC import Primitive
+from ec import Grammar
+from ec import Primitive
 
 def ontology_to_grammar(ontology):
-	#TODO
 
-	#Primitive(name, type, function)
-	primitves = [Primitive() for ... in ontology ] 
-	#will do uniform grammar for now, may need to change at some point 
-	grammar = Grammar.uniform(primitives)
+	#get a list of types for all prims
+	tps = [len(inspect.getargspec(fn).args) for fn in ontology.function_names]
+
+	#zip primitive names, types, and defs
+	zipped_o = zip(ontology.function_names, tps, ontology.function_defs)
+
+	#make into prim list
+	primitives = [Primitive(name, tp, function) for name, tp, function in zipped_o ] 
+
+	#zip into productions 
+	productions = zip(ontology.function_weights, primitives)
+	
+	#return Grammar(logVariable, [(l, p.infer(), p) for l, p in productions])
+	grammar = Grammar.fromProductions(productions, logVariable=ontology.logVariable)
 	return grammar
 
 def extract_frontiers_from_lexicon(lex):
 
+	
+
 	return frontiers
-
-def ontology_to_grammar(ontology):
-
-	return grammar
 
 def grammar_to_ontology(grammar):
 
@@ -47,6 +54,6 @@ def grammar_to_ontology(grammar):
 
 def frontiers_to_lexicon(frontiers):
 
-	return lexicon
+	return lexicon 
 
 
