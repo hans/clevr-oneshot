@@ -27,13 +27,14 @@ from ec import Primitive
 def ontology_to_grammar(ontology):
 
 	#get a list of types for all prims
+	#we will change this when we have more sophisticated types
 	tps = [len(inspect.getargspec(fn).args) for fn in ontology.function_names]
 
 	#zip primitive names, types, and defs
-	zipped_o = zip(ontology.function_names, tps, ontology.function_defs)
+	zipped_ont = zip(ontology.function_names, tps, ontology.function_defs)
 
 	#make into prim list
-	primitives = [Primitive(name, tp, function) for name, tp, function in zipped_o ] 
+	primitives = [Primitive(name, tp, function) for name, tp, function in zipped_ont ] 
 
 	#zip into productions 
 	productions = zip(ontology.function_weights, primitives)
@@ -42,15 +43,30 @@ def ontology_to_grammar(ontology):
 	grammar = Grammar.fromProductions(productions, logVariable=ontology.logVariable)
 	return grammar
 
-def extract_frontiers_from_lexicon(lex):
-
-	
-
-	return frontiers
 
 def grammar_to_ontology(grammar):
 
+	#unzip productions into weights and primitives 
+	weights_and_prims = zip(*grammar.productions)
+	function_weights = weights_and_prims[0]
+	primitives = weights_and_prims[1]
+
+	#names and defs
+	function_names = [prim.name for prim in primitives]
+	function_defs = [prim.value for prim in primitives]
+
+	#TODO
+	#the following two lines will have to be fixed somehow
+	ontology = Ontology(function_names, function_defs, function_weights)
+	ontology.logVariable = grammar.logVariable 
+
 	return ontology
+
+
+def extract_frontiers_from_lexicon(lex):
+
+	return frontiers
+
 
 def frontiers_to_lexicon(frontiers):
 

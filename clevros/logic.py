@@ -78,8 +78,13 @@ class Ontology(object):
   TODO
   """
 
+  # function_names: k strings
+  # function_defs: k Python functions
+  # function_weights: ndarray of dim k
+
   def __init__(self, functions):
     self.functions = functions
+
     self.functions_by_arity = {
         count: set(fns)
         for count, fns in itertools.groupby(self.functions.keys(),

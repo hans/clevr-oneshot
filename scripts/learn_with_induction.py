@@ -142,11 +142,11 @@ for sentence, scene, answer in examples:
     grammar = ontology_to_grammar(ontology)
 
     #EC compression phase 
-    new_grammar, new_frontier = induceGrammar(grammar, frontiers, extra_args) #TODO
+    new_grammar, new_frontiers = induceGrammar(grammar, frontiers, extra_args) #TODO
 
-    ontology = grammar_to_ontology(grammar)
+    ontology = grammar_to_ontology(new_grammar)
 
-    lex = frontiers_to_lexicon(frontiers) #I think grammar not necessary
+    lex = frontiers_to_lexicon(new_frontiers) #I think grammar not necessary
 
     parse_results = WeightedCCGChartParser(lex).parse(sentence)
 
