@@ -60,6 +60,17 @@ class Token(ccg_lexicon.Token):
   __repr__ = __str__
 
 
+def get_category_arity(cat):
+  """
+  Get the syntactic arity of a syntactic category.
+  """
+  if isinstance(cat, PrimitiveCategory):
+    return 0
+  else:
+    return 1 + get_category_arity(cat.arg()) \
+        + get_category_arity(cat.res())
+
+
 def is_compatible(category, lf):
   """
   Determine if a syntactic category and a logical form are functionally
@@ -67,12 +78,6 @@ def is_compatible(category, lf):
   syntactic category is a simple category.)
   """
   # Get category arity by DFS.
-  def get_category_arity(cat):
-    if isinstance(cat, PrimitiveCategory):
-      return 0
-    else:
-      return 1 + get_category_arity(cat.arg()) \
-          + get_category_arity(cat.res())
   category_arity = get_category_arity(category)
 
   def visit_node(node):
