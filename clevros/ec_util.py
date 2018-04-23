@@ -70,6 +70,21 @@ def grammar_to_ontology(grammar):
 
 
 def extract_frontiers_from_lexicon(lex):
+	frontiers = []
+	for key in lex._entries:
+
+		#TODO: need request
+		task = Task(key, request, [])
+
+		#the following line won't work because first input to FrontierEntry must be a Program
+		program = lambda x: Program.parse(x)
+
+		frontier_entry_list = [FrontierEntry(program(entry.semantics()), etc) for entry in lex._entries[key]]
+
+		frontier = Frontier(frontier_entry_list, task)
+		frontiers.append(frontier)
+
+		#FrontierEntry(Program.parse(s["expression"]), logPrior=s["logprior"], logLikelihood=s["loglikelihood"])
 
 
 	return frontiers
@@ -92,6 +107,10 @@ def frontiers_to_lexicon(frontiers):
 	need 
 
 	"""
+
+	#lexicon._entries["block"][0].weights
+	#lexicon._entries["block"][0].semantics()
+
 
 
 

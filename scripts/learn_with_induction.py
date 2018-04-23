@@ -19,6 +19,8 @@ from clevros.logic import Ontology
 from clevros.model import Model
 from clevros.perceptron import update_perceptron_batch
 from clevros.rsa import infer_listener_rsa, update_weights_rsa
+from clevros.ec_util import extract_frontiers_from_lexicon, \
+    ontology_to_grammar_initial, grammar_to_ontology, frontiers_to_lexicon
 
 
 # Teeny subset of CLEVR dataset :)
@@ -114,8 +116,7 @@ functions = {
 }
 
 
-function_weights = np.log(np.repeat(1, len(functions)) / len(functions))
-ontology = Ontology(functions.keys(), functions.values(), function_weights)
+ontology = Ontology(functions)
 
 grammar = ontology_to_grammar_initial(ontology)
 
@@ -140,12 +141,11 @@ for sentence, scene, answer in examples:
 
     #Max added
     frontiers = extract_frontiers_from_lexicon(lex)
+    
+    #EC compression phase 
+    grammar, new_frontiers = induceGrammar(grammar, frontiers, extra_args) #TODO
 
-
-    #EC compression phase
-    new_grammar, new_frontiers = induceGrammar(grammar, frontiers, extra_args) #TODO
-
-    ontology = grammar_to_ontology(new_grammar)
+    ontology = grammar_to_ontology(grammar)
 
     lex = frontiers_to_lexicon(new_frontiers) #I think grammar not necessary
 
