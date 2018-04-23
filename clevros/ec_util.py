@@ -24,6 +24,21 @@ from clevros.rsa import infer_listener_rsa, update_weights_rsa
 from ec import Grammar
 from ec import Primitive
 
+from ec.type import baseType
+
+tS = baseType("S")
+
+
+def convert_to_ec_type(arity):
+	#TODO
+	if arity == 0:
+		tp = tS
+	else:
+		tp = arrow(*[tS for range(arity + 1)])
+	return tp
+
+
+
 def ontology_to_grammar_initial(ontology):
 	"""
 	turns an ontology into a grammar. 
@@ -34,7 +49,7 @@ def ontology_to_grammar_initial(ontology):
 
 	#get a list of types for all prims
 	#we will change this when we have more sophisticated types
-	tps = [len(inspect.getargspec(fn).args) for fn in ontology.function_names]
+	tps = [convert_to_ec_type(len(inspect.getargspec(fn).args)) for fn in ontology.function_names]
 
 	#zip primitive names, types, and defs
 	zipped_ont = zip(ontology.function_names, tps, ontology.function_defs)
@@ -66,22 +81,38 @@ def grammar_to_ontology(grammar):
 	ontology = Ontology(function_names, function_defs, function_weights, variable_weight=grammar.logVariable)
 	return ontology
 
+def get_category_arity(cat):
+	if isinstance(cat, PrimitiveCategory):
+    	return 0
+    else:
+    	return 1 + get_category_arity(cat.arg()) \
+          	+ get_category_arity(cat.res())
+
+
+
 
 def extract_frontiers_from_lexicon(lex, g):
 	frontiers = []
 	for key in lex._entries:
 
-		#TODO: need request
+
+		#for now, assume only one type per word in lexicon:
+		for entry in lex._entries[key]:
+			assert entry.get_category_arity() == lex._entries[key][0].get_category_arity()
+
+		#TODO
+		request = convert_to_ec_type(lex._entries[key][0].get_category_arity())
+
 		task = Task(key, request, [])
 
 		#the following line won't work because first input to FrontierEntry must be a Program
 		#need function extract_s_exp
 
 		#this will likely be changed
-		program = lambda x: Program.parse(extract_s_exp(x))
+		program = lambda x: Program.parse(as_ec_sexpr(x))
 
 		#logLikelihood is 0.0 because 
-		frontier_entry_list = [FrontierEntry(program(stuff), logPrior=g.logLikelihood(tp(stuff), program(stuff)) logLikelihood=0.0) for entry in lex._entries[key]]
+		frontier_entry_list = [FrontierEntry(program(entry.semantics()), logPrior=g.logLikelihood(request, program(entry.semantics())) logLikelihood=0.0) for entry in lex._entries[key]]
 
 		frontier = Frontier(frontier_entry_list, task)
 		frontiers.append(frontier)
@@ -110,6 +141,23 @@ def frontiers_to_lexicon(frontiers, old_lex):
 	need 
 
 	"""
+	lex = old_lex.clone()
+
+	
+
+
+
+	for frontier in frontiers:
+		word = frontier.task.name
+		lex._entries[word] = []
+		for entry in frontier.entries:
+
+
+
+
+	for token in query_tokens:  
+    	lex._entries[token] = []
+
 	#def __init__(self, start, primitives, families, entries):
      #   self._start = PrimitiveCategory(start)
       #  self._primitives = primitives
