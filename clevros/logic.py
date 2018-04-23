@@ -7,13 +7,13 @@ import functools
 import inspect
 import itertools
 
-from nltk.sem.logic import *
+from nltk.sem import logic as l
 
 
 def make_application(fn_name, args):
-  expr = ApplicationExpression(ConstantExpression(Variable(fn_name)),
-                               args[0])
-  return reduce(lambda x, y: ApplicationExpression(x, y), args[1:], expr)
+  expr = l.ApplicationExpression(l.ConstantExpression(l.Variable(fn_name)),
+                                 args[0])
+  return reduce(lambda x, y: l.ApplicationExpression(x, y), args[1:], expr)
 
 
 def listify(fn=None, wrapper=list):
@@ -45,16 +45,16 @@ def extract_lambda(expr):
   def process_lambda(lambda_expr):
     # Create a new unique variable and substitute.
     unique = unique_variable()
-    new_expr = lambda_expr.term.replace(lambda_expr.variable, IndividualVariableExpression(unique))
+    new_expr = lambda_expr.term.replace(lambda_expr.variable, l.IndividualVariableExpression(unique))
     return unique, new_expr
 
   # Traverse the LF and replace lambda expressions wherever necessary.
   def inner(node):
-    if isinstance(node, ApplicationExpression):
+    if isinstance(node, l.ApplicationExpression):
       new_args = []
 
       for arg in node.args:
-        if isinstance(arg, LambdaExpression):
+        if isinstance(arg, l.LambdaExpression):
           new_var, new_arg = process_lambda(arg)
 
           variables.append(new_var)
@@ -68,13 +68,37 @@ def extract_lambda(expr):
 
   expr = inner(expr)
   for variable in variables[::-1]:
-    expr = LambdaExpression(variable, expr)
+    expr = l.LambdaExpression(variable, expr)
 
   return expr.normalize()
 
 
 def get_callable_arity(c):
   return len(inspect.getargspec(c).args)
+
+
+def as_ec_sexpr(expr):
+  """
+  Convert an `nltk.sem.logic` `Expression` to an S-expr string.
+  """
+  var_map = {}
+  def inner(expr):
+    if isinstance(expr, l.LambdaExpression):
+      # Add lambda variable to var map.
+      var_idx = len(var_map)
+      var_map[expr.variable.name] = var_idx
+      return "(lambda %s)" % inner(expr.term)
+    elif isinstance(expr, l.ApplicationExpression):
+      args = [inner(arg) for arg in expr.args]
+      return "(%s %s)" % (expr.pred.variable.name, " ".join(args))
+    elif isinstance(expr, l.IndividualVariableExpression):
+      return "$%i" % var_map[expr.variable.name]
+    elif isinstance(expr, l.ConstantExpression):
+      return expr.variable.name
+    else:
+      raise ValueError("un-handled expression component %r" % expr)
+
+  return inner(expr)
 
 
 class Ontology(object):
@@ -100,7 +124,8 @@ class Ontology(object):
     self.function_weights = function_weights
     self.variable_weight = variable_weight
 
-  EXPR_TYPES = [ApplicationExpression, ConstantExpression, IndividualVariableExpression, LambdaExpression]
+  EXPR_TYPES = [l.ApplicationExpression, l.ConstantExpression,
+                l.IndividualVariableExpression, l.LambdaExpression]
 
   def next_bound_var(self, bound_vars):
     name_length = 1 + len(bound_vars) // 26
@@ -123,7 +148,7 @@ class Ontology(object):
       return
 
     for expr_type in self.EXPR_TYPES:
-      if expr_type == ApplicationExpression and max_depth > 1:
+      if expr_type == l.ApplicationExpression and max_depth > 1:
         # Loop over functions according to their weights.
         fns_sorted = sorted(enumerate(self.function_names),
                             key=lambda val: self.function_weights[val[0]],
@@ -137,18 +162,18 @@ class Ontology(object):
             candidate = make_application(fn_name, arg_combs)
             if self._valid_application_expr(candidate):
               yield candidate
-      elif expr_type == LambdaExpression and max_depth > 1:
+      elif expr_type == l.LambdaExpression and max_depth > 1:
         bound_var = self.next_bound_var(bound_vars)
 
         results = self._iter_expressions_inner(max_depth=max_depth - 1,
                                                bound_vars=bound_vars + (bound_var,))
         for expr in results:
-          candidate = LambdaExpression(bound_var, expr)
+          candidate = l.LambdaExpression(bound_var, expr)
           if self._valid_lambda_expr(candidate):
             yield candidate
-      elif expr_type == IndividualVariableExpression:
+      elif expr_type == l.IndividualVariableExpression:
         for bound_var in bound_vars:
-          yield IndividualVariableExpression(bound_var)
+          yield l.IndividualVariableExpression(bound_var)
 
   def _valid_application_expr(self, application_expr):
     """
@@ -167,7 +192,7 @@ class Ontology(object):
     # Collect bound arguments and the body expression.
     bound_args = []
     expr = lambda_expr
-    while isinstance(expr, LambdaExpression):
+    while isinstance(expr, l.LambdaExpression):
       bound_args.append(expr.variable)
       expr = expr.term
     body = expr
@@ -177,7 +202,7 @@ class Ontology(object):
       return False
 
     # Exclude exprs with simplistic bodies.
-    if isinstance(body, IndividualVariableExpression):
+    if isinstance(body, l.IndividualVariableExpression):
       return False
 
     return True
