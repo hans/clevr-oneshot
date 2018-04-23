@@ -147,7 +147,7 @@ for sentence, scene, answer in examples:
 
     ontology = grammar_to_ontology(grammar)
 
-    lex = frontiers_to_lexicon(new_frontiers) #I think grammar not necessary
+    lex = frontiers_to_lexicon(new_frontiers, lex) #I think grammar not necessary
 
     parse_results = WeightedCCGChartParser(lex).parse(sentence)
 

@@ -61,15 +61,13 @@ def grammar_to_ontology(grammar):
 	function_names = [prim.name for prim in primitives]
 	function_defs = [prim.value for prim in primitives]
 
-	#TODO
-	#the following two lines will have to be fixed somehow
-	ontology = Ontology(function_names, function_defs, function_weights)
-	ontology.logVariable = grammar.logVariable 
+	#function_names = remove_hashtags(function_names)
 
+	ontology = Ontology(function_names, function_defs, function_weights, variable_weight=grammar.logVariable)
 	return ontology
 
 
-def extract_frontiers_from_lexicon(lex):
+def extract_frontiers_from_lexicon(lex, g):
 	frontiers = []
 	for key in lex._entries:
 
@@ -77,20 +75,25 @@ def extract_frontiers_from_lexicon(lex):
 		task = Task(key, request, [])
 
 		#the following line won't work because first input to FrontierEntry must be a Program
-		program = lambda x: Program.parse(x)
+		#need function extract_s_exp
 
-		frontier_entry_list = [FrontierEntry(program(entry.semantics()), etc) for entry in lex._entries[key]]
+		#this will likely be changed
+		program = lambda x: Program.parse(extract_s_exp(x))
+
+		#logLikelihood is 0.0 because 
+		frontier_entry_list = [FrontierEntry(program(stuff), logPrior=g.logLikelihood(tp(stuff), program(stuff)) logLikelihood=0.0) for entry in lex._entries[key]]
 
 		frontier = Frontier(frontier_entry_list, task)
 		frontiers.append(frontier)
 
 		#FrontierEntry(Program.parse(s["expression"]), logPrior=s["logprior"], logLikelihood=s["loglikelihood"])
-
+		#lexicon._entries["block"][0].weight()
+		#lexicon._entries["block"][0].semantics()
 
 	return frontiers
 
 
-def frontiers_to_lexicon(frontiers):
+def frontiers_to_lexicon(frontiers, old_lex):
 	"""
 	frontier has properties:
 		frontier.entries, a list of frontierEntry's (presumably)
@@ -107,13 +110,17 @@ def frontiers_to_lexicon(frontiers):
 	need 
 
 	"""
+	#def __init__(self, start, primitives, families, entries):
+     #   self._start = PrimitiveCategory(start)
+      #  self._primitives = primitives
+      #  self._families = families
+       # self._entries = entries
+       #deepcopy families, primitives and start
+       #see augment_lex for appending new entries 
 
-	#lexicon._entries["block"][0].weights
-	#lexicon._entries["block"][0].semantics()
+g.logLikelihood(tp,program) -> R
 
 
-
-
-	return lexicon 
+	return lex
 
 
