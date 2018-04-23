@@ -23,6 +23,15 @@ from clevros.ec_util import extract_frontiers_from_lexicon, \
     ontology_to_grammar_initial, grammar_to_ontology, frontiers_to_lexicon
 
 
+#compression params:
+topK=1
+pseudoCounts=1.0
+a=arity=0
+aic=1.0
+structurePenalty=0.001,
+backend="rust" #"pypy"
+CPUs=1
+
 # Teeny subset of CLEVR dataset :)
 scene = \
   {'directions': {'above': [0.0, 0.0, 1.0],
@@ -143,7 +152,10 @@ for sentence, scene, answer in examples:
     frontiers = extract_frontiers_from_lexicon(lex)
     
     #EC compression phase 
-    grammar, new_frontiers = induceGrammar(grammar, frontiers, extra_args) #TODO
+    grammar, new_frontiers = induceGrammar(grammar, frontiers, topK=topK, 
+                                           pseudoCounts=pseudoCounts, a=arity,
+                                           aic=aic, structurePenalty=structurePenalty,
+                                           backend=compressor, CPUs=CPUs)
 
     ontology = grammar_to_ontology(grammar)
 

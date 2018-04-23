@@ -8,29 +8,31 @@ from pprint import pprint
 
 from frozendict import frozendict
 from nltk.ccg import chart
+from nltk.ccg.api import PrimitiveCategory
+
 import numpy as np
 
 from clevros.chart import WeightedCCGChartParser
 from clevros.lexicon import Lexicon, augment_lexicon, \
     filter_lexicon_entry, augment_lexicon_scene, augment_lexicon_distant, \
     get_candidate_categories
-from clevros.logic import Ontology
+from clevros.logic import Ontology, as_ec_sexpr, read_ec_sexpr 
 from clevros.model import Model
 from clevros.perceptron import update_perceptron_batch
 from clevros.rsa import infer_listener_rsa, update_weights_rsa
+
 
 #TODO:
 #ec imports
 from ec import Grammar
 from ec import Primitive
 
+
 from ec.type import baseType
 
 tS = baseType("S")
 
-
 def convert_to_ec_type(arity):
-	#TODO
 	if arity == 0:
 		tp = tS
 	else:
@@ -100,7 +102,6 @@ def extract_frontiers_from_lexicon(lex, g):
 		for entry in lex._entries[key]:
 			assert entry.get_category_arity() == lex._entries[key][0].get_category_arity()
 
-		#TODO
 		request = convert_to_ec_type(lex._entries[key][0].get_category_arity())
 
 		task = Task(key, request, [])
@@ -141,22 +142,47 @@ def frontiers_to_lexicon(frontiers, old_lex):
 	need 
 
 	"""
+
+
+	"""
+	WARNING!!!
+	The code below assumes that compression does not reorder the FrontierEntry's of a Frontier. 
+	This might not be accurate.
+	Code may break if there are multiple entries per frontier
+	"""
+
 	lex = old_lex.clone()
-
-	
-
-
 
 	for frontier in frontiers:
 		word = frontier.task.name
 		lex._entries[word] = []
-		for entry in frontier.entries:
+		for frontier_entry, lex_entry in zip(frontier.entries, old_lex._entries[word]):
+			#frontier_entry is a FrontierEntry
+			#lex_entry is a Token
 
+			semantics = read_ec_sexpr(frontier_entry.program)
+			token = Token(word, lex_entry.categ(), semantics, lex_entry.weight())
 
+			lex._entries[word].append(token)
 
+    """
+    Class representing a token.
 
-	for token in query_tokens:  
-    	lex._entries[token] = []
+    token => category {semantics}
+    e.g. eat => S\\var[pl]/var {\\x y.eat(x,y)}
+
+    * `token` (string) word
+    * `categ` (string) syntactic type - .categ obj
+    * `weight` (float) - 
+    * `semantics` (Expression) - 
+    """
+    """
+    def __init__(self, token, categ, semantics=None, weight=1.0):
+        self._token = token
+        self._categ = categ
+        self._weight = weight
+        self._semantics = semantics
+	"""
 
 	#def __init__(self, start, primitives, families, entries):
      #   self._start = PrimitiveCategory(start)
@@ -165,9 +191,6 @@ def frontiers_to_lexicon(frontiers, old_lex):
        # self._entries = entries
        #deepcopy families, primitives and start
        #see augment_lex for appending new entries 
-
-g.logLikelihood(tp,program) -> R
-
 
 	return lex
 
