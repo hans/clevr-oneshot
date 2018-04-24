@@ -46,7 +46,7 @@ def extract_lambda(expr):
 
   def process_lambda(lambda_expr):
     # Create a new unique variable and substitute.
-    unique = unique_variable()
+    unique = l.unique_variable()
     new_expr = lambda_expr.term.replace(lambda_expr.variable, l.IndividualVariableExpression(unique))
     return unique, new_expr
 

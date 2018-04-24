@@ -21,16 +21,21 @@ from clevros.perceptron import update_perceptron_batch
 from clevros.rsa import infer_listener_rsa, update_weights_rsa
 from clevros.ec_util import extract_frontiers_from_lexicon, \
     ontology_to_grammar_initial, grammar_to_ontology, frontiers_to_lexicon
+from ec.fragmentGrammar import induceGrammar
 
+import random
+random.seed(4)
 
 #compression params:
 topK=1
 pseudoCounts=1.0
-a=arity=0
+arity=0
 aic=1.0
 structurePenalty=0.001,
-backend="rust" #"pypy"
+compressor="rust" #"pypy"
 CPUs=1
+
+
 
 # Teeny subset of CLEVR dataset :)
 scene = \
@@ -125,7 +130,7 @@ functions = {
 }
 
 
-ontology = Ontology(functions)
+ontology = Ontology(functions.keys(), functions.values(), np.zeros(len(functions)), variable_weight=0.0)
 
 grammar = ontology_to_grammar_initial(ontology)
 
@@ -149,7 +154,7 @@ for sentence, scene, answer in examples:
                                   sentence, ontology, model, answer)
 
     #Max added
-    frontiers = extract_frontiers_from_lexicon(lex)
+    frontiers = extract_frontiers_from_lexicon(lex, grammar)
     
     #EC compression phase 
     grammar, new_frontiers = induceGrammar(grammar, frontiers, topK=topK, 

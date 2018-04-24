@@ -24,11 +24,11 @@ from clevros.rsa import infer_listener_rsa, update_weights_rsa
 
 #TODO:
 #ec imports
-from ec import Grammar
-from ec import Primitive
-
-
-from ec.type import baseType
+from ec.grammar import Grammar
+from ec.task import Task
+from ec.frontier import Frontier, FrontierEntry
+from ec.type import baseType, arrow
+from ec.program import Primitive, Program
 
 tS = baseType("S")
 
@@ -36,7 +36,7 @@ def convert_to_ec_type(arity):
 	if arity == 0:
 		tp = tS
 	else:
-		tp = arrow(*[tS for range(arity + 1)])
+		tp = arrow(*[tS for _ in range(arity + 1)])
 	return tp
 
 
@@ -51,7 +51,7 @@ def ontology_to_grammar_initial(ontology):
 
 	#get a list of types for all prims
 	#we will change this when we have more sophisticated types
-	tps = [convert_to_ec_type(len(inspect.getargspec(fn).args)) for fn in ontology.function_names]
+	tps = [convert_to_ec_type(len(inspect.getargspec(fn).args)) for fn in ontology.function_defs]
 
 	#zip primitive names, types, and defs
 	zipped_ont = zip(ontology.function_names, tps, ontology.function_defs)
@@ -63,7 +63,7 @@ def ontology_to_grammar_initial(ontology):
 	productions = zip(ontology.function_weights, primitives)
 	
 	#return Grammar(logVariable, [(l, p.infer(), p) for l, p in productions])
-	grammar = Grammar.fromProductions(productions, logVariable=ontology.logVariable)
+	grammar = Grammar.fromProductions(productions, logVariable=ontology.variable_weight)
 	return grammar
 
 
@@ -84,11 +84,19 @@ def grammar_to_ontology(grammar):
 	return ontology
 
 def get_category_arity(cat):
+	#takes a category .categ() as input
 	if isinstance(cat, PrimitiveCategory):
-    	return 0
-    else:
-    	return 1 + get_category_arity(cat.arg()) \
-          	+ get_category_arity(cat.res())
+		return 0
+	else:
+		return 1 + get_category_arity(cat.arg()) \
+			+ get_category_arity(cat.res())
+
+def get_semantic_arity(cat):
+	cat_ar = get_category_arity(cat)
+	if cat_ar == 0:
+		return 1
+	else:
+		return cat_ar
 
 
 
@@ -100,20 +108,29 @@ def extract_frontiers_from_lexicon(lex, g):
 
 		#for now, assume only one type per word in lexicon:
 		for entry in lex._entries[key]:
-			assert entry.get_category_arity() == lex._entries[key][0].get_category_arity()
+			assert get_semantic_arity(entry.categ()) == get_semantic_arity(lex._entries[key][0].categ())
 
-		request = convert_to_ec_type(lex._entries[key][0].get_category_arity())
+		#print("arity:", get_semantic_arity(lex._entries[key][0].categ()))
+
+		request = convert_to_ec_type(get_semantic_arity(lex._entries[key][0].categ()))
+		#print("request:")
+		#print(request)
 
 		task = Task(key, request, [])
+		#print("key:", key)
 
 		#the following line won't work because first input to FrontierEntry must be a Program
 		#need function extract_s_exp
 
 		#this will likely be changed
-		program = lambda x: Program.parse(as_ec_sexpr(x))
+		def program(x):
+			p = Program.parse(as_ec_sexpr(x))
+			print("program:")
+			print(str(p))
+			return p
 
-		#logLikelihood is 0.0 because 
-		frontier_entry_list = [FrontierEntry(program(entry.semantics()), logPrior=g.logLikelihood(request, program(entry.semantics())) logLikelihood=0.0) for entry in lex._entries[key]]
+		#logLikelihood is 0.0 because we assume that it has parsed correctly already - may want to modify
+		frontier_entry_list = [FrontierEntry(program(entry.semantics()), logPrior=g.logLikelihood(request, program(entry.semantics())), logLikelihood=0.0) for entry in lex._entries[key]]
 
 		frontier = Frontier(frontier_entry_list, task)
 		frontiers.append(frontier)
@@ -164,8 +181,9 @@ def frontiers_to_lexicon(frontiers, old_lex):
 			token = Token(word, lex_entry.categ(), semantics, lex_entry.weight())
 
 			lex._entries[word].append(token)
+	return lex
 
-    """
+	"""
     Class representing a token.
 
     token => category {semantics}
@@ -176,7 +194,7 @@ def frontiers_to_lexicon(frontiers, old_lex):
     * `weight` (float) - 
     * `semantics` (Expression) - 
     """
-    """
+	"""
     def __init__(self, token, categ, semantics=None, weight=1.0):
         self._token = token
         self._categ = categ
@@ -192,6 +210,6 @@ def frontiers_to_lexicon(frontiers, old_lex):
        #deepcopy families, primitives and start
        #see augment_lex for appending new entries 
 
-	return lex
+
 
 
