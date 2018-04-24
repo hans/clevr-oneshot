@@ -157,7 +157,7 @@ def read_ec_sexpr(sexpr):
 
   assert len(stack) == 1
   assert len(stack[0][2]) == 1
-  return stack[0][2]
+  return stack[0][2][0]
 
 
 class Ontology(object):
