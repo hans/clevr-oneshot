@@ -16,7 +16,7 @@ from clevros.chart import WeightedCCGChartParser
 from clevros.lexicon import Lexicon, augment_lexicon, \
     filter_lexicon_entry, augment_lexicon_scene, augment_lexicon_distant, \
     get_candidate_categories, Token
-from clevros.logic import Ontology, as_ec_sexpr, read_ec_sexpr 
+from clevros.logic import Ontology, as_ec_sexpr, read_ec_sexpr
 from clevros.model import Model
 from clevros.perceptron import update_perceptron_batch
 from clevros.rsa import infer_listener_rsa, update_weights_rsa
@@ -43,9 +43,9 @@ def convert_to_ec_type(arity):
 
 def ontology_to_grammar_initial(ontology):
 	"""
-	turns an ontology into a grammar. 
-	This should only be done once per experiment. 
-	Otherwise, it will mess with the fact that EC uses the knowledge 
+	turns an ontology into a grammar.
+	This should only be done once per experiment.
+	Otherwise, it will mess with the fact that EC uses the knowledge
 	that some productions are prims and some are invented
 	"""
 
@@ -57,11 +57,11 @@ def ontology_to_grammar_initial(ontology):
 	zipped_ont = zip(ontology.function_names, tps, ontology.function_defs)
 
 	#make into prim list
-	primitives = [Primitive(name, tp, function) for name, tp, function in zipped_ont ] 
+	primitives = [Primitive(name, tp, function) for name, tp, function in zipped_ont ]
 
-	#zip into productions 
+	#zip into productions
 	productions = zip(ontology.function_weights, primitives)
-	
+
 	#return Grammar(logVariable, [(l, p.infer(), p) for l, p in productions])
 	grammar = Grammar.fromProductions(productions, logVariable=ontology.variable_weight)
 	return grammar
@@ -70,7 +70,7 @@ def ontology_to_grammar_initial(ontology):
 def grammar_to_ontology(grammar):
 	#print(grammar.productions)
 
-	#unzip productions into weights and primitives 
+	#unzip productions into weights and primitives
 	weights_and_programs = list(zip(*grammar.productions))
 	function_weights = weights_and_programs[0]
 	programs = weights_and_programs[2]
@@ -80,7 +80,7 @@ def grammar_to_ontology(grammar):
 	function_names = [prim.show("error") for prim in programs]
 
 	function_defs = []
-	#THIS IS WRONG 
+	#THIS IS WRONG
 	#TODO
 	#primitves output lambda functions, inventeds output lambdaexpressions. BAD.
 	#ontology takes python lambda functions as function_defs
@@ -91,8 +91,8 @@ def grammar_to_ontology(grammar):
 		elif prog.isInvented:
 			print("%s"%(prog.body.show(False)))
 			#want a way to read_ec_sexpr into python lambda function
-			function_defs.append(read_ec_sexpr("%s"%(prog.body.show(False)))[0])
-		else: 
+			function_defs.append(read_ec_sexpr("%s"%(prog.body.show(False))))
+		else:
 			print("not primitive or invented")
 			assert False
 
@@ -168,7 +168,7 @@ def frontiers_to_lexicon(frontiers, old_lex):
 	frontier has properties:
 		frontier.entries, a list of frontierEntry's (presumably)
 		frontier.task
-	
+
 	class FrontierEntry(object):
     def __init__(self, program, _=None, logPrior=None, logLikelihood=None, logPosterior=None):
 
@@ -177,12 +177,12 @@ def frontiers_to_lexicon(frontiers, old_lex):
 
 
    	from compressor we can see (https://github.com/ellisk42/ec/blob/480b51bb56f583ec5332608f054bf934db67cd66/fragmentGrammar.py#L396)
-	need 
+	need
 
 	"""
 	"""
 	WARNING!!!
-	The code below assumes that compression does not reorder the FrontierEntry's of a Frontier. 
+	The code below assumes that compression does not reorder the FrontierEntry's of a Frontier.
 	This might not be accurate.
 	Code may break if there are multiple entries per frontier
 	"""
@@ -196,7 +196,7 @@ def frontiers_to_lexicon(frontiers, old_lex):
 			#frontier_entry is a FrontierEntry
 			#lex_entry is a Token
 			#print("show", frontier_entry.program.show(False))
-			semantics = read_ec_sexpr(frontier_entry.program.show(False))[0]
+			semantics = read_ec_sexpr(frontier_entry.program.show(False))
 			#print("semantics", semantics)
 			token = Token(word, lex_entry.categ(), semantics, lex_entry.weight())
 
@@ -211,8 +211,8 @@ def frontiers_to_lexicon(frontiers, old_lex):
 
     * `token` (string) word
     * `categ` (string) syntactic type - .categ obj
-    * `weight` (float) - 
-    * `semantics` (Expression) - 
+    * `weight` (float) -
+    * `semantics` (Expression) -
     """
 	"""
     def __init__(self, token, categ, semantics=None, weight=1.0):
@@ -228,7 +228,7 @@ def frontiers_to_lexicon(frontiers, old_lex):
       #  self._families = families
        # self._entries = entries
        #deepcopy families, primitives and start
-       #see augment_lex for appending new entries 
+       #see augment_lex for appending new entries
 
 
 
