@@ -15,7 +15,7 @@ import numpy as np
 from clevros.chart import WeightedCCGChartParser
 from clevros.lexicon import Lexicon, augment_lexicon, \
     filter_lexicon_entry, augment_lexicon_scene, augment_lexicon_distant, \
-    get_candidate_categories
+    get_candidate_categories, Token
 from clevros.logic import Ontology, as_ec_sexpr, read_ec_sexpr 
 from clevros.model import Model
 from clevros.perceptron import update_perceptron_batch
@@ -68,15 +68,30 @@ def ontology_to_grammar_initial(ontology):
 
 
 def grammar_to_ontology(grammar):
+	#print(grammar.productions)
 
 	#unzip productions into weights and primitives 
-	weights_and_prims = zip(*grammar.productions)
-	function_weights = weights_and_prims[0]
-	primitives = weights_and_prims[1]
+	weights_and_programs = list(zip(*grammar.productions))
+	function_weights = weights_and_programs[0]
+	programs = weights_and_programs[2]
+
 
 	#names and defs
-	function_names = [prim.name for prim in primitives]
-	function_defs = [prim.value for prim in primitives]
+	function_names = [prim.show("error") for prim in programs]
+
+	function_defs = []
+	for prog in programs:
+		if prog.isPrimitive:
+			function_defs.append(prog.value)
+		elif prog.isInvented:
+			print("%s"%(prog.body.show(False)))
+			function_defs.append(read_ec_sexpr("%s"%(prog.body.show(False)))[0])
+		else: 
+			print("not primitive or invented")
+			assert False
+
+	print("function_names",function_names)
+	print("function_defs",function_defs)
 
 	#function_names = remove_hashtags(function_names)
 
@@ -125,8 +140,8 @@ def extract_frontiers_from_lexicon(lex, g):
 		#this will likely be changed
 		def program(x):
 			p = Program.parse(as_ec_sexpr(x))
-			print("program:")
-			print(str(p))
+			#print("program:")
+			#print(str(p))
 			return p
 
 		#logLikelihood is 0.0 because we assume that it has parsed correctly already - may want to modify
@@ -176,8 +191,9 @@ def frontiers_to_lexicon(frontiers, old_lex):
 		for frontier_entry, lex_entry in zip(frontier.entries, old_lex._entries[word]):
 			#frontier_entry is a FrontierEntry
 			#lex_entry is a Token
-
-			semantics = read_ec_sexpr(frontier_entry.program)
+			#print("show", frontier_entry.program.show(False))
+			semantics = read_ec_sexpr(frontier_entry.program.show(False))[0]
+			#print("semantics", semantics)
 			token = Token(word, lex_entry.categ(), semantics, lex_entry.weight())
 
 			lex._entries[word].append(token)

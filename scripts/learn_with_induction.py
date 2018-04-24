@@ -14,7 +14,7 @@ import numpy as np
 from clevros.chart import WeightedCCGChartParser
 from clevros.lexicon import Lexicon, augment_lexicon, \
     filter_lexicon_entry, augment_lexicon_scene, augment_lexicon_distant, \
-    get_candidate_categories
+    get_candidate_categories, Token
 from clevros.logic import Ontology
 from clevros.model import Model
 from clevros.perceptron import update_perceptron_batch
@@ -31,7 +31,7 @@ topK=1
 pseudoCounts=1.0
 arity=0
 aic=1.0
-structurePenalty=0.001,
+structurePenalty=0.001
 compressor="rust" #"pypy"
 CPUs=1
 
