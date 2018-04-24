@@ -75,9 +75,13 @@ def grammar_to_ontology(grammar):
 	function_weights = weights_and_programs[0]
 	programs = weights_and_programs[2]
 
+	#create ref_dict 
+
+	
 
 	#names and defs
-	function_names = [prim.show("error") for prim in programs]
+	function_names = [prog.show("error") for prog in programs]
+
 
 	function_defs = []
 	#THIS IS WRONG
@@ -102,7 +106,9 @@ def grammar_to_ontology(grammar):
 	#function_names = remove_hashtags(function_names)
 
 	ontology = Ontology(function_names, function_defs, function_weights, variable_weight=grammar.logVariable)
-	return ontology
+	return ontology, ref_dict
+
+
 
 def get_category_arity(cat):
 	#takes a category .categ() as input
@@ -130,7 +136,6 @@ def extract_frontiers_from_lexicon(lex, g):
 		#for now, assume only one type per word in lexicon:
 		for entry in lex._entries[key]:
 			assert get_semantic_arity(entry.categ()) == get_semantic_arity(lex._entries[key][0].categ())
-
 		#print("arity:", get_semantic_arity(lex._entries[key][0].categ()))
 
 		request = convert_to_ec_type(get_semantic_arity(lex._entries[key][0].categ()))
@@ -139,11 +144,9 @@ def extract_frontiers_from_lexicon(lex, g):
 
 		task = Task(key, request, [])
 		#print("key:", key)
-
 		#the following line won't work because first input to FrontierEntry must be a Program
 		#need function extract_s_exp
 
-		#this will likely be changed
 		def program(x):
 			p = Program.parse(as_ec_sexpr(x))
 			#print("program:")
@@ -155,10 +158,6 @@ def extract_frontiers_from_lexicon(lex, g):
 
 		frontier = Frontier(frontier_entry_list, task)
 		frontiers.append(frontier)
-
-		#FrontierEntry(Program.parse(s["expression"]), logPrior=s["logprior"], logLikelihood=s["loglikelihood"])
-		#lexicon._entries["block"][0].weight()
-		#lexicon._entries["block"][0].semantics()
 
 	return frontiers
 
@@ -174,7 +173,6 @@ def frontiers_to_lexicon(frontiers, old_lex):
 
 	class Task(object):
     	def __init__(self, name, request, examples, features=None, cache=False):
-
 
    	from compressor we can see (https://github.com/ellisk42/ec/blob/480b51bb56f583ec5332608f054bf934db67cd66/fragmentGrammar.py#L396)
 	need
@@ -196,6 +194,7 @@ def frontiers_to_lexicon(frontiers, old_lex):
 			#frontier_entry is a FrontierEntry
 			#lex_entry is a Token
 			#print("show", frontier_entry.program.show(False))
+
 			semantics = read_ec_sexpr(frontier_entry.program.show(False))
 			#print("semantics", semantics)
 			token = Token(word, lex_entry.categ(), semantics, lex_entry.weight())
