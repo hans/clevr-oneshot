@@ -12,10 +12,9 @@ class Model(object):
   Grounded logical evaluation model, mostly stolen from `nltk.sem.evaluate`.
   """
 
-  def __init__(self, scene, functions=None):
-    self.functions = functions or []
-
+  def __init__(self, scene, ontology):
     self.scene = scene
+    self.ontology = ontology
     self.domain = deepcopy(scene["objects"])
 
   def evaluate(self, expr):
@@ -33,6 +32,18 @@ class Model(object):
       if isinstance(function, AbstractVariableExpression):
         #It's a predicate expression ("P(x,y)"), so used uncurried arguments
         funval = self.satisfy(function, assignments)
+
+        if isinstance(funval, LambdaExpression):
+          # Function is defined in terms of other functions. Do beta reduction
+          # to get a proper program defined in terms of low-level functions.
+          program = funval(*arguments).simplify()
+
+          # The program can be arbitrarily complex, so we can't evaluate it
+          # here as normal -- need to recurse.
+          return self.satisfy(program, assignments)
+
+        # OK, if we're still here we just have a basic low-level function.
+        # Evaluate the arguments and apply.
         argvals = tuple(self.satisfy(arg, assignments) for arg in arguments)
 
         if callable(funval):
@@ -109,10 +120,11 @@ class Model(object):
     # If expr is a propositional letter 'p', 'q', etc, it could be in valuation.symbols
     # and also be an IndividualVariableExpression. We want to catch this first case.
     # So there is a procedural consequence to the ordering of clauses here:
-    if expr.variable.name in self.functions:
-      return self.functions[expr.variable.name]
+    if expr.variable.name in self.ontology.function_names:
+      idx = self.ontology.function_names.index(expr.variable.name)
+      return self.ontology.function_defs[idx]
     elif isinstance(expr, IndividualVariableExpression):
       return assignments[expr.variable.name]
     else:
       print("expr:", expr)
-      raise Undefined("Can't find a value for %s" % expr)
+      raise ValueError("Can't find a value for %s" % expr)
