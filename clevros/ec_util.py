@@ -80,11 +80,17 @@ def grammar_to_ontology(grammar):
 	function_names = [prim.show("error") for prim in programs]
 
 	function_defs = []
+	#THIS IS WRONG 
+	#TODO
+	#primitves output lambda functions, inventeds output lambdaexpressions. BAD.
+	#ontology takes python lambda functions as function_defs
 	for prog in programs:
 		if prog.isPrimitive:
 			function_defs.append(prog.value)
+
 		elif prog.isInvented:
 			print("%s"%(prog.body.show(False)))
+			#want a way to read_ec_sexpr into python lambda function
 			function_defs.append(read_ec_sexpr("%s"%(prog.body.show(False)))[0])
 		else: 
 			print("not primitive or invented")
@@ -174,8 +180,6 @@ def frontiers_to_lexicon(frontiers, old_lex):
 	need 
 
 	"""
-
-
 	"""
 	WARNING!!!
 	The code below assumes that compression does not reorder the FrontierEntry's of a Frontier. 

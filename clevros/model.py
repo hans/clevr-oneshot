@@ -114,4 +114,5 @@ class Model(object):
     elif isinstance(expr, IndividualVariableExpression):
       return assignments[expr.variable.name]
     else:
+      print("expr:", expr)
       raise Undefined("Can't find a value for %s" % expr)

@@ -148,7 +148,8 @@ for sentence, scene, answer in examples:
     print("\tNovel words: ", " ".join(query_tokens))
     query_token_syntaxes = get_candidate_categories(lex, query_tokens, sentence)
     print("\tCandidate categories:")
-    pprint(query_token_syntaxes)
+
+
 
     lex = augment_lexicon_distant(lex, query_tokens, query_token_syntaxes,
                                   sentence, ontology, model, answer)
@@ -165,8 +166,9 @@ for sentence, scene, answer in examples:
     ontology = grammar_to_ontology(grammar)
 
     lex = frontiers_to_lexicon(new_frontiers, lex) #I think grammar not necessary
-
+  
     parse_results = WeightedCCGChartParser(lex).parse(sentence)
+    #print("parse_results:", parse_results)
 
   final_sem = parse_results[0].label()[0].semantics()
 
