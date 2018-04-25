@@ -30,6 +30,8 @@ from ec.frontier import Frontier, FrontierEntry
 from ec.type import baseType, arrow
 from ec.program import Primitive, Program
 
+from collections import OrderedDict
+
 tS = baseType("S")
 
 def convert_to_ec_type(arity):
@@ -45,8 +47,7 @@ def ontology_to_grammar_initial(ontology):
 	"""
 	turns an ontology into a grammar.
 	This should only be done once per experiment.
-	Otherwise, it will mess with the fact that EC uses the knowledge
-	that some productions are prims and some are invented
+	Otherwise, it will mess with the EC classes of invented vs primitives
 	"""
 
 	#get a list of types for all prims
@@ -76,13 +77,41 @@ def grammar_to_ontology(grammar):
 	programs = weights_and_programs[2]
 
 	#create ref_dict 
+	prim_names = [prog.show("error") for prog in programs if prog.isPrimitive]
 
-	
+	prim_weights = [weight for weight,_,program in grammar.productions if program.isPrimitive]
+
+	prim_defs = [prog.value for prog in programs if prog.isPrimitive]
+
+
+
+	inv_weights = [weight for weight,_,program in grammar.productions if program.isInvented]
+
+	inv_originals = [prog.show("error") for prog in program if prog.isInvented]
+
+	assert len(inv_weights) == len(inv_originals)
+
+	inv_names = ["invented_" + str(i) for i in range(len(inv_originals))]
+
+	#no hashtags 
+	inv_defs = ["%s"%(prog.body.show(False)) for prog in programs if prog.isInvented]
+
+	defs = OrderedDict(zip(inv_names,inv_defs))
+	originals = OrderedDict(zip(inv_names,inv_originals))
+
+	while any([("#" in value) for value in defs.values()]):
+		min_depth = min([inv_def.count("(") for inv_def in inv_defs])
+		for name in inv_names:
+			if defs[name].count("(") == min_depth:
+				for n in inv_names:
+					defs[n] = defs[n].replace(originals[name], name)
+
+	inv_defs = [read_ec_sexpr(defs[name]) for name in defs]
 
 	#names and defs
-	function_names = [prog.show("error") for prog in programs]
+	
 
-
+	"""
 	function_defs = []
 	#THIS IS WRONG
 	#TODO
@@ -102,7 +131,11 @@ def grammar_to_ontology(grammar):
 
 	print("function_names",function_names)
 	print("function_defs",function_defs)
+	"""
 
+	function_names = prim_names + inv_names
+	function_defs = prim_defs + inv_names
+	function_weights = prim_weights + inv_weights
 	#function_names = remove_hashtags(function_names)
 
 	ontology = Ontology(function_names, function_defs, function_weights, variable_weight=grammar.logVariable)
