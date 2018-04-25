@@ -162,7 +162,7 @@ def grammar_to_ontology(grammar):
 	function_weights = prim_weights + inv_weights
 
 	print("def:\n",function_defs)
-	print("function_names:", function_names)
+	print("function_names:\n", function_names)
 	#function_names = remove_hashtags(function_names)
 
 	ontology = Ontology(function_names, function_defs, function_weights, variable_weight=grammar.logVariable)
