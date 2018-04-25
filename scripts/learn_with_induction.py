@@ -139,7 +139,7 @@ grammar = ontology_to_grammar_initial(ontology)
 for sentence, scene, answer in examples:
   sentence = sentence.split()
 
-  model = Model(scene, functions)
+  model = Model(scene, ontology)
   parse_results = WeightedCCGChartParser(lex).parse(sentence)
   if not parse_results:
     print("ERROR: Parse failed for sentence '%s'" % " ".join(sentence))
