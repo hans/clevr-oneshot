@@ -34,7 +34,28 @@ from collections import OrderedDict
 
 tS = baseType("S")
 
-def convert_to_ec_type(arity):
+tR = baseType("R")
+
+def convert_to_ec_type_test(fn, name):
+
+	if "pos_" in name:
+		tp = arrow(tS,tR)
+	elif name == "gt" or name == "lt":
+		tp = arrow(tR, tR, tS)
+	else:
+		arity = len(inspect.getargspec(fn).args)
+
+		if arity == 0:
+			tp = tS
+		else:
+			tp = arrow(*[tS for _ in range(arity + 1)])
+	#print("type:", tp)
+	return tp
+
+
+
+def convert_to_ec_type_vanilla(arity):
+
 	if arity == 0:
 		tp = tS
 	else:
@@ -52,7 +73,10 @@ def ontology_to_grammar_initial(ontology):
 
 	#get a list of types for all prims
 	#we will change this when we have more sophisticated types
-	tps = [convert_to_ec_type(len(inspect.getargspec(fn).args)) for fn in ontology.function_defs]
+
+	tps = [convert_to_ec_type_test(fn, name) for fn, name in zip(ontology.function_defs, ontology.function_names)]
+
+	#tps = [convert_to_ec_type_vanilla(len(inspect.getargspec(fn).args)) for fn in ontology.function_defs]
 
 	#zip primitive names, types, and defs
 	zipped_ont = zip(ontology.function_names, tps, ontology.function_defs)
@@ -108,7 +132,7 @@ def grammar_to_ontology(grammar):
 					defs[n] = defs[n].replace(originals[name], name)
 
 	inv_defs = [read_ec_sexpr(defs[name]) for name in defs]
-	print("inv_defs",inv_defs)
+	#print("inv_defs:\n",inv_defs)
 
 	#names and defs
 	"""
@@ -137,8 +161,8 @@ def grammar_to_ontology(grammar):
 	function_defs = prim_defs + inv_defs
 	function_weights = prim_weights + inv_weights
 
-	print("def",function_defs)
-	print("function_names", function_names)
+	print("def:\n",function_defs)
+	print("function_names:", function_names)
 	#function_names = remove_hashtags(function_names)
 
 	ontology = Ontology(function_names, function_defs, function_weights, variable_weight=grammar.logVariable)
@@ -175,9 +199,10 @@ def extract_frontiers_from_lexicon(lex, g, invented_name_dict=None):
 			assert get_semantic_arity(entry.categ()) == get_semantic_arity(lex._entries[key][0].categ())
 		#print("arity:", get_semantic_arity(lex._entries[key][0].categ()))
 
-		request = convert_to_ec_type(get_semantic_arity(lex._entries[key][0].categ()))
+		request = convert_to_ec_type_vanilla(get_semantic_arity(lex._entries[key][0].categ()))
 		#print("request:")
 		#print(request)
+		#print(lex._entries[key][0].categ())
 
 		task = Task(key, request, [])
 		#print("key:", key)
