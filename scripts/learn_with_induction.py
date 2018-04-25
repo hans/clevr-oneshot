@@ -167,7 +167,10 @@ for sentence, scene, answer in examples:
     ontology, invented_name_dict = grammar_to_ontology(grammar)
 
     lex = frontiers_to_lexicon(new_frontiers, lex, invented_name_dict) #I think grammar not necessary
-  
+
+    # Recreate model with the new ontology.
+    model = Model(scene, ontology)
+
     parse_results = WeightedCCGChartParser(lex).parse(sentence)
     #print("parse_results:", parse_results)
 
