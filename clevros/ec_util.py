@@ -165,7 +165,7 @@ def get_semantic_arity(cat):
 
 
 
-def extract_frontiers_from_lexicon(lex, g):
+def extract_frontiers_from_lexicon(lex, g, invented_name_dict=None):
 	frontiers = []
 	for key in lex._entries:
 
@@ -185,7 +185,12 @@ def extract_frontiers_from_lexicon(lex, g):
 		#need function extract_s_exp
 
 		def program(x):
-			p = Program.parse(as_ec_sexpr(x))
+			x = as_ec_sexpr(x)
+			if invented_name_dict:
+				for name in invented_name_dict:
+					x = x.replace(name, invented_name_dict[name])
+
+			p = Program.parse(x)
 			#print("program:")
 			#print(str(p))
 			return p

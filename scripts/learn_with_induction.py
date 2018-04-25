@@ -137,7 +137,7 @@ ontology = Ontology(list(functions.keys()), list(functions.values()),
 grammar = ontology_to_grammar_initial(ontology)
 
 #############
-
+invented_name_dict = None
 for sentence, scene, answer in examples:
   sentence = sentence.split()
 
@@ -158,7 +158,7 @@ for sentence, scene, answer in examples:
                                   sentence, ontology, model, answer)
 
     # TODO(max) document
-    frontiers = extract_frontiers_from_lexicon(lex, grammar)
+    frontiers = extract_frontiers_from_lexicon(lex, grammar, invented_name_dict=invented_name_dict)
 
     # EC compression phrase. Induce new functions using the present grammar.
     grammar, new_frontiers = induceGrammar(grammar, frontiers, topK=topK,
