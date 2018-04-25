@@ -77,6 +77,7 @@ examples = [
   ("is the sphere above the cube", scene, False),
   ("is the cube right_of the sphere", scene, False),
   ("is the sphere right_of the cube", scene, True),
+  ("is the cube below the sphere", scene, False),
 ]
 
 
