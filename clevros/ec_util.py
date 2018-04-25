@@ -108,6 +108,7 @@ def grammar_to_ontology(grammar):
 					defs[n] = defs[n].replace(originals[name], name)
 
 	inv_defs = [read_ec_sexpr(defs[name]) for name in defs]
+	print("inv_defs",inv_defs)
 
 	#names and defs
 	"""
@@ -133,11 +134,15 @@ def grammar_to_ontology(grammar):
 	"""
 
 	function_names = prim_names + inv_names
-	function_defs = prim_defs + inv_names
+	function_defs = prim_defs + inv_defs
 	function_weights = prim_weights + inv_weights
+
+	print("def",function_defs)
+	print("function_names", function_names)
 	#function_names = remove_hashtags(function_names)
 
 	ontology = Ontology(function_names, function_defs, function_weights, variable_weight=grammar.logVariable)
+
 	return ontology, originals #invented_name_dict
 
 
