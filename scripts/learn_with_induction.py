@@ -150,20 +150,23 @@ for sentence, scene, answer in examples:
     query_token_syntaxes = get_candidate_categories(lex, query_tokens, sentence)
     print("\tCandidate categories:")
 
-
-
+    # Augment the lexicon with all entries for novel words which yield the
+    # correct answer to the sentence under some parse. Restrict the search by
+    # the supported syntaxes for the novel words (`query_token_syntaxes`).
     lex = augment_lexicon_distant(lex, query_tokens, query_token_syntaxes,
                                   sentence, ontology, model, answer)
 
-    #Max added
+    # TODO(max) document
     frontiers = extract_frontiers_from_lexicon(lex, grammar)
-    
-    #EC compression phase 
-    grammar, new_frontiers = induceGrammar(grammar, frontiers, topK=topK, 
+
+    # EC compression phrase. Induce new functions using the present grammar.
+    grammar, new_frontiers = induceGrammar(grammar, frontiers, topK=topK,
                                            pseudoCounts=pseudoCounts, a=arity,
                                            aic=aic, structurePenalty=structurePenalty,
                                            backend=compressor, CPUs=CPUs)
 
+    # Convert result back to an ontology, switching to a naming scheme that
+    # plays nice with our setup here.
     ontology, invented_name_dict = grammar_to_ontology(grammar)
 
     lex = frontiers_to_lexicon(new_frontiers, lex, invented_name_dict) #I think grammar not necessary
