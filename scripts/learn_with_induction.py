@@ -130,8 +130,7 @@ functions = {
 }
 
 
-ontology = Ontology(list(functions.keys()), list(functions.values()),
-                    np.zeros(len(functions)), variable_weight=0.0)
+ontology = Ontology(functions.keys(), functions.values(), np.zeros(len(functions)), variable_weight=0.0)
 
 grammar = ontology_to_grammar_initial(ontology)
 
@@ -140,7 +139,7 @@ grammar = ontology_to_grammar_initial(ontology)
 for sentence, scene, answer in examples:
   sentence = sentence.split()
 
-  model = Model(scene, ontology)
+  model = Model(scene, functions)
   parse_results = WeightedCCGChartParser(lex).parse(sentence)
   if not parse_results:
     print("ERROR: Parse failed for sentence '%s'" % " ".join(sentence))
@@ -157,17 +156,17 @@ for sentence, scene, answer in examples:
 
     #Max added
     frontiers = extract_frontiers_from_lexicon(lex, grammar)
-
-    #EC compression phase
-    grammar, new_frontiers = induceGrammar(grammar, frontiers, topK=topK,
+    
+    #EC compression phase 
+    grammar, new_frontiers = induceGrammar(grammar, frontiers, topK=topK, 
                                            pseudoCounts=pseudoCounts, a=arity,
                                            aic=aic, structurePenalty=structurePenalty,
                                            backend=compressor, CPUs=CPUs)
 
-    ontology = grammar_to_ontology(grammar)
+    ontology, invented_name_dict = grammar_to_ontology(grammar)
 
-    lex = frontiers_to_lexicon(new_frontiers, lex) #I think grammar not necessary
-
+    lex = frontiers_to_lexicon(new_frontiers, lex, invented_name_dict) #I think grammar not necessary
+  
     parse_results = WeightedCCGChartParser(lex).parse(sentence)
     #print("parse_results:", parse_results)
 

@@ -87,7 +87,7 @@ def grammar_to_ontology(grammar):
 
 	inv_weights = [weight for weight,_,program in grammar.productions if program.isInvented]
 
-	inv_originals = [prog.show("error") for prog in program if prog.isInvented]
+	inv_originals = [prog.show("error") for prog in programs if prog.isInvented]
 
 	assert len(inv_weights) == len(inv_originals)
 
@@ -97,9 +97,10 @@ def grammar_to_ontology(grammar):
 	inv_defs = ["%s"%(prog.body.show(False)) for prog in programs if prog.isInvented]
 
 	defs = OrderedDict(zip(inv_names,inv_defs))
-	originals = OrderedDict(zip(inv_names,inv_originals))
+	#originals = OrderedDict(zip(inv_names,inv_originals))
+	originals = OrderedDict(sorted(zip(inv_names,inv_originals), key=lambda x: x[1].count("("), reverse=True))
 
-	while any([("#" in value) for value in defs.values()]):
+	while any([("#" in defs[n]) for n in defs]):
 		min_depth = min([inv_def.count("(") for inv_def in inv_defs])
 		for name in inv_names:
 			if defs[name].count("(") == min_depth:
@@ -109,8 +110,6 @@ def grammar_to_ontology(grammar):
 	inv_defs = [read_ec_sexpr(defs[name]) for name in defs]
 
 	#names and defs
-	
-
 	"""
 	function_defs = []
 	#THIS IS WRONG
@@ -139,7 +138,7 @@ def grammar_to_ontology(grammar):
 	#function_names = remove_hashtags(function_names)
 
 	ontology = Ontology(function_names, function_defs, function_weights, variable_weight=grammar.logVariable)
-	return ontology, ref_dict
+	return ontology, originals #invented_name_dict
 
 
 
@@ -195,7 +194,7 @@ def extract_frontiers_from_lexicon(lex, g):
 	return frontiers
 
 
-def frontiers_to_lexicon(frontiers, old_lex):
+def frontiers_to_lexicon(frontiers, old_lex, invented_name_dict):
 	"""
 	frontier has properties:
 		frontier.entries, a list of frontierEntry's (presumably)
@@ -228,7 +227,15 @@ def frontiers_to_lexicon(frontiers, old_lex):
 			#lex_entry is a Token
 			#print("show", frontier_entry.program.show(False))
 
-			semantics = read_ec_sexpr(frontier_entry.program.show(False))
+
+			raw_program_str = frontier_entry.program.show(False)
+			#sorting process
+			for name in invented_name_dict:
+				raw_program_str = raw_program_str.replace(invented_name_dict[name], name)
+
+
+
+			semantics = read_ec_sexpr(raw_program_str)
 			#print("semantics", semantics)
 			token = Token(word, lex_entry.categ(), semantics, lex_entry.weight())
 
