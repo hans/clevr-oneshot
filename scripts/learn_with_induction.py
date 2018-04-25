@@ -81,6 +81,17 @@ examples = [
 ]
 
 
+examples_phase2 = [
+  # TODO figure out how to represent put/place effects
+  ("put the cube left_of the sphere", scene, True),
+  ("put the sphere left_of the cube", scene, False),
+  ("put the cube above the sphere", scene, False),
+  ("put the sphere above the cube", scene, False),
+  ("place the cube left_of the sphere", scene, False),
+  ("place the sphere above the cube", scene, True),
+]
+
+
 #####################
 
 
