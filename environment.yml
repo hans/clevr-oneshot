@@ -1,23 +1,32 @@
 name: clevros
+channels:
+  - defaults
 dependencies:
-- blas=1.1=openblas
-- ca-certificates=2018.4.16=0
-- certifi=2016.2.28=py35_0
-- libgfortran=3.0.0=1
-- ncurses=5.9=10
-- numpy=1.14.2=py35_blas_openblas_200
-- openblas=0.2.20=7
-- openssl=1.0.2l=0
-- pip=9.0.1=py35_1
-- python=3.5.5=1
-- readline=7.0=0
-- setuptools=36.4.0=py35_1
-- sqlite=3.20.1=0
-- tk=8.6.6=0
-- wheel=0.29.0=py35_0
-- xz=5.2.3=0
-- zlib=1.2.11=0
-- pip:
-  - frozendict==1.2
-  - six==1.11.0
+  - ca-certificates=2018.03.07=0
+  - certifi=2018.4.16=py36_0
+  - intel-openmp=2018.0.0=8
+  - libedit=3.1=heed3624_0
+  - libffi=3.2.1=hd88cf55_4
+  - libgcc-ng=7.2.0=hdf63c60_3
+  - libgfortran-ng=7.2.0=hdf63c60_3
+  - libstdcxx-ng=7.2.0=hdf63c60_3
+  - mkl=2018.0.2=1
+  - mkl_fft=1.0.1=py36h3010b51_0
+  - mkl_random=1.0.1=py36h629b387_0
+  - ncurses=6.0=h9df7e31_2
+  - numpy=1.14.2=py36hdbf6ddf_1
+  - openssl=1.0.2o=h20670df_0
+  - pip=9.0.3=py36_0
+  - python=3.6.5=hc3d631a_0
+  - readline=7.0=ha6073c6_4
+  - setuptools=39.0.1=py36_0
+  - six=1.11.0=py36h372c433_1
+  - sqlite=3.23.1=he433501_0
+  - tk=8.6.7=hc745277_3
+  - wheel=0.31.0=py36_0
+  - xz=5.2.3=h5e939de_4
+  - zlib=1.2.11=ha838bed_2
+  - pip:
+    - frozendict==1.2
+prefix: /home/jon/anaconda3/envs/clevros
 
