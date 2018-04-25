@@ -130,7 +130,8 @@ functions = {
 }
 
 
-ontology = Ontology(functions.keys(), functions.values(), np.zeros(len(functions)), variable_weight=0.0)
+ontology = Ontology(list(functions.keys()), list(functions.values()),
+                    np.zeros(len(functions)), variable_weight=0.0)
 
 grammar = ontology_to_grammar_initial(ontology)
 
