@@ -98,13 +98,15 @@ lex = Lexicon.fromstring(r"""
   is => S/Nd {\x.x}
 
   the => Nd/N {\x.unique(x)}
+ 
+  below => Nd\Nd/Nd {\b.\a.lt(pos_z(a),pos_z(b))}
+  behind =>  Nd\Nd/Nd {\b.\a.gt(pos_y(a),pos_y(b))}
 
+ 
+  above => Nd\Nd/Nd {\b.\a.gt(pos_z(a),pos_z(b))}  
   left_of => Nd\Nd/Nd {\b.\a.lt(pos_x(a),pos_x(b))}
-  above => Nd\Nd/Nd {\b.\a.gt(pos_z(a),pos_z(b))}
   in_front_of => Nd\Nd/Nd {\b.\a.lt(pos_y(a),pos_y(b))}
   """, include_semantics=semantics)
-
-
 
 def fn_unique(xs):
   true_xs = [x for x, matches in xs.items() if matches]
