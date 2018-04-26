@@ -50,8 +50,8 @@ scene = \
  'objects': [
              frozendict(
                {'3d_coords': (2.1141371726989746,
-                            -0.57520514,
-                            0.699999988079071),
+                            1.0,
+                            2),
               'color': 'yellow',
               'material': 'metal',
               'pixel_coords': (291, 180, 9.147775650024414),
@@ -59,7 +59,7 @@ scene = \
               'shape': 'sphere',
               'size': 'large'}),
              frozendict({'3d_coords': (-2.3854215145111084,
-                            -0.57520514,
+                            0.0,
                             0.699999988079071),
               'color': 'blue',
               'material': 'rubber',
@@ -74,10 +74,13 @@ examples = [
   ("is the cube left_of the sphere", scene, True),
   ("is the sphere left_of the cube", scene, False),
   ("is the cube above the sphere", scene, False),
-  ("is the sphere above the cube", scene, False),
+  ("is the sphere above the cube", scene, True),
   ("is the cube right_of the sphere", scene, False),
   ("is the sphere right_of the cube", scene, True),
-  ("is the cube below the sphere", scene, False),
+  ("is the cube below the sphere", scene, True),
+  ("is the sphere below the cube", scene, False),
+  ("is the sphere behind the cube", scene, True),
+  ("is the cube behind the sphere", scene, False),
 ]
 
 
@@ -97,7 +100,8 @@ lex = Lexicon.fromstring(r"""
   the => Nd/N {\x.unique(x)}
 
   left_of => Nd\Nd/Nd {\b.\a.lt(pos_x(a),pos_x(b))}
-  above => Nd\Nd/Nd {\b.\a.gt(pos_y(a),pos_y(b))}
+  above => Nd\Nd/Nd {\b.\a.gt(pos_z(a),pos_z(b))}
+  in_front_of => Nd\Nd/Nd {\b.\a.lt(pos_y(a),pos_y(b))}
   """, include_semantics=semantics)
 
 
@@ -180,6 +184,6 @@ for sentence, scene, answer in examples:
 
   final_sem = parse_results[0].label()[0].semantics()
 
-  print(" ".join(sentence), final_sem)
+  print(" ".join(sentence), len(parse_results), final_sem)
   print("\t", model.evaluate(final_sem))
 
