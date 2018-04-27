@@ -40,8 +40,8 @@ def convert_to_ec_type_test(fn, name):
 
 	if "ax_" in name:
 		tp = tR
-	elif name == "cmp_pos"
-		tp = arrow(tR, tS, tS)
+	elif name == "cmp_pos":
+		tp = arrow(tR, tS, tS, tS)
 	else:
 		arity = len(inspect.getargspec(fn).args)
 
