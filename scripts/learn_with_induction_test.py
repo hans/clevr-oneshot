@@ -27,11 +27,11 @@ import random
 random.seed(4)
 
 #compression params:
-topK=1
+topK=10
 pseudoCounts=1.0
 arity=0
 aic=1.0
-structurePenalty=0.001
+structurePenalty=0.00001
 compressor="rust" #"pypy"
 CPUs=1
 

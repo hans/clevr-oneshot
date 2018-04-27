@@ -52,8 +52,6 @@ def convert_to_ec_type_test(fn, name):
 	#print("type:", tp)
 	return tp
 
-
-
 def convert_to_ec_type_vanilla(arity):
 
 	if arity == 0:
@@ -61,8 +59,6 @@ def convert_to_ec_type_vanilla(arity):
 	else:
 		tp = arrow(*[tS for _ in range(arity + 1)])
 	return tp
-
-
 
 def ontology_to_grammar_initial(ontology):
 	"""
@@ -74,9 +70,9 @@ def ontology_to_grammar_initial(ontology):
 	#get a list of types for all prims
 	#we will change this when we have more sophisticated types
 
-	tps = [convert_to_ec_type_test(fn, name) for fn, name in zip(ontology.function_defs, ontology.function_names)]
+	#tps = [convert_to_ec_type_test(fn, name) for fn, name in zip(ontology.function_defs, ontology.function_names)]
 
-	#tps = [convert_to_ec_type_vanilla(len(inspect.getargspec(fn).args)) for fn in ontology.function_defs]
+	tps = [convert_to_ec_type_vanilla(len(inspect.getargspec(fn).args)) for fn in ontology.function_defs]
 
 	#zip primitive names, types, and defs
 	zipped_ont = zip(ontology.function_names, tps, ontology.function_defs)
