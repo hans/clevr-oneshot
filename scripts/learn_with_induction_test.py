@@ -98,15 +98,70 @@ lex = Lexicon.fromstring(r"""
   is => S/Nd {\x.x}
 
   the => Nd/N {\x.unique(x)}
- 
+
   below => Nd\Nd/Nd {\b.\a.lt(pos_z(a),pos_z(b))}
   behind =>  Nd\Nd/Nd {\b.\a.lt(pos_y(b),pos_y(a))}
 
-  right_of => Nd\Nd/Nd {\b.\a.lt(pos_x(a),pos_x(b))}      
-  above => Nd\Nd/Nd {\b.\a.lt(pos_z(b),pos_z(a))}  
+  right_of => Nd\Nd/Nd {\b.\a.lt(pos_x(a),pos_x(b))}
+  above => Nd\Nd/Nd {\b.\a.lt(pos_z(b),pos_z(a))}
+  baz => Nd\Nd/Nd {\b.\a.lt(pos_z(b),pos_z(a))}
   left_of => Nd\Nd/Nd {\b.\a.lt(pos_x(a),pos_x(b))}
+  bar => Nd\Nd/Nd {\b.\a.lt(pos_x(a),pos_x(b))}
   in_front_of => Nd\Nd/Nd {\b.\a.lt(pos_y(a),pos_y(b))}
+  foo => Nd\Nd/Nd {\b.\a.lt(pos_y(a),pos_y(b))}
+
+
   """, include_semantics=semantics)
+
+lex2 = Lexicon.fromstring(r"""
+  :- S, Nd, N
+
+  below2 => Nd\Nd/Nd {\b.\a.gt(pos_z(a),pos_z(b))}
+  behind2 =>  Nd\Nd/Nd {\b.\a.gt(pos_y(b),pos_y(a))}
+
+  right_of2 => Nd\Nd/Nd {\b.\a.gt(pos_x(a),pos_x(b))}
+  above2 => Nd\Nd/Nd {\b.\a.gt(pos_z(b),pos_z(a))}
+  baz2 => Nd\Nd/Nd {\b.\a.gt(pos_z(b),pos_z(a))}
+  left_of2 => Nd\Nd/Nd {\b.\a.gt(pos_x(a),pos_x(b))}
+  bar2 => Nd\Nd/Nd {\b.\a.gt(pos_x(a),pos_x(b))}
+  in_front_of2 => Nd\Nd/Nd {\b.\a.gt(pos_y(a),pos_y(b))}
+  foo2 => Nd\Nd/Nd {\b.\a.gt(pos_y(a),pos_y(b))}
+
+  right_of3 => Nd\Nd/Nd {\b.\a.gt(pos_x(a),pos_x(b))}
+  above3 => Nd\Nd/Nd {\b.\a.gt(pos_z(b),pos_z(a))}
+  baz3 => Nd\Nd/Nd {\b.\a.gt(pos_z(b),pos_z(a))}
+  left_of3 => Nd\Nd/Nd {\b.\a.gt(pos_x(a),pos_x(b))}
+  bar3 => Nd\Nd/Nd {\b.\a.gt(pos_x(a),pos_x(b))}
+  in_front_of3 => Nd\Nd/Nd {\b.\a.gt(pos_y(a),pos_y(b))}
+  foo3 => Nd\Nd/Nd {\b.\a.gt(pos_y(a),pos_y(b))}
+
+  """, include_semantics=True)
+
+lex3 = Lexicon.fromstring(r"""
+  :- S, Nd, N
+
+  below4 => Nd\Nd/Nd {\b.\a.gt(pos_z(a),pos_z(b))}
+  behind4 =>  Nd\Nd/Nd {\b.\a.gt(pos_y(b),pos_y(a))}
+
+  right_of4 => Nd\Nd/Nd {\b.\a.gt(pos_x(a),pos_x(b))}
+  above4 => Nd\Nd/Nd {\b.\a.gt(pos_z(b),pos_z(a))}
+  baz4 => Nd\Nd/Nd {\b.\a.gt(pos_z(b),pos_z(a))}
+  left_of4 => Nd\Nd/Nd {\b.\a.gt(pos_x(a),pos_x(b))}
+  bar4 => Nd\Nd/Nd {\b.\a.gt(pos_x(a),pos_x(b))}
+  in_front_of4 => Nd\Nd/Nd {\b.\a.gt(pos_y(a),pos_y(b))}
+  foo4 => Nd\Nd/Nd {\b.\a.gt(pos_y(a),pos_y(b))}
+
+  right_of5 => Nd\Nd/Nd {\b.\a.lt(pos_x(a),pos_x(b))}
+  above5 => Nd\Nd/Nd {\b.\a.lt(pos_z(b),pos_z(a))}
+  baz5 => Nd\Nd/Nd {\b.\a.lt(pos_z(b),pos_z(a))}
+  left_of5 => Nd\Nd/Nd {\b.\a.lt(pos_x(a),pos_x(b))}
+  bar5 => Nd\Nd/Nd {\b.\a.lt(pos_x(a),pos_x(b))}
+  in_front_of5 => Nd\Nd/Nd {\b.\a.lt(pos_y(a),pos_y(b))}
+  foo5 => Nd\Nd/Nd {\b.\a.lt(pos_y(a),pos_y(b))}
+
+  """, include_semantics=True)
+
+
 
 def fn_unique(xs):
   true_xs = [x for x, matches in xs.items() if matches]
@@ -138,14 +193,23 @@ functions = {
 
 
 ontology = Ontology(list(functions.keys()), list(functions.values()),
-                    [ 0. for _ in range(len(functions))], variable_weight=0.0)
+                    [ 0. for _ in range(len(functions))], variable_weight=0.1)
 
 grammar = ontology_to_grammar_initial(ontology)
 
 #############
 invented_name_dict = None
-for sentence, scene, answer in examples:
+for i, (sentence, scene, answer) in enumerate(examples):
   sentence = sentence.split()
+
+  if i == 1:
+    print("========Adding entries for 1")
+    for entry, values in lex2._entries.items():
+      lex._entries[entry] = values
+  elif i == 2:
+    print("========Adding entries for 2")
+    for entry, values in lex3._entries.items():
+      lex._entries[entry] = values
 
   model = Model(scene, ontology)
   parse_results = WeightedCCGChartParser(lex).parse(sentence)
