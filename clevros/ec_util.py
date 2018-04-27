@@ -38,10 +38,10 @@ tR = baseType("R")
 
 def convert_to_ec_type_test(fn, name):
 
-	if "pos_" in name:
-		tp = arrow(tS,tR)
-	elif name == "gt" or name == "lt":
-		tp = arrow(tR, tR, tS)
+	if "ax_" in name:
+		tp = tR
+	elif name == "cmp_pos"
+		tp = arrow(tR, tS, tS)
 	else:
 		arity = len(inspect.getargspec(fn).args)
 
@@ -70,9 +70,9 @@ def ontology_to_grammar_initial(ontology):
 	#get a list of types for all prims
 	#we will change this when we have more sophisticated types
 
-	#tps = [convert_to_ec_type_test(fn, name) for fn, name in zip(ontology.function_defs, ontology.function_names)]
+	tps = [convert_to_ec_type_test(fn, name) for fn, name in zip(ontology.function_defs, ontology.function_names)]
 
-	tps = [convert_to_ec_type_vanilla(len(inspect.getargspec(fn).args)) for fn in ontology.function_defs]
+	#tps = [convert_to_ec_type_vanilla(len(inspect.getargspec(fn).args)) for fn in ontology.function_defs]
 
 	#zip primitive names, types, and defs
 	zipped_ont = zip(ontology.function_names, tps, ontology.function_defs)
