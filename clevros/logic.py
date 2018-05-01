@@ -31,6 +31,14 @@ class Function(object):
   def arity(self):
     return len(self.type) - 1
 
+  @property
+  def arg_types(self):
+    return self.type[:-1]
+
+  @property
+  def return_type(self):
+    return self.type[-1]
+
   def __str__(self):
     return "function %s : %s" % (self.name, " -> ".join(map(str, self.type)))
 
@@ -223,11 +231,27 @@ class Ontology(object):
 
     return ret
 
-  @functools.lru_cache(maxsize=None)
+  #@functools.lru_cache(maxsize=None)
   @listify
-  def _iter_expressions_inner(self, max_depth, bound_vars):
+  def _iter_expressions_inner(self, max_depth, bound_vars,
+                              type_request=None):
+    """
+    Enumerate all legal expressions.
+
+    Arguments:
+      max_depth: Maximum tree depth to traverse.
+      bound_vars: Bound variables (and their types) in the parent context. The
+        returned expressions may reference these variables. List of `(name,
+        type)` tuples.
+      type_request: Optional requested type of the expression. This helps
+        greatly restrict the space of enumerations when the type system is
+        strong.
+    """
     if max_depth == 0:
       return
+
+    if type_request is not None and len(type_request) == 1:
+      type_request = type_request[0]
 
     for expr_type in self.EXPR_TYPES:
       if expr_type == l.ApplicationExpression and max_depth > 1:
@@ -236,29 +260,70 @@ class Ontology(object):
                             key=lambda fn: fn.weight,
                             reverse=True)
         for fn in fns_sorted:
+          # If there is a present type request, only consider functions with
+          # the correct return type.
+          # print("\t" * (6 - max_depth), fn.name, fn.return_type, " // request: ", type_request, bound_vars)
+          if type_request is not None and fn.return_type != type_request:
+            continue
+
           if fn.arity == 0:
             # 0-arity functions are represented in the logic as
             # `ConstantExpression`s.
             yield l.ConstantExpression(l.Variable(fn.name))
           else:
-            sub_args = self._iter_expressions_inner(max_depth=max_depth - 1,
-                                                    bound_vars=bound_vars)
+            # print("\t" * (6 - max_depth), fn, fn.arg_types)
+            sub_args = []
+            for i, arg_type_request in enumerate(fn.arg_types):
+              # print("\t" * (6 - max_depth + 1), "ARGUMENT %i (max_depth %i)" % (i, max_depth - 1))
+              sub_args.append(
+                  self._iter_expressions_inner(max_depth=max_depth - 1,
+                                               bound_vars=bound_vars,
+                                               type_request=arg_type_request))
 
-            for arg_combs in itertools.product(sub_args, repeat=fn.arity):
+            for arg_combs in itertools.product(*sub_args):
               candidate = make_application(fn.name, arg_combs)
               if self._valid_application_expr(candidate):
                 yield candidate
       elif expr_type == l.LambdaExpression and max_depth > 1:
-        bound_var = next_bound_var(bound_vars)
+        for bound_var_type in self.types:
+          bound_var = next_bound_var(bound_vars)
+          subexpr_bound_vars = bound_vars + ((bound_var, bound_var_type),)
 
-        results = self._iter_expressions_inner(max_depth=max_depth - 1,
-                                               bound_vars=bound_vars + (bound_var,))
-        for expr in results:
-          candidate = l.LambdaExpression(bound_var, expr)
-          if self._valid_lambda_expr(candidate):
-            yield candidate
+          subexpr_type_requests = []
+          if type_request is None:
+            subexpr_type_requests = [None]
+          else:
+            if not isinstance(type_request, tuple):
+              type_request = (type_request,)
+
+            # Basic case: the variable is used as one of the existing
+            # arguments of a target subexpression.
+            subexpr_type_requests.extend([type_request[:i] + type_request[i + 1:]
+                                          for i, type_i in enumerate(type_request)
+                                          if type_i == bound_var_type])
+
+            # The subexpression might take this variable as an additional
+            # argument in any position. We have to enumerate all possibilities
+            # -- yikes!
+            for insertion_point in range(len(type_request)):
+              subexpr_type_requests.append(type_request[:insertion_point] + (bound_var_type,)
+                  + type_request[insertion_point:])
+            # print("\t" * (6-max_depth), "λ %s :: %s" % (bound_var, bound_var_type), type_request, subexpr_type_requests)
+            # print("\t" * (6-max_depth), "Now recursing with max_depth=%i" % (max_depth - 1))
+
+          for subexpr_type_request in subexpr_type_requests:
+            results = self._iter_expressions_inner(max_depth=max_depth - 1,
+                                                    bound_vars=subexpr_bound_vars,
+                                                    type_request=subexpr_type_request)
+            for expr in results:
+              candidate = l.LambdaExpression(bound_var, expr)
+              if self._valid_lambda_expr(candidate):
+                yield candidate
       elif expr_type == l.IndividualVariableExpression:
-        for bound_var in bound_vars:
+        for bound_var, bound_var_type in bound_vars:
+          if type_request is not None and bound_var_type != type_request:
+            continue
+
           yield l.IndividualVariableExpression(bound_var)
 
   def _valid_application_expr(self, application_expr):
