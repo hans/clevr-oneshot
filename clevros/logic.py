@@ -1,3 +1,4 @@
+# -*- coding: utf-8
 """
 Functions for dealing with a logical language.
 """
@@ -324,9 +325,9 @@ class Ontology(object):
                                                     type_request=subexpr_type_request)
             for expr in results:
               candidate = l.LambdaExpression(bound_var, expr)
-              valid = self._valid_lambda_expr(candidate)
+              valid = self._valid_lambda_expr(candidate, bound_vars)
               print("\t" * (6 - max_depth), "valid lambda %s? %s" % (candidate, valid))
-              if self._valid_lambda_expr(candidate):
+              if self._valid_lambda_expr(candidate, bound_vars):
                 yield candidate
       elif expr_type == l.IndividualVariableExpression:
         for bound_var, bound_var_type in bound_vars:
@@ -345,10 +346,14 @@ class Ontology(object):
     # TODO check type consistency
     return True
 
-  def _valid_lambda_expr(self, lambda_expr):
+  def _valid_lambda_expr(self, lambda_expr, ctx_bound_vars):
     """
     Check whether this `LambdaExpression` should be considered when enumerating
     programs.
+
+    Arguments:
+      lambda_expr: `LambdaExpression`
+      ctx_bound_vars: Bound variables from the containing context
     """
 
     # TODO fails on \a b.ltzero(cmp_pos(ax_x,a,b))
@@ -362,7 +367,8 @@ class Ontology(object):
     body = expr
 
     # Exclude exprs which do not use all of their bound arguments.
-    if set(bound_args) != set(body.variables()):
+    available_vars = set(bound_args) | set([v for v, _ in ctx_bound_vars])
+    if available_vars != set(body.variables()):
       return False
 
     # Exclude exprs with simplistic bodies.
