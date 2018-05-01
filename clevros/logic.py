@@ -232,7 +232,7 @@ class Ontology(object):
 
     return ret
 
-  #@functools.lru_cache(maxsize=None)
+  @functools.lru_cache(maxsize=None)
   @listify
   def _iter_expressions_inner(self, max_depth, bound_vars,
                               type_request=None):
