@@ -254,33 +254,30 @@ class Ontology(object):
     if type_request is not None and len(type_request) == 1:
       type_request = type_request[0]
 
-    # DEV
-    expr_types = self.EXPR_TYPES
-    if max_depth in [5, 6]:
-      expr_types = [l.LambdaExpression]
-
-    for expr_type in expr_types:
+    for expr_type in self.EXPR_TYPES:
       if expr_type == l.ApplicationExpression and max_depth > 1:
         # Loop over functions according to their weights.
         fns_sorted = sorted(self.functions_dict.values(),
                             key=lambda fn: fn.weight,
                             reverse=True)
+
         for fn in fns_sorted:
           # If there is a present type request, only consider functions with
           # the correct return type.
-          print("\t" * (6 - max_depth), fn.name, fn.return_type, " // request: ", type_request, bound_vars)
+          # print("\t" * (6 - max_depth), fn.name, fn.return_type, " // request: ", type_request, bound_vars)
           if type_request is not None and fn.return_type != type_request:
             continue
 
           if fn.arity == 0:
             # 0-arity functions are represented in the logic as
             # `ConstantExpression`s.
+            # print("\t" * (6 - max_depth + 1), "yielding const ", fn.name)
             yield l.ConstantExpression(l.Variable(fn.name))
           else:
-            print("\t" * (6 - max_depth), fn, fn.arg_types)
+            # print("\t" * (6 - max_depth), fn, fn.arg_types)
             sub_args = []
             for i, arg_type_request in enumerate(fn.arg_types):
-              print("\t" * (6 - max_depth + 1), "ARGUMENT %i (max_depth %i)" % (i, max_depth - 1))
+              # print("\t" * (6 - max_depth + 1), "ARGUMENT %i (max_depth %i)" % (i, max_depth - 1))
               sub_args.append(
                   self._iter_expressions_inner(max_depth=max_depth - 1,
                                                bound_vars=bound_vars,
@@ -289,7 +286,7 @@ class Ontology(object):
             for arg_combs in itertools.product(*sub_args):
               candidate = make_application(fn.name, arg_combs)
               valid = self._valid_application_expr(candidate)
-              print("\t" * (6 - max_depth + 1), "valid %s? %s" % (candidate, valid))
+              # print("\t" * (6 - max_depth + 1), "valid %s? %s" % (candidate, valid))
               if self._valid_application_expr(candidate):
                 yield candidate
       elif expr_type == l.LambdaExpression and max_depth > 1:
@@ -316,8 +313,8 @@ class Ontology(object):
             for insertion_point in range(len(type_request)):
               subexpr_type_requests.append(type_request[:insertion_point] + (bound_var_type,)
                   + type_request[insertion_point:])
-          print("\t" * (6-max_depth), "λ %s :: %s" % (bound_var, bound_var_type), type_request, subexpr_type_requests)
-          print("\t" * (6-max_depth), "Now recursing with max_depth=%i" % (max_depth - 1))
+          # print("\t" * (6-max_depth), "λ %s :: %s" % (bound_var, bound_var_type), type_request, subexpr_type_requests)
+          # print("\t" * (6-max_depth), "Now recursing with max_depth=%i" % (max_depth - 1))
 
           for subexpr_type_request in subexpr_type_requests:
             results = self._iter_expressions_inner(max_depth=max_depth - 1,
@@ -326,7 +323,7 @@ class Ontology(object):
             for expr in results:
               candidate = l.LambdaExpression(bound_var, expr)
               valid = self._valid_lambda_expr(candidate, bound_vars)
-              print("\t" * (6 - max_depth), "valid lambda %s? %s" % (candidate, valid))
+              # print("\t" * (6 - max_depth), "valid lambda %s? %s" % (candidate, valid))
               if self._valid_lambda_expr(candidate, bound_vars):
                 yield candidate
       elif expr_type == l.IndividualVariableExpression:
@@ -334,7 +331,7 @@ class Ontology(object):
           if type_request is not None and bound_var_type != type_request:
             continue
 
-          print("\t" * (6-max_depth), "var %s" % bound_var)
+          # print("\t" * (6-max_depth), "var %s" % bound_var)
 
           yield l.IndividualVariableExpression(bound_var)
 
