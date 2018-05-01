@@ -259,7 +259,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
             try:
               pred_answer = model.evaluate(semantics)
-            except TypeError:
+            except (TypeError, AttributeError):
               # Type inconsistency. TODO catch this in the iter_expression stage.
               continue
             except AssertionError:
@@ -271,6 +271,8 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
               successes[token].append(Token(token, category, expr))
 
   for token in query_tokens:
+    if not successes[token]:
+      raise RuntimeError("Failed to derive any meanings for token %s." % token)
     lex._entries[token] = successes[token]
 
   return lex

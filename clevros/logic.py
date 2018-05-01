@@ -209,13 +209,19 @@ class Ontology(object):
                             reverse=True)
         for idx, fn_name in fns_sorted:
           arity = self.function_arities[idx]
-          sub_args = self._iter_expressions_inner(max_depth=max_depth - 1,
-                                                  bound_vars=bound_vars)
 
-          for arg_combs in itertools.product(sub_args, repeat=arity):
-            candidate = make_application(fn_name, arg_combs)
-            if self._valid_application_expr(candidate):
-              yield candidate
+          if arity == 0:
+            # 0-arity functions are represented in the logic as
+            # `ConstantExpression`s.
+            yield l.ConstantExpression(l.Variable(fn_name))
+          else:
+            sub_args = self._iter_expressions_inner(max_depth=max_depth - 1,
+                                                    bound_vars=bound_vars)
+
+            for arg_combs in itertools.product(sub_args, repeat=arity):
+              candidate = make_application(fn_name, arg_combs)
+              if self._valid_application_expr(candidate):
+                yield candidate
       elif expr_type == l.LambdaExpression and max_depth > 1:
         bound_var = next_bound_var(bound_vars)
 

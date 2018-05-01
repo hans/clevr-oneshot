@@ -98,38 +98,29 @@ lex = Lexicon.fromstring(r"""
   is => S/Nd {\x.x}
 
   the => Nd/N {\x.unique(x)}
- 
-  below => Nd\Nd/Nd {\b.\a.lt(pos_z(a),pos_z(b))}
-  behind =>  Nd\Nd/Nd {\b.\a.gt(pos_y(a),pos_y(b))}
 
- 
-  above => Nd\Nd/Nd {\b.\a.gt(pos_z(a),pos_z(b))}  
-  left_of => Nd\Nd/Nd {\b.\a.lt(pos_x(a),pos_x(b))}
-  in_front_of => Nd\Nd/Nd {\b.\a.lt(pos_y(a),pos_y(b))}
+  below => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_z,a,b))}
+  behind =>  Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_y,b,a))}
+
+  above => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_z,a,b))}
+  left_of => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_x,a,b))}
+  in_front_of => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_y,a,b))}
   """, include_semantics=semantics)
+
 
 def fn_unique(xs):
   true_xs = [x for x, matches in xs.items() if matches]
   assert len(true_xs) == 1
   return true_xs[0]
 
-def fn_lt(x, y):
-  assert isinstance(x, numbers.Number) and not isinstance(x, bool)
-  assert isinstance(y, numbers.Number) and not isinstance(y, bool)
-  return x < y
-
-def fn_gt(x, y):
-  assert isinstance(x, numbers.Number) and not isinstance(x, bool)
-  assert isinstance(y, numbers.Number) and not isinstance(y, bool)
-  return x > y
-
-
 functions = {
-  "lt": fn_lt,
-  "gt": fn_gt,
-  "pos_x": lambda a: a["3d_coords"][0],
-  "pos_y": lambda a: a["3d_coords"][1],
-  "pos_z": lambda a: a["3d_coords"][2],
+  "cmp_pos": lambda ax, a, b: a["3d_coords"][ax()] - b["3d_coords"][ax()],
+  "ltzero": lambda x: x < 0,
+
+  "ax_x": lambda: 0,
+  "ax_y": lambda: 1,
+  "ax_z": lambda: 2,
+
   "unique": fn_unique,
 
   "cube": lambda x: x["shape"] == "cube",
@@ -155,7 +146,7 @@ for sentence, scene, answer in examples:
     query_tokens = [word for word in sentence if not lex._entries.get(word, [])]
     print("\tNovel words: ", " ".join(query_tokens))
     query_token_syntaxes = get_candidate_categories(lex, query_tokens, sentence)
-    print("\tCandidate categories:")
+    print("\tCandidate categories:", query_token_syntaxes)
 
     # Augment the lexicon with all entries for novel words which yield the
     # correct answer to the sentence under some parse. Restrict the search by
