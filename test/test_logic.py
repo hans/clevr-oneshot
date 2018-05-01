@@ -54,5 +54,17 @@ def test_valid_lambda_expr():
 
 def test_typecheck():
   ontology = _make_mock_ontology()
-  expr = Expression.fromstring(r"ltzero(cmp_pos(ax_x,unique(\x.sphere(x)),unique(\y.cube(y))))")
-  expr.typecheck(ontology._make_nltk_type_signature())
+  signature = ontology._make_nltk_type_signature()
+
+  def do_test(expr):
+    expr = Expression.fromstring(expr)
+    expr.typecheck(signature)
+    print(expr.type)
+
+  exprs = [
+      r"ltzero(cmp_pos(ax_x,unique(\x.sphere(x)),unique(\y.cube(y))))",
+      r"\a b.ltzero(cmp_pos(ax_x,a,b))"
+  ]
+
+  for expr in exprs:
+    yield do_test, expr

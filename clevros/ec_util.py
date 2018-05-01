@@ -118,6 +118,7 @@ def grammar_to_ontology(grammar):
 					defs[n] = defs[n].replace(originals[name], name)
 
 	inv_defs = [read_ec_sexpr(defs[name]) for name in defs]
+	# TODO do type inference
 	#print("inv_defs:\n",inv_defs)
 
 	#names and defs
