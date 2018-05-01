@@ -1,6 +1,6 @@
 from nose.tools import *
 
-from nltk.sem.logic import Expression
+from nltk.sem.logic import Expression, Variable
 
 from clevros.logic import *
 
@@ -48,5 +48,11 @@ def test_valid_lambda_expr():
   Regression test: valid_lambda_expr was rejecting this good sub-expression at c720b4
   """
   ontology = _make_mock_ontology()
-  eq_(ontology._valid_lambda_expr(Expression.fromstring(r"\b.ltzero(cmp_pos(ax_x,a,b))"), bound_vars=()), False)
-  eq_(ontology._valid_lambda_expr(Expression.fromstring(r"\b.ltzero(cmp_pos(ax_x,a,b))"), bound_vars=(('a', None),)), True)
+  eq_(ontology._valid_lambda_expr(Expression.fromstring(r"\b.ltzero(cmp_pos(ax_x,a,b))"), ctx_bound_vars=()), False)
+  eq_(ontology._valid_lambda_expr(Expression.fromstring(r"\b.ltzero(cmp_pos(ax_x,a,b))"), ctx_bound_vars=((Variable('a'), None),)), True)
+
+
+def test_typecheck():
+  ontology = _make_mock_ontology()
+  expr = Expression.fromstring(r"ltzero(cmp_pos(ax_x,unique(\x.sphere(x)),unique(\y.cube(y))))")
+  expr.typecheck(ontology._make_nltk_type_signature())

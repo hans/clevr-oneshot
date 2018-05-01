@@ -210,6 +210,10 @@ class Ontology(object):
     # I don't think so. Just need a total ordering.
 
     self.types = types
+    self.nltk_types = {type: l.BasicType(l.ENTITY_TYPE) for type in self.types if isinstance(type, str)}
+    self.nltk_types.update({type_expr: self._make_nltk_type_expr(type_expr)
+                            for type_expr in self.types if not isinstance(type, str)})
+
     self.functions = functions
     self.functions_dict = {fn.name: fn for fn in self.functions}
     self.variable_weight = variable_weight
@@ -227,12 +231,15 @@ class Ontology(object):
   def iter_expressions(self, max_depth=3):
     ret = self._iter_expressions_inner(max_depth, bound_vars=())
 
+    print(self._make_nltk_type_signature())
+    ret = [expr.typecheck(signature=self._make_nltk_type_signature()) for expr in ret]
+
     # Extract lambda arguments to the top level.
     ret = [extract_lambda(expr) for expr in ret]
 
     return ret
 
-  @functools.lru_cache(maxsize=None)
+  #@functools.lru_cache(maxsize=None)
   @listify
   def _iter_expressions_inner(self, max_depth, bound_vars,
                               type_request=None):
@@ -373,3 +380,18 @@ class Ontology(object):
       return False
 
     return True
+
+  def _make_nltk_type_expr(self, type_expr):
+    if isinstance(type_expr, tuple) and len(type_expr) == 1:
+      type_expr = type_expr[0]
+
+    if type_expr in self.nltk_types:
+      return self.nltk_types[type_expr]
+    elif len(type_expr) > 1:
+      return l.ComplexType(self._make_nltk_type_expr(type_expr[0]),
+                           self._make_nltk_type_expr(type_expr[1:]))
+    else:
+      raise RuntimeError("unknown basic type %s" % type_expr)
+
+  def _make_nltk_type_signature(self):
+    return {fn.name: self._make_nltk_type_expr(fn.type) for fn in self.functions}
