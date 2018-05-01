@@ -15,7 +15,7 @@ from clevros.chart import WeightedCCGChartParser
 from clevros.lexicon import Lexicon, augment_lexicon, \
     filter_lexicon_entry, augment_lexicon_scene, augment_lexicon_distant, \
     get_candidate_categories, Token
-from clevros.logic import Ontology
+from clevros.logic import Function, Ontology
 from clevros.model import Model
 from clevros.perceptron import update_perceptron_batch
 from clevros.rsa import infer_listener_rsa, update_weights_rsa
@@ -175,23 +175,25 @@ def fn_gt(x, y):
   return x > y
 
 
-functions = {
-  "cmp_pos": lambda ax, a, b: a["3d_coords"][ax()] - b["3d_coords"][ax()],
-  "ltzero": lambda x: x < 0,
+types = set(["obj", "num", "ax", "boolean", ("obj", "boolean")])
 
-  "ax_x": lambda: 0,
-  "ax_y": lambda: 1,
-  "ax_z": lambda: 2,
+functions = [
+  Function("cmp_pos", ("ax", "obj", "obj", "num"),
+           lambda ax, a, b: a["3d_coords"][ax()] - b["3d_coords"][ax()]),
+  Function("ltzero", ("num", "boolean"), lambda x: x < 0),
 
-  "unique": fn_unique,
+  Function("ax_x", ("ax",), lambda: 0),
+  Function("ax_y", ("ax",), lambda: 1),
+  Function("ax_z", ("ax",), lambda: 2),
 
-  "cube": lambda x: x["shape"] == "cube",
-  "sphere": lambda x: x["shape"] == "sphere",
-}
+  Function("unique", (("obj", "boolean"), "obj"), fn_unique),
+
+  Function("cube", ("obj", "boolean"), lambda x: x["shape"] == "cube"),
+  Function("sphere", ("obj", "boolean"), lambda x: x["shape"] == "sphere"),
+]
 
 
-ontology = Ontology(list(functions.keys()), list(functions.values()),
-                    [ 0. for _ in range(len(functions))], variable_weight=0.1)
+ontology = Ontology(types, functions, variable_weight=0.1)
 
 grammar = ontology_to_grammar_initial(ontology)
 

@@ -11,6 +11,30 @@ import re
 from nltk.sem import logic as l
 
 
+# Wrapper for a typed function.
+class Function(object):
+  """
+  Wrapper for a typed function.
+  """
+
+  def __init__(self, name, type_, defn, weight=0.0):
+    self.name = name
+    self.type = type_
+    self.defn = defn
+    self.weight = weight
+
+    # We can't statically verify the type of the definition, but we can at
+    # least verify the arity.
+    assert self.arity == get_callable_arity(self.defn)
+
+  @property
+  def arity(self):
+    return len(self.type) - 1
+
+  def __str__(self):
+    return "function %s : %s" % (self.name, " -> ".join(map(str, self.type)))
+
+
 def make_application(fn_name, args):
   expr = l.ApplicationExpression(l.ConstantExpression(l.Variable(fn_name)),
                                  args[0])
@@ -165,23 +189,27 @@ class Ontology(object):
   TODO
   """
 
-  def __init__(self, function_names, function_defs, function_weights, variable_weight=0.1):
+  def __init__(self, types, functions, variable_weight=0.1):
     """
     Arguments:
-      function_names: List of `k` function name strings
-      function_defs: List of `k` Python functions
-      function_weights: ndarray of dim `k`; a total ordering over the `k` functions.
+      types: Set of primitive types
+      functions: List of `k` `Function` instances
       variable_weight: log-probability of observing any variable
     """
-    # TODO do we need to require explicit (log-)probability distributions here?
+    # TODO do we need to require weights as explicit (log-)probability
+    # distributions here?
     # I don't think so. Just need a total ordering.
-    assert len(function_names) == len(function_defs)
-    assert len(function_defs) == len(function_weights)
-    self.function_names = function_names
-    self.function_defs = function_defs
-    self.function_arities = [get_callable_arity(defn) for defn in self.function_defs]
-    self.function_weights = function_weights
+
+    self.types = types
+    self.functions = functions
+    self.functions_dict = {fn.name: fn for fn in self.functions}
     self.variable_weight = variable_weight
+
+    # Verify that all types used in fn type expressions are part of the
+    # provided type system.
+    for function in self.functions:
+      for type_entry in function.type:
+        assert type_entry in self.types, "Function %s uses an undefined type" % function
 
   EXPR_TYPES = [l.ApplicationExpression, l.ConstantExpression,
                 l.IndividualVariableExpression, l.LambdaExpression]
@@ -204,22 +232,20 @@ class Ontology(object):
     for expr_type in self.EXPR_TYPES:
       if expr_type == l.ApplicationExpression and max_depth > 1:
         # Loop over functions according to their weights.
-        fns_sorted = sorted(enumerate(self.function_names),
-                            key=lambda val: self.function_weights[val[0]],
+        fns_sorted = sorted(self.functions_dict.values(),
+                            key=lambda fn: fn.weight,
                             reverse=True)
-        for idx, fn_name in fns_sorted:
-          arity = self.function_arities[idx]
-
-          if arity == 0:
+        for fn in fns_sorted:
+          if fn.arity == 0:
             # 0-arity functions are represented in the logic as
             # `ConstantExpression`s.
-            yield l.ConstantExpression(l.Variable(fn_name))
+            yield l.ConstantExpression(l.Variable(fn.name))
           else:
             sub_args = self._iter_expressions_inner(max_depth=max_depth - 1,
                                                     bound_vars=bound_vars)
 
-            for arg_combs in itertools.product(sub_args, repeat=arity):
-              candidate = make_application(fn_name, arg_combs)
+            for arg_combs in itertools.product(sub_args, repeat=fn.arity):
+              candidate = make_application(fn.name, arg_combs)
               if self._valid_application_expr(candidate):
                 yield candidate
       elif expr_type == l.LambdaExpression and max_depth > 1:

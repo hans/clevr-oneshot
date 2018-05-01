@@ -14,8 +14,8 @@ import numpy as np
 
 from clevros.chart import WeightedCCGChartParser
 from clevros.lexicon import Lexicon, augment_lexicon, \
-    filter_lexicon_entry, augment_lexicon_scene, augment_lexicon_distant, \
-    get_candidate_categories, Token
+		filter_lexicon_entry, augment_lexicon_scene, augment_lexicon_distant, \
+		get_candidate_categories, Token
 from clevros.logic import Ontology, as_ec_sexpr, read_ec_sexpr
 from clevros.model import Model
 from clevros.perceptron import update_perceptron_batch
@@ -70,18 +70,8 @@ def ontology_to_grammar_initial(ontology):
 	#get a list of types for all prims
 	#we will change this when we have more sophisticated types
 
-	tps = [convert_to_ec_type_test(fn, name) for fn, name in zip(ontology.function_defs, ontology.function_names)]
-
-	#tps = [convert_to_ec_type_vanilla(len(inspect.getargspec(fn).args)) for fn in ontology.function_defs]
-
-	#zip primitive names, types, and defs
-	zipped_ont = zip(ontology.function_names, tps, ontology.function_defs)
-
-	#make into prim list
-	primitives = [Primitive(name, tp, function) for name, tp, function in zipped_ont ]
-
-	#zip into productions
-	productions = zip(ontology.function_weights, primitives)
+	productions = [(fn.weight, Primitive(fn.name, convert_to_ec_type_test(fn.defn, fn.name), fn.defn))
+								 for fn in ontology.functions]
 
 	#return Grammar(logVariable, [(l, p.infer(), p) for l, p in productions])
 	grammar = Grammar.fromProductions(productions, logVariable=ontology.variable_weight)
@@ -96,7 +86,7 @@ def grammar_to_ontology(grammar):
 	function_weights = weights_and_programs[0]
 	programs = weights_and_programs[2]
 
-	#create ref_dict 
+	#create ref_dict
 	prim_names = [prog.show("error") for prog in programs if prog.isPrimitive]
 
 	prim_weights = [weight for weight,_,program in grammar.productions if program.isPrimitive]
@@ -113,7 +103,7 @@ def grammar_to_ontology(grammar):
 
 	inv_names = ["invented_" + str(i) for i in range(len(inv_originals))]
 
-	#no hashtags 
+	#no hashtags
 	inv_defs = ["%s"%(prog.body.show(False)) for prog in programs if prog.isInvented]
 
 	defs = OrderedDict(zip(inv_names,inv_defs))
@@ -232,12 +222,12 @@ def frontiers_to_lexicon(frontiers, old_lex, invented_name_dict):
 		frontier.task
 
 	class FrontierEntry(object):
-    def __init__(self, program, _=None, logPrior=None, logLikelihood=None, logPosterior=None):
+		def __init__(self, program, _=None, logPrior=None, logLikelihood=None, logPosterior=None):
 
 	class Task(object):
-    	def __init__(self, name, request, examples, features=None, cache=False):
+			def __init__(self, name, request, examples, features=None, cache=False):
 
-   	from compressor we can see (https://github.com/ellisk42/ec/blob/480b51bb56f583ec5332608f054bf934db67cd66/fragmentGrammar.py#L396)
+		from compressor we can see (https://github.com/ellisk42/ec/blob/480b51bb56f583ec5332608f054bf934db67cd66/fragmentGrammar.py#L396)
 	need
 
 	"""
@@ -274,31 +264,31 @@ def frontiers_to_lexicon(frontiers, old_lex, invented_name_dict):
 	return lex
 
 	"""
-    Class representing a token.
+		Class representing a token.
 
-    token => category {semantics}
-    e.g. eat => S\\var[pl]/var {\\x y.eat(x,y)}
+		token => category {semantics}
+		e.g. eat => S\\var[pl]/var {\\x y.eat(x,y)}
 
-    * `token` (string) word
-    * `categ` (string) syntactic type - .categ obj
-    * `weight` (float) -
-    * `semantics` (Expression) -
-    """
+		* `token` (string) word
+		* `categ` (string) syntactic type - .categ obj
+		* `weight` (float) -
+		* `semantics` (Expression) -
+		"""
 	"""
-    def __init__(self, token, categ, semantics=None, weight=1.0):
-        self._token = token
-        self._categ = categ
-        self._weight = weight
-        self._semantics = semantics
+		def __init__(self, token, categ, semantics=None, weight=1.0):
+				self._token = token
+				self._categ = categ
+				self._weight = weight
+				self._semantics = semantics
 	"""
 
 	#def __init__(self, start, primitives, families, entries):
-     #   self._start = PrimitiveCategory(start)
-      #  self._primitives = primitives
-      #  self._families = families
-       # self._entries = entries
-       #deepcopy families, primitives and start
-       #see augment_lex for appending new entries
+		 #	 self._start = PrimitiveCategory(start)
+			#  self._primitives = primitives
+			#  self._families = families
+			 # self._entries = entries
+			 #deepcopy families, primitives and start
+			 #see augment_lex for appending new entries
 
 
 
