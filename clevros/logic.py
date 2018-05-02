@@ -119,6 +119,7 @@ def extract_lambda(expr):
   def process_lambda(lambda_expr):
     # Create a new unique variable and substitute.
     unique = l.unique_variable()
+    unique.type = lambda_expr.variable.type
     new_expr = lambda_expr.term.replace(lambda_expr.variable, l.IndividualVariableExpression(unique))
     return unique, new_expr
 
@@ -355,12 +356,11 @@ class Ontology(object):
               # print("\t" * (6 - max_depth), "valid lambda %s? %s" % (candidate, valid))
               if self._valid_lambda_expr(candidate, bound_vars):
                 # Assign variable types before returning.
-                typecheck_signature = copy.copy(self._nltk_type_signature)
-                typecheck_signature.update({bound_var.name: bound_var.type
-                                            for bound_var in subexpr_bound_vars})
+                extra_types = {bound_var.name: bound_var.type
+                               for bound_var in subexpr_bound_vars}
 
                 try:
-                  candidate.typecheck(typecheck_signature)
+                  self.typecheck(candidate, extra_types)
                 except l.InconsistentTypeHierarchyException:
                   pass
                 else:
@@ -374,6 +374,13 @@ class Ontology(object):
 
           yield l.IndividualVariableExpression(bound_var)
 
+  def typecheck(self, expr, extra_type_signature=None):
+    type_signature = self._nltk_type_signature
+    if extra_type_signature is not None:
+      type_signature = copy.copy(type_signature)
+      type_signature.update(extra_type_signature)
+
+    expr.typecheck(signature=type_signature)
 
   def _valid_application_expr(self, application_expr):
     """

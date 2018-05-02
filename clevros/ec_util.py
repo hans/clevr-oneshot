@@ -78,7 +78,7 @@ def ontology_to_grammar_initial(ontology):
 	return grammar
 
 
-def grammar_to_ontology(grammar):
+def grammar_to_ontology(grammar, old_ontology):
 	#print(grammar.productions)
 
 	#unzip productions into weights and primitives
@@ -110,6 +110,8 @@ def grammar_to_ontology(grammar):
 	#originals = OrderedDict(zip(inv_names,inv_originals))
 	originals = OrderedDict(sorted(zip(inv_names,inv_originals), key=lambda x: x[1].count("("), reverse=True))
 
+	# String-replace hashtag-style invention names from EC with more compact
+	# names that are clevros-friendly.
 	while any([("#" in defs[n]) for n in defs]):
 		min_depth = min([inv_def.count("(") for inv_def in inv_defs])
 		for name in inv_names:
@@ -118,6 +120,9 @@ def grammar_to_ontology(grammar):
 					defs[n] = defs[n].replace(originals[name], name)
 
 	inv_defs = [read_ec_sexpr(defs[name]) for name in defs]
+	for inv_def in inv_defs:
+		old_ontology.typecheck(inv_def)
+		print(inv_def, inv_def.type)
 	# TODO do type inference
 	#print("inv_defs:\n",inv_defs)
 
@@ -143,6 +148,13 @@ def grammar_to_ontology(grammar):
 	print("function_names",function_names)
 	print("function_defs",function_defs)
 	"""
+
+	# Create new `Function` instances for the inventions.
+	ret_invs = [
+		old_ontology.types.new_function(inv_name, inv_type, inv_defn, inv_weight)
+		for inv_name, inv_type, inv_defn, inv_weight
+		in zip(inv_names, inv_types, inv_defs, inv_weights)
+	]
 
 	function_names = prim_names + inv_names
 	function_defs = prim_defs + inv_defs

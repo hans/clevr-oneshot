@@ -165,7 +165,7 @@ for sentence, scene, answer in examples:
 
     # Convert result back to an ontology, switching to a naming scheme that
     # plays nice with our setup here.
-    ontology, invented_name_dict = grammar_to_ontology(grammar)
+    ontology, invented_name_dict = grammar_to_ontology(grammar, ontology)
 
     lex = frontiers_to_lexicon(new_frontiers, lex, invented_name_dict) #I think grammar not necessary
 
