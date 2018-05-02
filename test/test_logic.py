@@ -11,21 +11,21 @@ def _make_mock_ontology():
     assert len(true_xs) == 1
     return true_xs[0]
 
-  types = set(["obj", "num", "ax", "boolean", ("obj", "boolean")])
+  types = TypeSystem(["obj", "num", "ax", "boolean"])
 
   functions = [
-    Function("cmp_pos", ("ax", "obj", "obj", "num"),
-            lambda ax, a, b: a["3d_coords"][ax()] - b["3d_coords"][ax()]),
-    Function("ltzero", ("num", "boolean"), lambda x: x < 0),
+    types.new_function("cmp_pos", ("ax", "obj", "obj", "num"),
+                       lambda ax, a, b: a["3d_coords"][ax()] - b["3d_coords"][ax()]),
+    types.new_function("ltzero", ("num", "boolean"), lambda x: x < 0),
 
-    Function("ax_x", ("ax",), lambda: 0),
-    Function("ax_y", ("ax",), lambda: 1),
-    Function("ax_z", ("ax",), lambda: 2),
+    types.new_function("ax_x", ("ax",), lambda: 0),
+    types.new_function("ax_y", ("ax",), lambda: 1),
+    types.new_function("ax_z", ("ax",), lambda: 2),
 
-    Function("unique", (("obj", "boolean"), "obj"), fn_unique),
+    types.new_function("unique", (("obj", "boolean"), "obj"), fn_unique),
 
-    Function("cube", ("obj", "boolean"), lambda x: x["shape"] == "cube"),
-    Function("sphere", ("obj", "boolean"), lambda x: x["shape"] == "sphere"),
+    types.new_function("cube", ("obj", "boolean"), lambda x: x["shape"] == "cube"),
+    types.new_function("sphere", ("obj", "boolean"), lambda x: x["shape"] == "sphere"),
   ]
 
   ontology = Ontology(types, functions, variable_weight=0.1)
@@ -54,17 +54,35 @@ def test_valid_lambda_expr():
 
 def test_typecheck():
   ontology = _make_mock_ontology()
-  signature = ontology._make_nltk_type_signature()
 
-  def do_test(expr):
+  def do_test(expr, extra_signature):
     expr = Expression.fromstring(expr)
-    expr.typecheck(signature)
+    ontology.typecheck(expr, extra_signature)
     print(expr.type)
 
   exprs = [
-      r"ltzero(cmp_pos(ax_x,unique(\x.sphere(x)),unique(\y.cube(y))))",
-      r"\a b.ltzero(cmp_pos(ax_x,a,b))"
+      (r"ltzero(cmp_pos(ax_x,unique(\x.sphere(x)),unique(\y.cube(y))))",
+       {"x": ontology.types["obj"], "y": ontology.types["obj"]}),
+      (r"\a b.ltzero(cmp_pos(ax_x,a,b))",
+       {"a": ontology.types["obj"], "b": ontology.types["obj"]}),
   ]
 
-  for expr in exprs:
-    yield do_test, expr
+  for expr, extra_signature in exprs:
+    yield do_test, expr, extra_signature
+
+
+def test_infer_type():
+  ontology = _make_mock_ontology()
+
+  def do_test(expr, query_variable, expected_type):
+    eq_(ontology.infer_type(Expression.fromstring(expr), query_variable), expected_type)
+
+  cases = [
+    (r"\a.sphere(a)", "a", ontology.types["obj"]),
+    (r"\a.ltzero(cmp_pos(ax_x,a,a))", "a", ontology.types["obj"]),
+    (r"\a b.ltzero(cmp_pos(ax_x,a,b))", "a", ontology.types["obj"]),
+    (r"\a b.ltzero(cmp_pos(ax_x,a,b))", "b", ontology.types["obj"]),
+  ]
+
+  for expr, query_variable, expected_type in cases:
+    yield do_test, expr, query_variable, expected_type

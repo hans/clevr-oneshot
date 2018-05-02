@@ -360,6 +360,7 @@ class Ontology(object):
                                for bound_var in subexpr_bound_vars}
 
                 try:
+                  # TODO make sure variable names are unique before this happens
                   self.typecheck(candidate, extra_types)
                 except l.InconsistentTypeHierarchyException:
                   pass
@@ -381,6 +382,33 @@ class Ontology(object):
       type_signature.update(extra_type_signature)
 
     expr.typecheck(signature=type_signature)
+
+  def infer_type(self, expr, variable_name):
+    """
+    Infer the type of a bound variable with name `variable_name` used in `expr`.
+    """
+    apparent_types = set()
+    def visitor(node):
+      print(node)
+      if isinstance(node, l.ApplicationExpression):
+        fn_name = node.pred.variable.name
+        for i, arg in enumerate(node.args):
+          visitor(arg)
+
+          if isinstance(arg, l.IndividualVariableExpression) and arg.variable.name == variable_name:
+            # We've found a use of the value as a function argument -- extract
+            # the apparent type.
+            apparent_types.add(self.functions_dict[fn_name].type.flat[i])
+      elif isinstance(node, l.LambdaExpression):
+        visitor(node.term)
+
+    visitor(expr)
+    if len(apparent_types) > 1:
+      # TODO check type compatibility
+      raise NotImplementedError()
+
+    return next(iter(apparent_types))
+
 
   def _valid_application_expr(self, application_expr):
     """
