@@ -46,22 +46,29 @@ scene = \
  'image_filename': 'CLEVR_train_000002.png',
  'image_index': 2,
  'objects': [
-             frozendict(
-               {'3d_coords': (2.1141371726989746,
+             frozendict({
+               '3d_coords': (2.1141371726989746,
                             1.0,
                             2),
               'color': 'yellow',
               'material': 'metal',
-              'pixel_coords': (291, 180, 9.147775650024414),
               'rotation': 308.49217566676606,
               'shape': 'sphere',
               'size': 'large'}),
-             frozendict({'3d_coords': (-2.3854215145111084,
+            frozendict({
+              '3d_coords': (0, 0, 0),
+              'color': 'blue',
+              'material': 'rubber',
+              'pixel_coords': (188, 94, 12.699371337890625),
+              'rotation': 82.51702981683107,
+              'shape': 'pyramid',
+              'size': 'large'}),
+             frozendict({
+               '3d_coords': (-2.3854215145111084,
                             0.0,
                             0.699999988079071),
               'color': 'blue',
               'material': 'rubber',
-              'pixel_coords': (188, 94, 12.699371337890625),
               'rotation': 82.51702981683107,
               'shape': 'cube',
               'size': 'large'})],
@@ -73,6 +80,7 @@ examples = [
   ("is the sphere left_of the cube", scene, False),
   ("is the cube above the sphere", scene, False),
   ("is the sphere above the cube", scene, True),
+  ("is the pyramid above the cube", scene, False),
   ("is the cube right_of the sphere", scene, False),
   ("is the sphere right_of the cube", scene, True),
   ("is the cube below the sphere", scene, True),
@@ -90,8 +98,11 @@ semantics = True
 lex = Lexicon.fromstring(r"""
   :- S, Nd, N
 
-  cube => N {\x.cube(x)}
-  sphere => N {\x.sphere(x)}
+  cube => N {\x.and_(object(x),cube(x))}
+  sphere => N {\x.and_(object(x),sphere(x))}
+  donut => N {\x.and_(object(x),donut(x))}
+  hose => N {\x.and_(object(x),hose(x))}
+  cylinder => N {\x.and_(object(x),cylinder(x))}
 
   is => S/Nd {\x.x}
 
@@ -100,7 +111,7 @@ lex = Lexicon.fromstring(r"""
   below => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_z,a,b))}
   behind =>  Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_y,b,a))}
 
-  above => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_z,a,b))}
+  above => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_z,b,a))}
   left_of => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_x,a,b))}
   in_front_of => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_y,a,b))}
   """, include_semantics=semantics)
@@ -117,6 +128,7 @@ functions = [
   types.new_function("cmp_pos", ("ax", "obj", "obj", "num"),
                      lambda ax, a, b: a["3d_coords"][ax()] - b["3d_coords"][ax()]),
   types.new_function("ltzero", ("num", "boolean"), lambda x: x < 0),
+  types.new_function("and_", ("boolean", "boolean", "boolean"), lambda x, y: x and y),
 
   types.new_function("ax_x", ("ax",), lambda: 0),
   types.new_function("ax_y", ("ax",), lambda: 1),
@@ -126,6 +138,11 @@ functions = [
 
   types.new_function("cube", ("obj", "boolean"), lambda x: x["shape"] == "cube"),
   types.new_function("sphere", ("obj", "boolean"), lambda x: x["shape"] == "sphere"),
+  types.new_function("donut", ("obj", "boolean"), lambda x: x["shape"] == "donut"),
+  types.new_function("pyramid", ("obj", "boolean"), lambda x: x["shape"] == "pyramid"),
+  types.new_function("hose", ("obj", "boolean"), lambda x: x["shape"] == "hose"),
+  types.new_function("cylinder", ("obj", "boolean"), lambda x: x["shape"] == "cylinder"),
+  types.new_function("object", (types.ANY_TYPE, "boolean"), lambda x: isinstance(x, (frozendict, dict))),
 ]
 
 

@@ -242,12 +242,11 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   successes = defaultdict(list)
   for token in query_tokens:
     cand_syntaxes = query_token_syntaxes[token]
-    for expr in ontology.iter_expressions(max_depth=6):
+    for expr in ontology.iter_expressions(max_depth=4):
       for category in cand_syntaxes:
         if not is_compatible(category, expr):
           continue
 
-        print(expr)
         lex._entries[token] = [Token(token, category, expr)]
 
         # Attempt a parse.
@@ -275,6 +274,10 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
     if not successes[token]:
       raise RuntimeError("Failed to derive any meanings for token %s." % token)
     lex._entries[token] = successes[token]
+
+    # DEBUG
+    for success in successes[token]:
+      print(success)
 
   return lex
 

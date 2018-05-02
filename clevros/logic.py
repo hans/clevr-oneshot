@@ -14,6 +14,8 @@ from nltk.sem import logic as l
 
 class TypeSystem(object):
 
+  ANY_TYPE = l.ANY_TYPE
+
   def __init__(self, primitive_types):
     self._types = {primitive_type_name: l.BasicType(l.ENTITY_TYPE)
                    for primitive_type_name in primitive_types}
@@ -166,6 +168,8 @@ def as_ec_sexpr(expr):
     elif isinstance(expr, l.ApplicationExpression):
       args = [inner(arg) for arg in expr.args]
       return "(%s %s)" % (expr.pred.variable.name, " ".join(args))
+    # elif isinstance(expr, l.AndExpression):
+    #   return "(and %s %s)" % (inner(expr.first), inner(expr.second))
     elif isinstance(expr, l.IndividualVariableExpression):
       return "$%i" % var_map[expr.variable.name]
     elif isinstance(expr, l.ConstantExpression):
@@ -356,12 +360,15 @@ class Ontology(object):
           # print("\t" * (6-max_depth), "Now recursing with max_depth=%i" % (max_depth - 1))
 
           for subexpr_type_request in subexpr_type_requests:
-            if not subexpr_type_request:
-              continue
+            if isinstance(subexpr_type_request, tuple):
+              if not subexpr_type_request:
+                continue
+              else:
+                subexpr_type_request = self.types.make_function_type(subexpr_type_request)
 
             results = self._iter_expressions_inner(max_depth=max_depth - 1,
                                                     bound_vars=subexpr_bound_vars,
-                                                    type_request=self.types.make_function_type(subexpr_type_request))
+                                                    type_request=subexpr_type_request)
             for expr in results:
               candidate = l.LambdaExpression(bound_var, expr)
               valid = self._valid_lambda_expr(candidate, bound_vars)

@@ -57,7 +57,7 @@ class Model(object):
     elif isinstance(expr, NegatedExpression):
       return not self.satisfy(expr.term, assignments)
     elif isinstance(expr, AndExpression):
-      return self.satisfy(expr.first) and \
+      return self.satisfy(expr.first, assignments) and \
               self.satisfy(expr.second, assignments)
     elif isinstance(expr, OrExpression):
       return self.satisfy(expr.first) or \
