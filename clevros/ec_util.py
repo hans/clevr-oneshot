@@ -36,21 +36,6 @@ tS = baseType("S")
 
 tR = baseType("R")
 
-def convert_to_ec_type_test(fn, name):
-
-	if "ax_" in name:
-		tp = tR
-	elif name == "cmp_pos":
-		tp = arrow(tR, tS, tS, tS)
-	else:
-		arity = len(inspect.getargspec(fn).args)
-
-		if arity == 0:
-			tp = tS
-		else:
-			tp = arrow(*[tS for _ in range(arity + 1)])
-	#print("type:", tp)
-	return tp
 
 def convert_to_ec_type_vanilla(arity):
 
@@ -70,7 +55,7 @@ def ontology_to_grammar_initial(ontology):
 	#get a list of types for all prims
 	#we will change this when we have more sophisticated types
 
-	productions = [(fn.weight, Primitive(fn.name, convert_to_ec_type_test(fn.defn, fn.name), fn.defn))
+	productions = [(fn.weight, Primitive(fn.name, convert_to_ec_type_vanilla(fn.arity), fn.defn))
 								 for fn in ontology.functions]
 
 	#return Grammar(logVariable, [(l, p.infer(), p) for l, p in productions])
