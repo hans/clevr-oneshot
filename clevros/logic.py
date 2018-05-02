@@ -241,12 +241,8 @@ class Ontology(object):
   def iter_expressions(self, max_depth=3):
     ret = self._iter_expressions_inner(max_depth, bound_vars=())
 
-    for expr in ret:
-      print(expr.type)
-      if isinstance(expr, l.LambdaExpression):
-        print("\t", expr.variable.type)
-
     # Extract lambda arguments to the top level.
+    # NB, this breaks the type record. Should be fine.
     ret = [extract_lambda(expr) for expr in ret]
 
     return ret
@@ -350,7 +346,6 @@ class Ontology(object):
                 typecheck_signature = copy.copy(self._nltk_type_signature)
                 typecheck_signature.update({bound_var.name: bound_var.type
                                             for bound_var in subexpr_bound_vars})
-                # print("\t", {x: str(y) for x, y in typecheck_signature.items()})
 
                 try:
                   candidate.typecheck(typecheck_signature)
