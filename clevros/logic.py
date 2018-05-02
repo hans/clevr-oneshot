@@ -151,6 +151,13 @@ def extract_lambda(expr):
 
 
 def get_callable_arity(c):
+  if isinstance(c, l.LambdaExpression):
+    arity = 0
+    node = c
+    while isinstance(node, l.LambdaExpression):
+      arity += 1
+      node = node.term
+    return arity
   return len(inspect.getargspec(c).args)
 
 
@@ -422,8 +429,12 @@ class Ontology(object):
 
     visitor(expr)
     if len(apparent_types) > 1:
-      # TODO check type compatibility
-      raise NotImplementedError()
+      if len(apparent_types) == 2 and self.types.ANY_TYPE in apparent_types:
+        # Good, just remove the AnyType.
+        apparent_types.remove(self.types.ANY_TYPE)
+      else:
+        # TODO check type compatibility
+        raise NotImplementedError("Multiple apparent types: %s" % apparent_types)
 
     return next(iter(apparent_types))
 
