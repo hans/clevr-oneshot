@@ -267,7 +267,7 @@ def frontiers_to_lexicon(frontiers, old_lex, invented_name_dict):
 
 
 
-			semantics = read_ec_sexpr(raw_program_str)
+			semantics, _ = read_ec_sexpr(raw_program_str)
 			#print("semantics", semantics)
 			token = Token(word, lex_entry.categ(), semantics, lex_entry.weight())
 
