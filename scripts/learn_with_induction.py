@@ -14,7 +14,7 @@ import numpy as np
 from clevros.chart import WeightedCCGChartParser
 from clevros.lexicon import Lexicon, Token, \
     augment_lexicon_distant, get_candidate_categories
-from clevros.logic import Ontology, Function
+from clevros.logic import Ontology, Function, TypeSystem
 from clevros.model import Model
 from clevros.perceptron import update_perceptron_batch
 from clevros.ec_util import extract_frontiers_from_lexicon, \
@@ -111,21 +111,21 @@ def fn_unique(xs):
   assert len(true_xs) == 1
   return true_xs[0]
 
-types = set(["obj", "num", "ax", "boolean", ("obj", "boolean")])
+types = TypeSystem(["obj", "num", "ax", "boolean"])
 
 functions = [
-  Function("cmp_pos", ("ax", "obj", "obj", "num"),
-           lambda ax, a, b: a["3d_coords"][ax()] - b["3d_coords"][ax()]),
-  Function("ltzero", ("num", "boolean"), lambda x: x < 0),
+  types.new_function("cmp_pos", ("ax", "obj", "obj", "num"),
+                     lambda ax, a, b: a["3d_coords"][ax()] - b["3d_coords"][ax()]),
+  types.new_function("ltzero", ("num", "boolean"), lambda x: x < 0),
 
-  Function("ax_x", ("ax",), lambda: 0),
-  Function("ax_y", ("ax",), lambda: 1),
-  Function("ax_z", ("ax",), lambda: 2),
+  types.new_function("ax_x", ("ax",), lambda: 0),
+  types.new_function("ax_y", ("ax",), lambda: 1),
+  types.new_function("ax_z", ("ax",), lambda: 2),
 
-  Function("unique", (("obj", "boolean"), "obj"), fn_unique),
+  types.new_function("unique", (("obj", "boolean"), "obj"), fn_unique),
 
-  Function("cube", ("obj", "boolean"), lambda x: x["shape"] == "cube"),
-  Function("sphere", ("obj", "boolean"), lambda x: x["shape"] == "sphere"),
+  types.new_function("cube", ("obj", "boolean"), lambda x: x["shape"] == "cube"),
+  types.new_function("sphere", ("obj", "boolean"), lambda x: x["shape"] == "sphere"),
 ]
 
 

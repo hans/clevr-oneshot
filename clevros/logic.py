@@ -12,15 +12,42 @@ import re
 from nltk.sem import logic as l
 
 
+class TypeSystem(object):
+
+  def __init__(self, primitive_types):
+    self._types = {primitive_type_name: l.BasicType(l.ENTITY_TYPE)
+                   for primitive_type_name in primitive_types}
+
+  def __getitem__(self, type_expr):
+    if isinstance(type_expr, l.BasicType):
+      return type_expr
+    if isinstance(type_expr, str):
+      return self._types[type_expr]
+    return self.make_function_type(type_expr)
+
+  def __iter__(self):
+    return iter(self._types.values())
+
+  def make_function_type(self, type_expr):
+    ret = self[type_expr[-1]]
+    for type_expr_i in type_expr[:-1][::-1]:
+      ret = l.ComplexType(self[type_expr_i], ret)
+    return ret
+
+  def new_function(self, name, type, defn, **kwargs):
+    type = self[type]
+    return Function(name, type, defn, **kwargs)
+
+
 # Wrapper for a typed function.
 class Function(object):
   """
   Wrapper for a typed function.
   """
 
-  def __init__(self, name, type_, defn, weight=0.0):
+  def __init__(self, name, type, defn, weight=0.0):
     self.name = name
-    self.type = type_
+    self.type = type
     self.defn = defn
     self.weight = weight
 
@@ -30,18 +57,18 @@ class Function(object):
 
   @property
   def arity(self):
-    return len(self.type) - 1
+    return len(self.type.flat) - 1
 
   @property
   def arg_types(self):
-    return self.type[:-1]
+    return self.type.flat[:-1]
 
   @property
   def return_type(self):
-    return self.type[-1]
+    return self.type.flat[-1]
 
   def __str__(self):
-    return "function %s : %s" % (self.name, " -> ".join(map(str, self.type)))
+    return "function %s : %s" % (self.name, self.type)
 
 
 def make_application(fn_name, args):
@@ -136,8 +163,6 @@ def as_ec_sexpr(expr):
   return inner(expr)
 
 
-
-
 def read_ec_sexpr(sexpr):
   tokens = re.split(r"([()\s])", sexpr)
 
@@ -191,7 +216,7 @@ class Ontology(object):
   def __init__(self, types, functions, variable_weight=0.1):
     """
     Arguments:
-      types: Set of primitive types
+      types: TypeSystem
       functions: List of `k` `Function` instances
       variable_weight: log-probability of observing any variable
     """
@@ -200,27 +225,26 @@ class Ontology(object):
     # I don't think so. Just need a total ordering.
 
     self.types = types
-    self.nltk_types = {type: l.BasicType(parent=l.ENTITY_TYPE) for type in self.types if isinstance(type, str)}
 
     self.functions = functions
     self.functions_dict = {fn.name: fn for fn in self.functions}
     self.variable_weight = variable_weight
 
-    # Verify that all types used in fn type expressions are part of the
-    # provided type system.
-    for function in self.functions:
-      for type_entry in function.type:
-        assert type_entry in self.types, "Function %s uses an undefined type" % function
+    self._prepare()
 
   EXPR_TYPES = [l.ApplicationExpression, l.ConstantExpression,
                 l.IndividualVariableExpression, l.LambdaExpression]
 
+  def _prepare(self):
+    self._nltk_type_signature = self._make_nltk_type_signature()
 
   def iter_expressions(self, max_depth=3):
     ret = self._iter_expressions_inner(max_depth, bound_vars=())
 
     for expr in ret:
       print(expr.type)
+      if isinstance(expr, l.LambdaExpression):
+        print("\t", expr.variable.type)
 
     # Extract lambda arguments to the top level.
     ret = [extract_lambda(expr) for expr in ret]
@@ -245,9 +269,6 @@ class Ontology(object):
     """
     if max_depth == 0:
       return
-
-    if type_request is not None and len(type_request) == 1:
-      type_request = type_request[0]
 
     for expr_type in self.EXPR_TYPES:
       if expr_type == l.ApplicationExpression and max_depth > 1:
@@ -293,35 +314,40 @@ class Ontology(object):
           if type_request is None:
             subexpr_type_requests = [None]
           else:
-            if not isinstance(type_request, tuple):
-              type_request = (type_request,)
+            # Build new type requests using the flat structure.
+            type_request_flat = type_request.flat
+
+            subexpr_type_requests.append(type_request_flat)
 
             # Basic case: the variable is used as one of the existing
             # arguments of a target subexpression.
-            subexpr_type_requests.extend([type_request[:i] + type_request[i + 1:]
-                                          for i, type_i in enumerate(type_request)
+            subexpr_type_requests.extend([type_request_flat[:i] + type_request_flat[i + 1:]
+                                          for i, type_i in enumerate(type_request_flat)
                                           if type_i == bound_var_type])
 
-            # The subexpression might take this variable as an additional
-            # argument in any position. We have to enumerate all possibilities
-            # -- yikes!
-            for insertion_point in range(len(type_request)):
-              subexpr_type_requests.append(type_request[:insertion_point] + (bound_var_type,)
-                  + type_request[insertion_point:])
+            # # The subexpression might take this variable as an additional
+            # # argument in any position. We have to enumerate all possibilities
+            # # -- yikes!
+            # for insertion_point in range(len(type_request)):
+            #   subexpr_type_requests.append(type_request[:insertion_point] + (bound_var_type,)
+            #       + type_request[insertion_point:])
           # print("\t" * (6-max_depth), "λ %s :: %s" % (bound_var, bound_var_type), type_request, subexpr_type_requests)
           # print("\t" * (6-max_depth), "Now recursing with max_depth=%i" % (max_depth - 1))
 
           for subexpr_type_request in subexpr_type_requests:
+            if not subexpr_type_request:
+              continue
+
             results = self._iter_expressions_inner(max_depth=max_depth - 1,
                                                     bound_vars=subexpr_bound_vars,
-                                                    type_request=subexpr_type_request)
+                                                    type_request=self.types.make_function_type(subexpr_type_request))
             for expr in results:
               candidate = l.LambdaExpression(bound_var, expr)
               valid = self._valid_lambda_expr(candidate, bound_vars)
               # print("\t" * (6 - max_depth), "valid lambda %s? %s" % (candidate, valid))
               if self._valid_lambda_expr(candidate, bound_vars):
                 # Assign variable types before returning.
-                typecheck_signature = self._make_nltk_type_signature()
+                typecheck_signature = copy.copy(self._nltk_type_signature)
                 typecheck_signature.update({bound_var.name: bound_var.type
                                             for bound_var in subexpr_bound_vars})
                 # print("\t", {x: str(y) for x, y in typecheck_signature.items()})
@@ -334,7 +360,7 @@ class Ontology(object):
                   yield candidate
       elif expr_type == l.IndividualVariableExpression:
         for bound_var in bound_vars:
-          if type_request and not bound_var.type.matches(self._make_nltk_type_expr(type_request)):
+          if type_request and not bound_var.type.matches(type_request):
             continue
 
           # print("\t" * (6-max_depth), "var %s" % bound_var)
@@ -350,7 +376,7 @@ class Ontology(object):
     name_length = 1 + len(bound_vars) // 26
     name_id = len(bound_vars) % 26
     name = chr(97 + name_id)
-    return l.Variable(name * name_length, self._make_nltk_type_expr(type))
+    return l.Variable(name * name_length, type)
 
   def _valid_application_expr(self, application_expr):
     """
@@ -385,9 +411,9 @@ class Ontology(object):
     if available_vars != set(body.variables()):
       return False
 
-    # Exclude exprs with simplistic bodies.
-    if isinstance(body, l.IndividualVariableExpression):
-      return False
+    # # Exclude exprs with simplistic bodies.
+    # if isinstance(body, l.IndividualVariableExpression):
+    #   return False
 
     return True
 
@@ -404,4 +430,4 @@ class Ontology(object):
       raise RuntimeError("unknown basic type %s" % (type_expr,))
 
   def _make_nltk_type_signature(self):
-    return {fn.name: self._make_nltk_type_expr(fn.type) for fn in self.functions}
+    return {fn.name: fn.type for fn in self.functions}
