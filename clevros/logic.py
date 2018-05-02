@@ -53,10 +53,6 @@ class Function(object):
     self.defn = defn
     self.weight = weight
 
-    # We can't statically verify the type of the definition, but we can at
-    # least verify the arity.
-    assert self.arity == get_callable_arity(self.defn)
-
   @property
   def arity(self):
     return len(self.type.flat) - 1
@@ -148,17 +144,6 @@ def extract_lambda(expr):
     expr = l.LambdaExpression(variable, expr)
 
   return expr.normalize()
-
-
-def get_callable_arity(c):
-  if isinstance(c, l.LambdaExpression):
-    arity = 0
-    node = c
-    while isinstance(node, l.LambdaExpression):
-      arity += 1
-      node = node.term
-    return arity
-  return len(inspect.getargspec(c).args)
 
 
 def as_ec_sexpr(expr):
@@ -267,6 +252,11 @@ class Ontology(object):
   def add_functions(self, functions):
     # Make sure there is no overlap.
     assert not (set(self.functions_dict.keys()) & set(fn.name for fn in functions))
+
+    for function in functions:
+      # We can't statically verify the type of the definition, but we can at
+      # least verify the arity.
+      assert function.arity == self.get_expr_arity(function.defn)
 
     self.functions.extend(functions)
     self.functions_dict.update({fn.name: fn for fn in functions})
@@ -438,6 +428,19 @@ class Ontology(object):
 
     return next(iter(apparent_types))
 
+  def get_expr_arity(self, expr):
+    """
+    Get the arity of a function definition.
+    """
+    if isinstance(expr, l.LambdaExpression):
+      return 1 + self.get_expr_arity(expr.term)
+    elif isinstance(expr, l.ApplicationExpression):
+      function = self.functions_dict[expr.pred.variable.name]
+      return function.arity - len(expr.args)
+    elif callable(expr):
+      return len(inspect.getargspec(expr).args)
+    else:
+      raise ValueError()
 
   def _valid_application_expr(self, application_expr):
     """
