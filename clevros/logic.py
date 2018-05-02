@@ -19,7 +19,7 @@ class TypeSystem(object):
                    for primitive_type_name in primitive_types}
 
   def __getitem__(self, type_expr):
-    if isinstance(type_expr, l.BasicType):
+    if isinstance(type_expr, l.Type):
       return type_expr
     if isinstance(type_expr, str):
       return self._types[type_expr]
@@ -177,6 +177,9 @@ def as_ec_sexpr(expr):
 
 
 def read_ec_sexpr(sexpr):
+  """
+  Parse an EC-style S-expression into an untyped NLTK representation.
+  """
   tokens = re.split(r"([()\s])", sexpr)
 
   bound_vars = {}
@@ -218,7 +221,7 @@ def read_ec_sexpr(sexpr):
 
   assert len(stack) == 1
   assert len(stack[0][2]) == 1
-  return stack[0][2][0]
+  return stack[0][2][0], bound_vars
 
 
 class Ontology(object):
@@ -239,14 +242,23 @@ class Ontology(object):
 
     self.types = types
 
-    self.functions = functions
-    self.functions_dict = {fn.name: fn for fn in self.functions}
+    self.functions = []
+    self.functions_dict = {}
     self.variable_weight = variable_weight
+
+    self.add_functions(functions)
 
     self._prepare()
 
   EXPR_TYPES = [l.ApplicationExpression, l.ConstantExpression,
                 l.IndividualVariableExpression, l.LambdaExpression]
+
+  def add_functions(self, functions):
+    # Make sure there is no overlap.
+    assert not (set(self.functions_dict.keys()) & set(fn.name for fn in functions))
+
+    self.functions.extend(functions)
+    self.functions_dict.update({fn.name: fn for fn in functions})
 
   def _prepare(self):
     self._nltk_type_signature = self._make_nltk_type_signature()
@@ -389,7 +401,6 @@ class Ontology(object):
     """
     apparent_types = set()
     def visitor(node):
-      print(node)
       if isinstance(node, l.ApplicationExpression):
         fn_name = node.pred.variable.name
         for i, arg in enumerate(node.args):

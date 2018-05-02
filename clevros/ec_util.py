@@ -78,7 +78,7 @@ def ontology_to_grammar_initial(ontology):
 	return grammar
 
 
-def grammar_to_ontology(grammar, old_ontology):
+def grammar_to_ontology(grammar, ontology):
 	#print(grammar.productions)
 
 	#unzip productions into weights and primitives
@@ -119,12 +119,24 @@ def grammar_to_ontology(grammar, old_ontology):
 				for n in inv_names:
 					defs[n] = defs[n].replace(originals[name], name)
 
-	inv_defs = [read_ec_sexpr(defs[name]) for name in defs]
-	for inv_def in inv_defs:
-		old_ontology.typecheck(inv_def)
-		print(inv_def, inv_def.type)
-	# TODO do type inference
-	#print("inv_defs:\n",inv_defs)
+	# TODO refactor / simplify w.r.t. above ..
+	# Convert invention definitions to native representation.
+	ret_invs = []
+	for inv_name, inv_defn, inv_weight in zip(inv_names, defs.values(), inv_weights):
+		# First read an untyped version.
+		inv_defn, bound_vars = read_ec_sexpr(inv_defn)
+
+		# Run type inference on the bound variables.
+		bound_signatures = {
+			bound_var.name: ontology.infer_type(inv_defn, bound_var.name)
+			for bound_var in bound_vars.values()
+		}
+		ontology.typecheck(inv_defn, bound_signatures)
+
+		ret_invs.append(ontology.types.new_function(
+			inv_name, inv_defn.type, inv_defn, weight=inv_weight))
+
+	# TODO double-check that we don't end up with any ANY_TYPE
 
 	#names and defs
 	"""
@@ -149,22 +161,8 @@ def grammar_to_ontology(grammar, old_ontology):
 	print("function_defs",function_defs)
 	"""
 
-	# Create new `Function` instances for the inventions.
-	ret_invs = [
-		old_ontology.types.new_function(inv_name, inv_type, inv_defn, inv_weight)
-		for inv_name, inv_type, inv_defn, inv_weight
-		in zip(inv_names, inv_types, inv_defs, inv_weights)
-	]
-
-	function_names = prim_names + inv_names
-	function_defs = prim_defs + inv_defs
-	function_weights = prim_weights + inv_weights
-
-	print("def:\n",function_defs)
-	print("function_names:\n", function_names)
-	#function_names = remove_hashtags(function_names)
-
-	ontology = Ontology(function_names, function_defs, function_weights, variable_weight=grammar.logVariable)
+	ontology.add_functions(ret_invs)
+	ontology.variable_weight = grammar.logVariable
 
 	return ontology, originals #invented_name_dict
 
