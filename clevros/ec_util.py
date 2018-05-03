@@ -123,29 +123,6 @@ def grammar_to_ontology(grammar, ontology):
 
   # TODO double-check that we don't end up with any ANY_TYPE
 
-  #names and defs
-  """
-  function_defs = []
-  #THIS IS WRONG
-  #TODO
-  #primitves output lambda functions, inventeds output lambdaexpressions. BAD.
-  #ontology takes python lambda functions as function_defs
-  for prog in programs:
-    if prog.isPrimitive:
-      function_defs.append(prog.value)
-
-    elif prog.isInvented:
-      print("%s"%(prog.body.show(False)))
-      #want a way to read_ec_sexpr into python lambda function
-      function_defs.append(read_ec_sexpr("%s"%(prog.body.show(False))))
-    else:
-      print("not primitive or invented")
-      assert False
-
-  print("function_names",function_names)
-  print("function_defs",function_defs)
-  """
-
   ontology.add_functions(ret_invs)
   ontology.variable_weight = grammar.logVariable
 
