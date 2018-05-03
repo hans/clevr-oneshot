@@ -2,5 +2,5 @@
 	path = nltk
 	url = git://github.com/hans/nltk.git
 [submodule "ec"]
-	path = ec
+	path = ec/ec
 	url = git@github.com:ellisk42/ec.git
