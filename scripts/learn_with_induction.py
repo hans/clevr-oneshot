@@ -127,6 +127,23 @@ lex = Lexicon.fromstring(r"""
   # place => S/Nd/(Nd\Nd/Nd) {\a.\b.move(a,b)}
   """, include_semantics=semantics)
 
+lex_voo = Lexicon.fromstring(r"""
+  :- S, N
+
+  Mary => N {\x.and_(agent(x),female(x))}
+  Mark => N {\x.and_(agent(x),male(x))}
+
+  letter => N {\x.letter(x)}
+  ball => N {\x.ball(x)}
+  package => N {\x.package(x)}
+
+  the => N/N {\x.unique(x)}
+
+  give => S/N/N {\a x.transfer(a, x)}
+  send => S/N/N {\a x.transfer(a, x)}
+  hand => S/N/N {\a x.transfer(a, x)}
+  """, include_semantics=True)
+
 
 class Action(object): pass
 class Move(Action):
@@ -146,7 +163,6 @@ functions = [
                      lambda ax, a, b: a["3d_coords"][ax()] - b["3d_coords"][ax()]),
   types.new_function("ltzero", ("num", "boolean"), lambda x: x < 0),
   types.new_function("and_", ("boolean", "boolean", "boolean"), lambda x, y: y),
-  #types.new_function("and_", ("ax", "boolean", "boolean"), lambda x, y: y),
 
   types.new_function("ax_x", ("ax",), lambda: 0),
   types.new_function("ax_y", ("ax",), lambda: 1),
