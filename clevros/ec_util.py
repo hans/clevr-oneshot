@@ -2,7 +2,7 @@
 Utilities for going back and forth between EC and CCG frameworks
 """
 
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import inspect
 
 from nltk.ccg.api import PrimitiveCategory
@@ -179,6 +179,13 @@ def frontiers_to_lexicon(frontiers, old_lex, invented_name_dict):
     frontiers:
     old_lex: Prior `Lexicon` instance
     invented_name_dict: ordered dict returned from `grammar_to_ontology`
+
+  Returns:
+    lexicon: Modified copy of the provided lexicon instance, with semantic
+      entries modified to use new inventions.
+    affected_entries: A dict mapping from invention names to the `Token`
+      instances affected by (modified according to) the corresponding
+      invention.
   """
   """
   WARNING!!!
@@ -188,6 +195,7 @@ def frontiers_to_lexicon(frontiers, old_lex, invented_name_dict):
   """
 
   lex = old_lex.clone()
+  affected = defaultdict(list)
 
   for frontier in frontiers:
     word = frontier.task.name
@@ -203,14 +211,20 @@ def frontiers_to_lexicon(frontiers, old_lex, invented_name_dict):
       # sub-invention's expression and thereby kill our chance of later
       # replacing the containing invention's expression.
       for name in invented_name_dict:
+        old_program_str = raw_program_str
         raw_program_str = raw_program_str.replace(invented_name_dict[name], name)
+
+        if old_program_str != raw_program_str:
+          # This lexical entry was affected by this invention.
+          affected[name].append(lex_entry)
 
       semantics, _ = read_ec_sexpr(raw_program_str)
       #print("semantics", semantics)
       token = Token(word, lex_entry.categ(), semantics, lex_entry.weight())
 
       lex._entries[word].append(token)
-  return lex
+
+  return lex, dict(affected)
 
 
 class Compressor(object):
@@ -240,6 +254,9 @@ class Compressor(object):
 
     Returns:
       lexicon: new `Lexicon`, a modified copy of the original
+      affected_entries: A dict mapping from invention names to the `Token`
+        instances affected by (i.e. modified according to) the corresponding
+        invention.
     """
 
     # TODO(max) document
@@ -253,7 +270,7 @@ class Compressor(object):
     # plays nice with our client's setup.
     self.ontology, self.invented_name_dict = grammar_to_ontology(self.grammar, self.ontology)
 
-    lexicon = frontiers_to_lexicon(new_frontiers, lexicon, self.invented_name_dict)
+    lexicon, affected_entries = frontiers_to_lexicon(new_frontiers, lexicon, self.invented_name_dict)
 
-    return lexicon
+    return lexicon, affected_entries
 

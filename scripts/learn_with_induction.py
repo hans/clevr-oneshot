@@ -208,7 +208,7 @@ for sentence, scene, answer in examples:
 
     # Run EC compression on the entries of the induced lexicon. This may create
     # new inventions, updating both the `ontology` and the provided `lex`.
-    lex = compressor.make_inventions(lex)
+    lex, affected_entries = compressor.make_inventions(lex)
 
     # Recreate model with the new ontology.
     model = Model(scene, ontology)
