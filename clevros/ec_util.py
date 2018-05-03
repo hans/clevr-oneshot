@@ -2,35 +2,24 @@
 Utilities for going back and forth between EC and CCG frameworks
 """
 
+from collections import OrderedDict
 import inspect
-import numbers
-from pprint import pprint
 
-from frozendict import frozendict
-from nltk.ccg import chart
 from nltk.ccg.api import PrimitiveCategory
 
-import numpy as np
-
-from clevros.chart import WeightedCCGChartParser
-from clevros.lexicon import Lexicon, augment_lexicon, \
-    filter_lexicon_entry, augment_lexicon_scene, augment_lexicon_distant, \
-    get_candidate_categories, Token
-from clevros.logic import Ontology, as_ec_sexpr, read_ec_sexpr
-from clevros.model import Model
-from clevros.perceptron import update_perceptron_batch
-from clevros.rsa import infer_listener_rsa, update_weights_rsa
+from clevros.lexicon import Token
+from clevros.logic import as_ec_sexpr, read_ec_sexpr
 
 
 #TODO:
 #ec imports
+from ec.fragmentGrammar import induceGrammar
 from ec.grammar import Grammar
 from ec.task import Task
 from ec.frontier import Frontier, FrontierEntry
 from ec.type import baseType, arrow
 from ec.program import Primitive, Program
 
-from collections import OrderedDict
 
 tS = baseType("S")
 
@@ -222,3 +211,49 @@ def frontiers_to_lexicon(frontiers, old_lex, invented_name_dict):
 
       lex._entries[word].append(token)
   return lex
+
+
+class Compressor(object):
+  """
+  Bridge between lexicon learning and EC compression.
+
+  Provides an endpoint for searching for new inventions, and for carrying
+  EC state between searches.
+  """
+
+  def __init__(self, ontology, **EC_kwargs):
+    self.ontology = ontology
+    # EC `Grammar` instance.
+    self.grammar = ontology_to_grammar_initial(ontology)
+
+    self.EC_kwargs = EC_kwargs
+
+    self.invented_name_dict = None
+
+  def make_inventions(self, lexicon):
+    """
+    Run compression on the given grammar/lexicon and attempt to create new inventions.
+    Inventions will be added directly to this instance's `ontology`.
+
+    Args:
+      lexicon: `Lexicon` instance
+
+    Returns:
+      lexicon: new `Lexicon`, a modified copy of the original
+    """
+
+    # TODO(max) document
+    frontiers = extract_frontiers_from_lexicon(lexicon, self.grammar,
+                                               invented_name_dict=self.invented_name_dict)
+
+    # Induce new inventions using the present grammar and frontiers.
+    self.grammar, new_frontiers = induceGrammar(self.grammar, frontiers, **self.EC_kwargs)
+
+    # Convert result back to an ontology, switching to a naming scheme that
+    # plays nice with our client's setup.
+    self.ontology, self.invented_name_dict = grammar_to_ontology(self.grammar, self.ontology)
+
+    lexicon = frontiers_to_lexicon(new_frontiers, lexicon, self.invented_name_dict)
+
+    return lexicon
+

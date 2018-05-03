@@ -17,22 +17,21 @@ from clevros.lexicon import Lexicon, Token, \
 from clevros.logic import Ontology, Function, TypeSystem
 from clevros.model import Model
 from clevros.perceptron import update_perceptron_batch
-from clevros.ec_util import extract_frontiers_from_lexicon, \
-    ontology_to_grammar_initial, grammar_to_ontology, frontiers_to_lexicon
-from ec.fragmentGrammar import induceGrammar
+from clevros.ec_util import Compressor
 
 import random
 random.seed(4)
 
 #compression params:
-topK=1
-pseudoCounts=1.0
-arity=0
-aic=1.0
-structurePenalty=0.001
-compressor="rust" #"pypy"
-CPUs=1
-
+EC_kwargs = {
+  "topK": 1,
+  "pseudoCounts": 1.0,
+  "a": 0,
+  "aic": 1.0,
+  "structurePenalty": 0.001,
+  "backend": "rust", #pypy
+  "CPUs": 1,
+}
 
 
 # Teeny subset of CLEVR dataset :)
@@ -184,8 +183,7 @@ functions = [
 
 
 ontology = Ontology(types, functions, variable_weight=0.1)
-
-grammar = ontology_to_grammar_initial(ontology)
+compressor = Compressor(ontology, **EC_kwargs)
 
 #############
 invented_name_dict = None
@@ -208,20 +206,9 @@ for sentence, scene, answer in examples:
     lex = augment_lexicon_distant(lex, query_tokens, query_token_syntaxes,
                                   sentence, ontology, model, answer)
 
-    # TODO(max) document
-    frontiers = extract_frontiers_from_lexicon(lex, grammar, invented_name_dict=invented_name_dict)
-
-    # EC compression phrase. Induce new functions using the present grammar.
-    grammar, new_frontiers = induceGrammar(grammar, frontiers, topK=topK,
-                                           pseudoCounts=pseudoCounts, a=arity,
-                                           aic=aic, structurePenalty=structurePenalty,
-                                           backend=compressor, CPUs=CPUs)
-
-    # Convert result back to an ontology, switching to a naming scheme that
-    # plays nice with our setup here.
-    ontology, invented_name_dict = grammar_to_ontology(grammar, ontology)
-
-    lex = frontiers_to_lexicon(new_frontiers, lex, invented_name_dict) #I think grammar not necessary
+    # Run EC compression on the entries of the induced lexicon. This may create
+    # new inventions, updating both the `ontology` and the provided `lex`.
+    lex = compressor.make_inventions(lex)
 
     # Recreate model with the new ontology.
     model = Model(scene, ontology)
