@@ -104,6 +104,12 @@ lex = Lexicon.fromstring(r"""
   hose => N {\x.and_(object(x),hose(x))}
   cylinder => N {\x.and_(object(x),cylinder(x))}
 
+#  cube => N {\x.and_(ax_x,cube(x))}
+#  sphere => N {\x.and_(ax_x,sphere(x))}
+#  donut => N {\x.and_(ax_x,donut(x))}
+#  hose => N {\x.and_(ax_x,hose(x))}
+#  cylinder => N {\x.and_(ax_x,cylinder(x))}
+
   is => S/Nd {\x.x}
 
   the => Nd/N {\x.unique(x)}
@@ -114,21 +120,33 @@ lex = Lexicon.fromstring(r"""
   above => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_z,b,a))}
   left_of => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_x,a,b))}
   in_front_of => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_y,a,b))}
+
+  # todo not the right syntactic category
+  # Need to first untie syntactic / semantic arities.
+  # put => S/Nd/(Nd\Nd/Nd) {\a.\b.move(a,b)}
+  # place => S/Nd/(Nd\Nd/Nd) {\a.\b.move(a,b)}
   """, include_semantics=semantics)
 
+
+class Action(object): pass
+class Move(Action):
+  def __init__(self, obj, dest):
+    self.obj = obj
+    self.dest = dest
 
 def fn_unique(xs):
   true_xs = [x for x, matches in xs.items() if matches]
   assert len(true_xs) == 1
   return true_xs[0]
 
-types = TypeSystem(["obj", "num", "ax", "boolean"])
+types = TypeSystem(["obj", "num", "ax", "boolean", "action"])
 
 functions = [
   types.new_function("cmp_pos", ("ax", "obj", "obj", "num"),
                      lambda ax, a, b: a["3d_coords"][ax()] - b["3d_coords"][ax()]),
   types.new_function("ltzero", ("num", "boolean"), lambda x: x < 0),
-  types.new_function("and_", ("boolean", "boolean", "boolean"), lambda x, y: x and y),
+  types.new_function("and_", ("boolean", "boolean", "boolean"), lambda x, y: y),
+  #types.new_function("and_", ("ax", "boolean", "boolean"), lambda x, y: y),
 
   types.new_function("ax_x", ("ax",), lambda: 0),
   types.new_function("ax_y", ("ax",), lambda: 1),
@@ -143,6 +161,9 @@ functions = [
   types.new_function("hose", ("obj", "boolean"), lambda x: x["shape"] == "hose"),
   types.new_function("cylinder", ("obj", "boolean"), lambda x: x["shape"] == "cylinder"),
   types.new_function("object", (types.ANY_TYPE, "boolean"), lambda x: isinstance(x, (frozendict, dict))),
+
+  # TODO not the right arg types. How to specify "dest" arg type?
+  # types.new_function("move", ("obj", "obj", "action"), lambda a, b: Move(a, b)),
 ]
 
 

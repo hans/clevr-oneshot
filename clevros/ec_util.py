@@ -181,6 +181,8 @@ def extract_frontiers_from_lexicon(lex, g, invented_name_dict=None):
 			assert get_semantic_arity(entry.categ()) == get_semantic_arity(lex._entries[key][0].categ())
 		#print("arity:", get_semantic_arity(lex._entries[key][0].categ()))
 
+		# TODO assumes that all lexical entries for a word have the same
+		# syntactic arity.
 		request = convert_to_ec_type_vanilla(get_semantic_arity(lex._entries[key][0].categ()))
 		#print("request:")
 		#print(request)
