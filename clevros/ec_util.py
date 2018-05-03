@@ -176,20 +176,14 @@ def extract_frontiers_from_lexicon(lex, g, invented_name_dict=None):
 	for key in lex._entries:
 
 
-		#for now, assume only one type per word in lexicon:
-		for entry in lex._entries[key]:
-			assert get_semantic_arity(entry.categ()) == get_semantic_arity(lex._entries[key][0].categ())
-		#print("arity:", get_semantic_arity(lex._entries[key][0].categ()))
-
 		# TODO assumes that all lexical entries for a word have the same
 		# syntactic arity.
+		for entry in lex._entries[key]:
+			assert get_semantic_arity(entry.categ()) == get_semantic_arity(lex._entries[key][0].categ())
+
 		request = convert_to_ec_type_vanilla(get_semantic_arity(lex._entries[key][0].categ()))
-		#print("request:")
-		#print(request)
-		#print(lex._entries[key][0].categ())
 
 		task = Task(key, request, [])
-		#print("key:", key)
 		#the following line won't work because first input to FrontierEntry must be a Program
 		#need function extract_s_exp
 
@@ -200,8 +194,6 @@ def extract_frontiers_from_lexicon(lex, g, invented_name_dict=None):
 					x = x.replace(name, invented_name_dict[name])
 
 			p = Program.parse(x)
-			#print("program:")
-			#print(str(p))
 			return p
 
 		#logLikelihood is 0.0 because we assume that it has parsed correctly already - may want to modify
@@ -215,19 +207,12 @@ def extract_frontiers_from_lexicon(lex, g, invented_name_dict=None):
 
 def frontiers_to_lexicon(frontiers, old_lex, invented_name_dict):
 	"""
-	frontier has properties:
-		frontier.entries, a list of frontierEntry's (presumably)
-		frontier.task
+	Convert old EC frontiers to a new `Lexicon` instance.
 
-	class FrontierEntry(object):
-		def __init__(self, program, _=None, logPrior=None, logLikelihood=None, logPosterior=None):
-
-	class Task(object):
-			def __init__(self, name, request, examples, features=None, cache=False):
-
-		from compressor we can see (https://github.com/ellisk42/ec/blob/480b51bb56f583ec5332608f054bf934db67cd66/fragmentGrammar.py#L396)
-	need
-
+	Args:
+		frontiers:
+		old_lex: Prior `Lexicon` instance
+		invented_name_dict: ordered dict returned from `grammar_to_ontology`
 	"""
 	"""
 	WARNING!!!
@@ -242,17 +227,17 @@ def frontiers_to_lexicon(frontiers, old_lex, invented_name_dict):
 		word = frontier.task.name
 		lex._entries[word] = []
 		for frontier_entry, lex_entry in zip(frontier.entries, old_lex._entries[word]):
-			#frontier_entry is a FrontierEntry
-			#lex_entry is a Token
-			#print("show", frontier_entry.program.show(False))
-
-
 			raw_program_str = frontier_entry.program.show(False)
-			#sorting process
+
+			# NB: it is important that `invented_name_dict` be ordered by
+			# decreasing depth of the invented expressions.
+			#
+			# This way we ensure we attempt replacing with the largest
+			# inventions first. Otherwise we might first replace a
+			# sub-invention's expression and thereby kill our chance of later
+			# replacing the containing invention's expression.
 			for name in invented_name_dict:
 				raw_program_str = raw_program_str.replace(invented_name_dict[name], name)
-
-
 
 			semantics, _ = read_ec_sexpr(raw_program_str)
 			#print("semantics", semantics)
@@ -260,34 +245,3 @@ def frontiers_to_lexicon(frontiers, old_lex, invented_name_dict):
 
 			lex._entries[word].append(token)
 	return lex
-
-	"""
-		Class representing a token.
-
-		token => category {semantics}
-		e.g. eat => S\\var[pl]/var {\\x y.eat(x,y)}
-
-		* `token` (string) word
-		* `categ` (string) syntactic type - .categ obj
-		* `weight` (float) -
-		* `semantics` (Expression) -
-		"""
-	"""
-		def __init__(self, token, categ, semantics=None, weight=1.0):
-				self._token = token
-				self._categ = categ
-				self._weight = weight
-				self._semantics = semantics
-	"""
-
-	#def __init__(self, start, primitives, families, entries):
-		 #	 self._start = PrimitiveCategory(start)
-			#  self._primitives = primitives
-			#  self._families = families
-			 # self._entries = entries
-			 #deepcopy families, primitives and start
-			 #see augment_lex for appending new entries
-
-
-
-
