@@ -29,7 +29,7 @@ EC_kwargs = {
   "a": 0,
   "aic": 1.0,
   "structurePenalty": 0.001,
-  "backend": "rust", #pypy
+  "backend": "pypy",
   "CPUs": 1,
 }
 
@@ -103,6 +103,9 @@ lex = Lexicon.fromstring(r"""
   hose => N {\x.and_(object(x),hose(x))}
   cylinder => N {\x.and_(object(x),cylinder(x))}
 
+  # dev
+  pyramid => N {\x.and_(object(x),pyramid(x))}
+
 #  cube => N {\x.and_(ax_x,cube(x))}
 #  sphere => N {\x.and_(ax_x,sphere(x))}
 #  donut => N {\x.and_(ax_x,donut(x))}
@@ -155,27 +158,43 @@ def fn_unique(xs):
   assert len(true_xs) == 1
   return true_xs[0]
 
+def fn_cmp_pos(ax, a, b): return a["3d_coords"][ax()] - b["3d_coords"][ax()]
+def fn_ltzero(x): return x < 0
+def fn_and(a, b): return a and b
+
+def fn_ax_x(): return 0
+def fn_ax_y(): return 1
+def fn_ax_z(): return 2
+
+def fn_cube(x): return x["shape"] == "cube"
+def fn_sphere(x): return x["shape"] == "sphere"
+def fn_donut(x): return x["shape"] == "donut"
+def fn_pyramid(x): return x["shape"] == "pyramid"
+def fn_hose(x): return x["shape"] == "hose"
+def fn_cylinder(x): return x["shape"] == "cylinder"
+
+def fn_object(x): return isinstance(x, (frozendict, dict))
+
 types = TypeSystem(["obj", "num", "ax", "boolean", "action"])
 
 functions = [
-  types.new_function("cmp_pos", ("ax", "obj", "obj", "num"),
-                     lambda ax, a, b: a["3d_coords"][ax()] - b["3d_coords"][ax()]),
-  types.new_function("ltzero", ("num", "boolean"), lambda x: x < 0),
-  types.new_function("and_", ("boolean", "boolean", "boolean"), lambda x, y: y),
+  types.new_function("cmp_pos", ("ax", "obj", "obj", "num"), fn_cmp_pos),
+  types.new_function("ltzero", ("num", "boolean"), fn_ltzero),
+  types.new_function("and_", ("boolean", "boolean", "boolean"), fn_and),
 
-  types.new_function("ax_x", ("ax",), lambda: 0),
-  types.new_function("ax_y", ("ax",), lambda: 1),
-  types.new_function("ax_z", ("ax",), lambda: 2),
+  types.new_function("ax_x", ("ax",), fn_ax_x),
+  types.new_function("ax_y", ("ax",), fn_ax_y),
+  types.new_function("ax_z", ("ax",), fn_ax_z),
 
   types.new_function("unique", (("obj", "boolean"), "obj"), fn_unique),
 
-  types.new_function("cube", ("obj", "boolean"), lambda x: x["shape"] == "cube"),
-  types.new_function("sphere", ("obj", "boolean"), lambda x: x["shape"] == "sphere"),
-  types.new_function("donut", ("obj", "boolean"), lambda x: x["shape"] == "donut"),
-  types.new_function("pyramid", ("obj", "boolean"), lambda x: x["shape"] == "pyramid"),
-  types.new_function("hose", ("obj", "boolean"), lambda x: x["shape"] == "hose"),
-  types.new_function("cylinder", ("obj", "boolean"), lambda x: x["shape"] == "cylinder"),
-  types.new_function("object", (types.ANY_TYPE, "boolean"), lambda x: isinstance(x, (frozendict, dict))),
+  types.new_function("cube", ("obj", "boolean"), fn_cube),
+  types.new_function("sphere", ("obj", "boolean"), fn_sphere),
+  types.new_function("donut", ("obj", "boolean"), fn_donut),
+  types.new_function("pyramid", ("obj", "boolean"), fn_pyramid),
+  types.new_function("hose", ("obj", "boolean"), fn_hose),
+  types.new_function("cylinder", ("obj", "boolean"), fn_cylinder),
+  types.new_function("object", (types.ANY_TYPE, "boolean"), fn_object),
 
   # TODO not the right arg types. How to specify "dest" arg type?
   # types.new_function("move", ("obj", "obj", "action"), lambda a, b: Move(a, b)),
@@ -192,7 +211,7 @@ for sentence, scene, answer in examples:
 
   model = Model(scene, ontology)
   parse_results = WeightedCCGChartParser(lex).parse(sentence)
-  if not parse_results:
+  if True:# not parse_results:
     print("ERROR: Parse failed for sentence '%s'" % " ".join(sentence))
 
     query_tokens = [word for word in sentence if not lex._entries.get(word, [])]
@@ -203,8 +222,8 @@ for sentence, scene, answer in examples:
     # Augment the lexicon with all entries for novel words which yield the
     # correct answer to the sentence under some parse. Restrict the search by
     # the supported syntaxes for the novel words (`query_token_syntaxes`).
-    lex = augment_lexicon_distant(lex, query_tokens, query_token_syntaxes,
-                                  sentence, ontology, model, answer)
+    # lex = augment_lexicon_distant(lex, query_tokens, query_token_syntaxes,
+    #                               sentence, ontology, model, answer)
 
     # Run EC compression on the entries of the induced lexicon. This may create
     # new inventions, updating both the `ontology` and the provided `lex`.
