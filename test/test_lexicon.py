@@ -2,6 +2,8 @@ from nose.tools import *
 
 from clevros.lexicon import *
 
+from nltk.ccg.lexicon import FunctionalCategory, PrimitiveCategory, Direction
+
 
 def test_filter_lexicon_entry():
   lex = Lexicon.fromstring(r"""
@@ -84,3 +86,20 @@ def test_propagate_derived_category():
   eq_(lex._entries["baz"][0].categ(), old_baz_categ,
       msg="Propagation of derived category should not affect `baz`, which has a "
           "category which is the same as the base of the derived category")
+
+
+def test_get_candidate_derived():
+  """
+  `get_candidate_categories` should provide special treatment to derived
+  categories.
+  """
+
+  lex, involved_tokens, cat_name = _make_lexicon_with_derived_category()
+  lex.propagate_derived_category(cat_name)
+
+  test_sentence = "a foo".split()
+  tokens = ["a"]
+
+  expected = {lex._entries["the"][0].categ(),
+              FunctionalCategory(PrimitiveCategory("S"), lex._derived_categories[cat_name][0], Direction('/', ('', '')))}
+  eq_(get_candidate_categories(lex, tokens, test_sentence)["a"], expected)

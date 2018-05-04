@@ -7,7 +7,7 @@ import copy
 import itertools
 
 from nltk.ccg import lexicon as ccg_lexicon
-from nltk.ccg.api import PrimitiveCategory, AbstractCCGCategory
+from nltk.ccg.api import PrimitiveCategory, FunctionalCategory, AbstractCCGCategory
 from nltk.sem.logic import *
 
 from clevros import chart
@@ -31,6 +31,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     self._start = ccg_lexicon.PrimitiveCategory(start)
     self._primitives = primitives
     self._derived_categories = {}
+    self._derived_categories_by_base = defaultdict(set)
     self._families = families
     self._entries = entries
 
@@ -112,18 +113,21 @@ class Lexicon(ccg_lexicon.CCGLexicon):
                 for token in token_list])
 
   def add_derived_category(self, involved_tokens):
-    name = "test"
+    name = "test" # TODO uniquify
     categ = DerivedCategory(name, involved_tokens[0].categ())
     self._primitives.append(categ)
     self._derived_categories[name] = (categ, set(involved_tokens))
+    self._derived_categories_by_base[categ.base].add(categ)
 
     return name
 
   def propagate_derived_category(self, name):
-    categ, involved_tokens = self._derived_categories[name]
+    categ, involved_entries = self._derived_categories[name]
+
+    # Replace all lexical entries directly involved with the derived category.
     for entry_list in self._entries.values():
       for entry in entry_list:
-        if entry in involved_tokens:
+        if entry in involved_entries:
           entry._categ = categ
 
 
@@ -164,6 +168,8 @@ class DerivedCategory(AbstractCCGCategory):
 
   def __str__(self):
     return "F_%s(%s)" % (self.name, self.base)
+
+  __repr__ = __str__
 
 
 class Token(ccg_lexicon.Token):
@@ -224,6 +230,35 @@ def get_candidate_categories(lex, tokens, sentence):
     lex._entries[token] = []
 
   candidate_categories = lex.observed_categories
+  # Also consider as candidates derived categories / functional categories
+  # taking derived categories as arguments which may not yet be attested.
+  extra_candidates = set()
+  # Stack stores candidates which might also exist as derived categories, as
+  # well as a lambda which substitutes a derived category into the original
+  # containing category expression.
+  stack = [(cand, lambda x: x) for cand in candidate_categories]
+  while stack:
+    cand, recombiner = stack.pop()
+
+    try:
+      derived_categs = lex._derived_categories_by_base[cand]
+    except KeyError:
+      continue
+    else:
+      extra_candidates |= set([recombiner(derived_categ) for derived_categ in derived_categs])
+
+    # Necessary to define this way to make variable closure work.
+    def make_res_recombiner(parent):
+      return lambda derived: FunctionalCategory(derived, parent.arg(), parent.dir())
+    def make_arg_recombiner(parent):
+      return lambda derived: FunctionalCategory(parent.res(), derived, parent.dir())
+
+    if isinstance(cand, FunctionalCategory):
+      stack.append((cand.res(), make_res_recombiner(cand)))
+      stack.append((cand.arg(), make_arg_recombiner(cand)))
+
+  candidate_categories = set(candidate_categories) | extra_candidates
+
   ret = defaultdict(set)
 
   # NB does not cover the case where a single token needs multiple syntactic
