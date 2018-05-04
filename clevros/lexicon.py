@@ -143,6 +143,9 @@ class DerivedCategory(AbstractCCGCategory):
   def is_var(self):
     return self.base.is_var()
 
+  def categ(self):
+    return self.base.categ()
+
   def substitute(self, subs):
     return self.base.subs()
 
