@@ -251,6 +251,7 @@ class Ontology(object):
 
   def add_functions(self, functions):
     # Make sure there is no overlap.
+    print([f.name for f in functions])
     assert not (set(self.functions_dict.keys()) & set(fn.name for fn in functions))
 
     for function in functions:

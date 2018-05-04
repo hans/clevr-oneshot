@@ -7,7 +7,7 @@ import copy
 import itertools
 
 from nltk.ccg import lexicon as ccg_lexicon
-from nltk.ccg.api import PrimitiveCategory
+from nltk.ccg.api import PrimitiveCategory, AbstractCCGCategory
 from nltk.sem.logic import *
 
 from clevros import chart
@@ -16,11 +16,72 @@ from clevros.clevr import scene_candidate_referents
 
 class Lexicon(ccg_lexicon.CCGLexicon):
 
+  def __init__(self, start, primitives, families, entries):
+    """
+    Create a new Lexicon.
+
+    Args:
+      start: Start symbol. All valid parses must have a root node of this
+        category.
+      primitives:
+      families:
+      entries: Lexical entries. Dict mapping from word strings to lists of
+        `Token`s.
+    """
+    self._start = ccg_lexicon.PrimitiveCategory(start)
+    self._primitives = primitives
+    self._derived_categories = {}
+    self._families = families
+    self._entries = entries
+
   @classmethod
   def fromstring(cls, lex_str, include_semantics=False):
-    return ccg_lexicon.fromstring(lex_str,
-                                  include_semantics=include_semantics,
-                                  cls=cls)
+    """
+    Convert string representation into a lexicon for CCGs.
+    """
+    ccg_lexicon.CCGVar.reset_id()
+    primitives = []
+    families = {}
+    entries = defaultdict(list)
+    for line in lex_str.splitlines():
+      # Strip comments and leading/trailing whitespace.
+      line = ccg_lexicon.COMMENTS_RE.match(line).groups()[0].strip()
+      if line == "":
+        continue
+
+      if line.startswith(':-'):
+        # A line of primitive categories.
+        # The first one is the target category
+        # ie, :- S, N, NP, VP
+        primitives = primitives + [prim.strip() for prim in line[2:].strip().split(',')]
+      else:
+        # Either a family definition, or a word definition
+        (ident, sep, rhs) = ccg_lexicon.LEX_RE.match(line).groups()
+        (catstr, semantics_str, weight) = ccg_lexicon.RHS_RE.match(rhs).groups()
+        (cat, var) = ccg_lexicon.augParseCategory(catstr, primitives, families)
+
+        if sep == '::':
+          # Family definition
+          # ie, Det :: NP/N
+          families[ident] = (cat, var)
+          # TODO weight?
+        else:
+          semantics = None
+          if include_semantics is True:
+            if semantics_str is None:
+              raise AssertionError(line + " must contain semantics because include_semantics is set to True")
+            else:
+              semantics = Expression.fromstring(ccg_lexicon.SEMANTICS_RE.match(semantics_str).groups()[0])
+
+          if weight is not None:
+            weight = float(weight[1:-1])
+          else:
+            weight = 1.0
+
+          # Word definition
+          # ie, which => (N\N)/(S/NP)
+          entries[ident].append(Token(ident, cat, semantics, weight))
+    return cls(primitives[0], primitives, families, entries)
 
   def clone(self, retain_semantics=True):
     """
@@ -49,6 +110,57 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     return set([token.categ()
                 for token_list in self._entries.values()
                 for token in token_list])
+
+  def add_derived_category(self, involved_tokens):
+    name = "test"
+    categ = DerivedCategory(name, involved_tokens[0].categ())
+    self._primitives.append(categ)
+    self._derived_categories[name] = (categ, set(involved_tokens))
+
+    return name
+
+  def propagate_derived_category(self, name):
+    categ, involved_tokens = self._derived_categories[name]
+    for entry_list in self._entries.values():
+      for entry in entry_list:
+        if entry in involved_tokens:
+          entry._categ = categ
+
+
+class DerivedCategory(AbstractCCGCategory):
+
+  def __init__(self, name, base):
+    self.name = name
+    self.base = base
+    self._comparison_key = (name, base)
+
+  def is_primitive(self):
+    return self.base.is_primitive()
+
+  def is_function(self):
+    return self.base.is_function()
+
+  def is_var(self):
+    return self.base.is_var()
+
+  def substitute(self, subs):
+    return self.base.subs()
+
+  def can_unify(self, other):
+    return self.base.can_unify
+
+  def arg(self):
+    # exceptions in case is_primitive()
+    return self.base.arg()
+
+  def res(self):
+    return self.base.res()
+
+  def dir(self):
+    return self.base.dir()
+
+  def __str__(self):
+    return "F_%s(%s)" % (self.name, self.base)
 
 
 class Token(ccg_lexicon.Token):

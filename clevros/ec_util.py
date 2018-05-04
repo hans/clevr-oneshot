@@ -203,6 +203,8 @@ def frontiers_to_lexicon(frontiers, old_lex, invented_name_dict):
     for frontier_entry, lex_entry in zip(frontier.entries, old_lex._entries[word]):
       raw_program_str = frontier_entry.program.show(False)
 
+      involved_inventions = []
+
       # NB: it is important that `invented_name_dict` be ordered by
       # decreasing depth of the invented expressions.
       #
@@ -216,11 +218,14 @@ def frontiers_to_lexicon(frontiers, old_lex, invented_name_dict):
 
         if old_program_str != raw_program_str:
           # This lexical entry was affected by this invention.
-          affected[name].append(lex_entry)
+          involved_inventions.append(name)
 
       semantics, _ = read_ec_sexpr(raw_program_str)
       #print("semantics", semantics)
       token = Token(word, lex_entry.categ(), semantics, lex_entry.weight())
+
+      for inv_name in involved_inventions:
+        affected[inv_name].append(token)
 
       lex._entries[word].append(token)
 

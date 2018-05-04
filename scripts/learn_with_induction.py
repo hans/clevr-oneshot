@@ -103,6 +103,9 @@ lex = Lexicon.fromstring(r"""
   hose => N {\x.and_(object(x),hose(x))}
   cylinder => N {\x.and_(object(x),cylinder(x))}
 
+  # DEV
+  pyramid => N {\x.and_(object(x),pyramid(x))}
+
 #  cube => N {\x.and_(ax_x,cube(x))}
 #  sphere => N {\x.and_(ax_x,sphere(x))}
 #  donut => N {\x.and_(ax_x,donut(x))}
@@ -209,6 +212,13 @@ for sentence, scene, answer in examples:
     # Run EC compression on the entries of the induced lexicon. This may create
     # new inventions, updating both the `ontology` and the provided `lex`.
     lex, affected_entries = compressor.make_inventions(lex)
+
+    for invention_name, tokens in affected_entries.items():
+      affected_syntaxes = set(t.categ() for t in tokens)
+      if len(affected_syntaxes) == 1:
+        # Just one syntax is involved. Create a new derived category.
+        derived_categ = lex.add_derived_category(tokens)
+        lex.propagate_derived_category(derived_categ)
 
     # Recreate model with the new ontology.
     model = Model(scene, ontology)
