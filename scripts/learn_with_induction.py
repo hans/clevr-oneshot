@@ -212,12 +212,12 @@ for sentence, scene, answer in examples:
   model = Model(scene, ontology)
   parse_results = WeightedCCGChartParser(lex).parse(sentence)
   if True:# not parse_results:
-    print("ERROR: Parse failed for sentence '%s'" % " ".join(sentence))
+    # print("ERROR: Parse failed for sentence '%s'" % " ".join(sentence))
 
-    query_tokens = [word for word in sentence if not lex._entries.get(word, [])]
-    print("\tNovel words: ", " ".join(query_tokens))
-    query_token_syntaxes = get_candidate_categories(lex, query_tokens, sentence)
-    print("\tCandidate categories:", query_token_syntaxes)
+    # query_tokens = [word for word in sentence if not lex._entries.get(word, [])]
+    # print("\tNovel words: ", " ".join(query_tokens))
+    # query_token_syntaxes = get_candidate_categories(lex, query_tokens, sentence)
+    # print("\tCandidate categories:", query_token_syntaxes)
 
     # Augment the lexicon with all entries for novel words which yield the
     # correct answer to the sentence under some parse. Restrict the search by
