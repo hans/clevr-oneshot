@@ -30,10 +30,11 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     """
     self._start = ccg_lexicon.PrimitiveCategory(start)
     self._primitives = primitives
-    self._derived_categories = {}
-    self._derived_categories_by_base = defaultdict(set)
     self._families = families
     self._entries = entries
+
+    self._derived_categories = {}
+    self._derived_categories_by_base = defaultdict(set)
 
   @classmethod
   def fromstring(cls, lex_str, include_semantics=False):
@@ -113,7 +114,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
                 for token in token_list])
 
   def add_derived_category(self, involved_tokens):
-    name = "test" # TODO uniquify
+    name = "D%i" % len(self._derived_categories)
     categ = DerivedCategory(name, involved_tokens[0].categ())
     self._primitives.append(categ)
     self._derived_categories[name] = (categ, set(involved_tokens))
