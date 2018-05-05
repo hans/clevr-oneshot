@@ -162,8 +162,15 @@ def extract_frontiers_from_lexicon(lex, g, invented_name_dict=None):
       p = Program.parse(x)
       return p
 
+    # DEBUG
+    for entry in lex._entries[key]:
+      print("%60s %20s %60s" % (entry, request, program(entry.semantics())))
+
     #logLikelihood is 0.0 because we assume that it has parsed correctly already - may want to modify
-    frontier_entry_list = [FrontierEntry(program(entry.semantics()), logPrior=g.logLikelihood(request, program(entry.semantics())), logLikelihood=0.0) for entry in lex._entries[key]]
+    frontier_entry_list = [FrontierEntry(program(entry.semantics()),
+                                         logPrior=g.logLikelihood(request, program(entry.semantics())),
+                                         logLikelihood=0.0)
+                           for entry in lex._entries[key]]
 
     frontier = Frontier(frontier_entry_list, task)
     frontiers.append(frontier)
