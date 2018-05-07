@@ -26,9 +26,9 @@ random.seed(4)
 EC_kwargs = {
   "topK": 1,
   "pseudoCounts": 1.0,
-  "a": 2,
+  "a": 1,
   "aic": -1.0,
-  "structurePenalty": 0,
+  "structurePenalty": 0.001,
   "backend": "pypy",
   "CPUs": 1,
 }
