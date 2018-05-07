@@ -18,7 +18,10 @@ class Model(object):
     self.domain = deepcopy(scene["objects"])
 
   def evaluate(self, expr):
-    return self.satisfy(expr)
+    try:
+      return self.satisfy(expr)
+    except:
+      return None
 
   def satisfy(self, expr, assignments=None):
     """

@@ -192,7 +192,7 @@ class DerivedCategory(AbstractCCGCategory):
     return self.base.categ()
 
   def substitute(self, subs):
-    return self.base.subs()
+    return self.base.substitute(subs)
 
   def can_unify(self, other):
     return self.base.can_unify
