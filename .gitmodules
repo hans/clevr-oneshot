@@ -1,6 +1,6 @@
 [submodule "nltk"]
 	path = nltk
-	url = git://github.com/hans/nltk.git
+	url = git@github.com:hans/nltk.git
 [submodule "ec"]
 	path = ec/ec
 	url = git@github.com:hans/ec.git

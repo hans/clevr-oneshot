@@ -253,13 +253,13 @@ class Ontology(object):
     # Make sure there is no overlap.
     assert not (set(self.functions_dict.keys()) & set(fn.name for fn in functions))
 
+    self.functions.extend(functions)
+    self.functions_dict.update({fn.name: fn for fn in functions})
+
     for function in functions:
       # We can't statically verify the type of the definition, but we can at
       # least verify the arity.
       assert function.arity == self.get_expr_arity(function.defn)
-
-    self.functions.extend(functions)
-    self.functions_dict.update({fn.name: fn for fn in functions})
 
   def _prepare(self):
     self._nltk_type_signature = self._make_nltk_type_signature()
@@ -459,8 +459,6 @@ class Ontology(object):
       lambda_expr: `LambdaExpression`
       ctx_bound_vars: Bound variables from the containing context
     """
-
-    # TODO fails on \a b.ltzero(cmp_pos(ax_x,a,b))
 
     # Collect bound arguments and the body expression.
     bound_args = []

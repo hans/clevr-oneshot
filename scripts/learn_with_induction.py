@@ -227,7 +227,17 @@ for sentence, scene, answer in examples:
 
     # Run EC compression on the entries of the induced lexicon. This may create
     # new inventions, updating both the `ontology` and the provided `lex`.
-    lex = compressor.make_inventions(lex)
+    lex, affected_entries = compressor.make_inventions(lex)
+
+    for invention_name, tokens in affected_entries.items():
+      affected_syntaxes = set(t.categ() for t in tokens)
+      if len(affected_syntaxes) == 1:
+        # Just one syntax is involved. Create a new derived category.
+        derived_name = lex.add_derived_category(tokens)
+        lex.propagate_derived_category(derived_name)
+
+        print("Created and propagated derived category %s == %s -- %r" %
+              (derived_name, lex._derived_categories[derived_name][0].base, tokens))
 
     # Recreate model with the new ontology.
     model = Model(scene, ontology)

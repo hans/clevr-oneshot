@@ -2,7 +2,7 @@ from nose.tools import *
 
 from nltk.sem.logic import Expression
 
-from clevros.logic import Ontology
+from clevros.logic import Ontology, TypeSystem, Function
 from clevros.model import *
 
 
@@ -15,11 +15,12 @@ def test_model_induced_functions():
     "objects": ["foo", "bar"],
   }
 
-  functions = {
-      "test": lambda x: True,
-      "test2": Expression.fromstring(r"\x.test(test(x))"),
-  }
-  ontology = Ontology(list(functions.keys()), list(functions.values()), [1, 1])
+  types = TypeSystem(["a"])
+  functions = [
+      types.new_function("test", ("a", "a"), lambda x: True),
+      types.new_function("test2", ("a", "a"), Expression.fromstring(r"\x.test(test(x))")),
+  ]
+  ontology = Ontology(types, functions)
 
   model = Model(scene=fake_scene, ontology=ontology)
 
