@@ -7,7 +7,7 @@ import inspect
 
 from nltk.ccg.api import PrimitiveCategory
 
-from clevros.lexicon import Token
+from clevros.lexicon import Token, DerivedCategory
 from clevros.logic import as_ec_sexpr, read_ec_sexpr
 
 
@@ -128,6 +128,8 @@ def grammar_to_ontology(grammar, ontology):
 
 def get_category_arity(cat):
   #takes a category .categ() as input
+  if isinstance(cat, DerivedCategory):
+    return get_category_arity(cat.base)
   if isinstance(cat, PrimitiveCategory):
     return 0
   else:
