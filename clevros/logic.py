@@ -404,21 +404,37 @@ class Ontology(object):
 
     expr.typecheck(signature=type_signature)
 
-  def infer_type(self, expr, variable_name):
+  def infer_type(self, expr, variable_name, extra_types=None):
     """
     Infer the type of a bound variable with name `variable_name` used in `expr`.
+
+    Args:
+      expr:
+      variable_name:
+      extra_types: Optional dictionary of provisional function types, mapping
+        from function name to a type expression. Useful for doing type
+        inference on elements of new functions before adding them to an
+        ontology instance.
     """
     apparent_types = set()
+    extra_types = extra_types or {}
+
     def visitor(node):
       if isinstance(node, l.ApplicationExpression):
         fn_name = node.pred.variable.name
+
+        try:
+          function_type = self.functions_dict[fn_name].type
+        except KeyError:
+          function_type = extra_types[fn_name]
+
         for i, arg in enumerate(node.args):
           visitor(arg)
 
           if isinstance(arg, l.IndividualVariableExpression) and arg.variable.name == variable_name:
             # We've found a use of the value as a function argument -- extract
             # the apparent type.
-            apparent_types.add(self.functions_dict[fn_name].type.flat[i])
+            apparent_types.add(function_type.flat[i])
       elif isinstance(node, l.LambdaExpression):
         visitor(node.term)
 
