@@ -2,7 +2,7 @@
 Utilities for going back and forth between EC and CCG frameworks
 """
 
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict, defaultdict, namedtuple
 import inspect
 
 from nltk.ccg.api import PrimitiveCategory
@@ -24,6 +24,9 @@ from ec.program import Primitive, Program
 tS = baseType("S")
 
 tR = baseType("R")
+
+
+Invention = namedtuple("Invention", ["name", "original_name", "weight", "defn"])
 
 
 def convert_to_ec_type_vanilla(arity):
@@ -53,69 +56,73 @@ def ontology_to_grammar_initial(ontology):
 
 
 def grammar_to_ontology(grammar, ontology):
-  #print(grammar.productions)
+  # Prepare to add inventions from grammar as new ontology functions.
+  inventions = [(prog.show("error"), weight, str(prog.body.show(False)))
+                for weight, _, prog in grammar.productions if prog.isInvented]
+  inventions = {"invented_%i" % i: Invention("invented_%i" % i, original, weight, program)
+                for i, (original, weight, program) in enumerate(inventions)}
 
-  #unzip productions into weights and primitives
-  weights_and_programs = list(zip(*grammar.productions))
-  function_weights = weights_and_programs[0]
-  programs = weights_and_programs[2]
-
-  #create ref_dict
-  prim_names = [prog.show("error") for prog in programs if prog.isPrimitive]
-
-  prim_weights = [weight for weight,_,program in grammar.productions if program.isPrimitive]
-
-  prim_defs = [prog.value for prog in programs if prog.isPrimitive]
-
-
-
-  inv_weights = [weight for weight,_,program in grammar.productions if program.isInvented]
-
-  inv_originals = [prog.show("error") for prog in programs if prog.isInvented]
-
-  assert len(inv_weights) == len(inv_originals)
-
-  inv_names = ["invented_" + str(i) for i in range(len(inv_originals))]
-
-  #no hashtags
-  inv_defs = ["%s"%(prog.body.show(False)) for prog in programs if prog.isInvented]
-
-  defs = OrderedDict(zip(inv_names,inv_defs))
-  #originals = OrderedDict(zip(inv_names,inv_originals))
-  originals = OrderedDict(sorted(zip(inv_names,inv_originals), key=lambda x: x[1].count("("), reverse=True))
+  new_defns = {name: inv.defn for name, inv in inventions.items()}
 
   # String-replace hashtag-style invention names from EC with more compact
   # names that are clevros-friendly.
-  while any([("#" in defs[n]) for n in defs]):
-    min_depth = min([inv_def.count("(") for inv_def in inv_defs])
-    for name in inv_names:
-      if defs[name].count("(") == min_depth:
-        for n in inv_names:
-          defs[n] = defs[n].replace(originals[name], name)
+  #
+  # The string-replace happens bottom-up in order to support nested inventions.
+  # Inventions which are subexpressions of other inventions get substituted
+  # first.
+  min_depth = -1
+  # Track the depth ordering we end up using here -- will be useful in the near
+  # future for type inference.
+  depth_ordering = []
+  while any([("#" in new_defn) for new_defn in new_defns.values()]):
+    min_depth += 1
+    for replace_source in inventions.values():
+      if replace_source.defn.count("(") == min_depth:
+        # This is one of the smallest remaining inventions --
+        # search-and-replace in any other inventions which might contain it.
+        for replace_target in inventions.values():
+          new_defns[replace_target.name] = new_defns[replace_target.name] \
+              .replace(replace_source.original_name, replace_source.name)
 
-  # TODO refactor / simplify w.r.t. above ..
-  # Convert invention definitions to native representation.
+        depth_ordering.append(replace_source.name)
+  # Highest-level inventions need to also be added to the depth ordering.
+  depth_ordering.extend(set(inventions.keys()) - set(depth_ordering))
+
+  # Convert invention definitions to native representation. Requires type
+  # inference. Use the same increasing-depth ordering as before so that larger
+  # inventions can do type inference knowing about the function types of
+  # inventions they contain.
+  invention_types = {}
   ret_invs = []
-  for inv_name, inv_defn, inv_weight in zip(inv_names, defs.values(), inv_weights):
+  for inv_name in depth_ordering:
+    invention = inventions[inv_name]
+
     # First read an untyped version.
-    inv_defn, bound_vars = read_ec_sexpr(inv_defn)
+    inv_defn, bound_vars = read_ec_sexpr(new_defns[inv_name])
 
     # Run type inference on the bound variables.
     bound_signatures = {
-      bound_var.name: ontology.infer_type(inv_defn, bound_var.name)
+      bound_var.name: ontology.infer_type(inv_defn, bound_var.name,
+                                          extra_types=invention_types)
       for bound_var in bound_vars.values()
     }
     ontology.typecheck(inv_defn, bound_signatures)
 
+    invention_types[inv_name] = inv_defn.type
+
     ret_invs.append(ontology.types.new_function(
-      inv_name, inv_defn.type, inv_defn, weight=inv_weight))
+      invention.name, inv_defn.type, inv_defn, weight=invention.weight))
 
   # TODO double-check that we don't end up with any ANY_TYPE
 
   ontology.add_functions(ret_invs)
   ontology.variable_weight = grammar.logVariable
 
-  return ontology, originals #invented_name_dict
+  # NB: Ordered from maximum to minimum depth
+  invented_name_dict = OrderedDict([(name, inventions[name].original_name)
+                                    for name in depth_ordering[::-1]])
+
+  return ontology, invented_name_dict
 
 
 
