@@ -132,7 +132,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
         if entry in involved_entries:
           entry._categ = categ
 
-  def lf_ngrams(self, order=1, condition_on_syntax=True):
+  def lf_ngrams(self, order=1, condition_on_syntax=True, smooth=True):
     """
     Calculate n-gram statistics about the predicates present in the semantic
     forms in the lexicon.
@@ -142,6 +142,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       condition_on_syntax: If `True`, returns a dict mapping each syntactic
         type to a different distribution over semantic predicates. If `False`,
         returns a single distribution.
+      smooth: If `True`, add-1 smooth the returned distributions.
     """
     if order > 1 or not condition_on_syntax:
       raise NotImplementedError()
@@ -150,14 +151,16 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     for entry_list in self._entries.values():
       for entry in entry_list:
         for predicate in entry.semantics().predicates():
-          print(ret[entry.categ()])
           ret[entry.categ()][predicate.name] += 1
 
     # Normalize.
     ret_normalized = {}
     for categ in ret:
       Z = sum(ret[categ].values())
-      ret_normalized[categ] = {word: count / Z for word, count in ret[categ].items()}
+      if smooth:
+        Z += len(ret[categ])
+      ret_normalized[categ] = {word: (count + 1 if smooth else count) / Z
+                               for word, count in ret[categ].items()}
 
     return ret_normalized
 
