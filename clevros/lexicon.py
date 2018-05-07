@@ -144,14 +144,15 @@ class Lexicon(ccg_lexicon.CCGLexicon):
         returns a single distribution.
       smooth: If `True`, add-1 smooth the returned distributions.
     """
-    if order > 1 or not condition_on_syntax:
+    if order > 1:
       raise NotImplementedError()
 
     ret = defaultdict(Counter)
     for entry_list in self._entries.values():
       for entry in entry_list:
         for predicate in entry.semantics().predicates():
-          ret[entry.categ()][predicate.name] += 1
+          key = entry.categ() if condition_on_syntax else None
+          ret[key][predicate.name] += 1
 
     # Normalize.
     ret_normalized = {}
@@ -162,6 +163,8 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       ret_normalized[categ] = {word: (count + 1 if smooth else count) / Z
                                for word, count in ret[categ].items()}
 
+    if not condition_on_syntax:
+      return ret_normalized[None]
     return ret_normalized
 
 
