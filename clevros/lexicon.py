@@ -2,13 +2,14 @@
 Tools for updating and expanding lexicons, dealing with logical forms, etc.
 """
 
-from collections import defaultdict
+from collections import defaultdict, Counter
 import copy
+from functools import reduce
 import itertools
 
 from nltk.ccg import lexicon as ccg_lexicon
 from nltk.ccg.api import PrimitiveCategory, FunctionalCategory, AbstractCCGCategory
-from nltk.sem.logic import *
+from nltk.sem import logic as l
 
 from clevros import chart
 from clevros.clevr import scene_candidate_referents
@@ -73,7 +74,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
             if semantics_str is None:
               raise AssertionError(line + " must contain semantics because include_semantics is set to True")
             else:
-              semantics = Expression.fromstring(ccg_lexicon.SEMANTICS_RE.match(semantics_str).groups()[0])
+              semantics = l.Expression.fromstring(ccg_lexicon.SEMANTICS_RE.match(semantics_str).groups()[0])
 
           if weight is not None:
             weight = float(weight[1:-1])
@@ -130,6 +131,35 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       for entry in entry_list:
         if entry in involved_entries:
           entry._categ = categ
+
+  def lf_ngrams(self, order=1, condition_on_syntax=True):
+    """
+    Calculate n-gram statistics about the predicates present in the semantic
+    forms in the lexicon.
+
+    Args:
+      order:
+      condition_on_syntax: If `True`, returns a dict mapping each syntactic
+        type to a different distribution over semantic predicates. If `False`,
+        returns a single distribution.
+    """
+    if order > 1 or not condition_on_syntax:
+      raise NotImplementedError()
+
+    ret = defaultdict(Counter)
+    for entry_list in self._entries.values():
+      for entry in entry_list:
+        for predicate in entry.semantics().predicates():
+          print(ret[entry.categ()])
+          ret[entry.categ()][predicate.name] += 1
+
+    # Normalize.
+    ret_normalized = {}
+    for categ in ret:
+      Z = sum(ret[categ].values())
+      ret_normalized[categ] = {word: count / Z for word, count in ret[categ].items()}
+
+    return ret_normalized
 
 
 class DerivedCategory(AbstractCCGCategory):
@@ -203,7 +233,7 @@ def is_compatible(category, lf):
   category_arity = get_category_arity(category)
 
   def visit_node(node):
-    delta = 1 if isinstance(node, LambdaExpression) else 0
+    delta = 1 if isinstance(node, l.LambdaExpression) else 0
 
     try:
       res = node.visit(visit_node, sum)
@@ -484,12 +514,12 @@ def lf_parts(lf_str):
   # their arguments.
 
   # Parse into a lambda calculus expression.
-  expr = Expression.fromstring(lf_str)
-  assert isinstance(expr, ApplicationExpression)
+  expr = l.Expression.fromstring(lf_str)
+  assert isinstance(expr, l.ApplicationExpression)
 
   # First candidates: all available constants
-  candidates = set([ConstantExpression(const)
-            for const in expr.constants()])
+  candidates = set([l.ConstantExpression(const)
+                    for const in expr.constants()])
 
   # All level-1 abstractions of the LF
   queue = [expr]
@@ -498,9 +528,9 @@ def lf_parts(lf_str):
 
     n_constants = 0
     for arg in node.args:
-      if isinstance(arg, ConstantExpression):
+      if isinstance(arg, l.ConstantExpression):
         n_constants += 1
-      elif isinstance(arg, ApplicationExpression):
+      elif isinstance(arg, l.ApplicationExpression):
         queue.append(arg)
       else:
         assert False, "Unexpected type " + str(arg)
@@ -513,21 +543,21 @@ def lf_parts(lf_str):
     # Create the candidate node(s).
     variable = Variable("x")
     for i, arg in enumerate(node.args):
-      if isinstance(arg, ApplicationExpression):
-        new_arg_cands = [VariableExpression(variable)]
+      if isinstance(arg, l.ApplicationExpression):
+        new_arg_cands = [l.VariableExpression(variable)]
       else:
         new_arg_cands = [arg]
         if n_constants == len(node.args):
           # All args are constant, so turning each constant into
           # a variable is also legal. Do that.
-          new_arg_cands.append(VariableExpression(variable))
+          new_arg_cands.append(l.VariableExpression(variable))
 
       # Enumerate candidate new arguments and yield candidate new exprs.
       for new_arg_cand in new_arg_cands:
         new_args = node.args[:i] + [new_arg_cand] + node.args[i + 1:]
-        app_expr = ApplicationExpression(node.pred, new_args[0])
-        app_expr = reduce(lambda x, y: ApplicationExpression(x, y), new_args[1:], app_expr)
-        candidates.add(LambdaExpression(variable, app_expr))
+        app_expr = l.ApplicationExpression(node.pred, new_args[0])
+        app_expr = reduce(lambda x, y: l.ApplicationExpression(x, y), new_args[1:], app_expr)
+        candidates.add(l.LambdaExpression(variable, app_expr))
 
   return candidates
 

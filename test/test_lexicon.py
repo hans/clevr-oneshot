@@ -103,3 +103,22 @@ def test_get_candidate_derived():
   expected = {lex._entries["the"][0].categ(),
               FunctionalCategory(PrimitiveCategory("S"), lex._derived_categories[cat_name][0], Direction('/', ('', '')))}
   eq_(get_candidate_categories(lex, tokens, test_sentence)["a"], expected)
+
+
+def test_get_lf_unigrams():
+  lex = Lexicon.fromstring(r"""
+    :- NN
+
+    the => NN/NN {\x.unique(x)}
+    sphere => NN {\x.and_(object(x),sphere(x))}
+    cube => NN {\x.and_(object(x),cube(x))}
+    """, include_semantics=True)
+
+  expected = {
+    "NN": Counter({"and_": 2 / 6, "object": 2 / 6, "sphere": 1 / 6, "cube": 1 / 6}),
+    "(NN/NN)": Counter({"unique": 1})
+  }
+
+  ngrams = lex.lf_ngrams(order=1, condition_on_syntax=True)
+  for categ, counter in ngrams.items():
+    eq_(counter, expected[str(categ)])
