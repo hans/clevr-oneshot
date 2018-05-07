@@ -154,13 +154,17 @@ class Lexicon(ccg_lexicon.CCGLexicon):
           key = entry.categ() if condition_on_syntax else None
           ret[key][predicate.name] += 1
 
+    if smooth:
+      for key in ret:
+        for predicate in ret[key]:
+          ret[key][predicate] += 1
+        ret[key][None] += 1
+
     # Normalize.
     ret_normalized = {}
     for categ in ret:
       Z = sum(ret[categ].values())
-      if smooth:
-        Z += len(ret[categ])
-      ret_normalized[categ] = {word: (count + 1 if smooth else count) / Z
+      ret_normalized[categ] = {word: count / Z
                                for word, count in ret[categ].items()}
 
     if not condition_on_syntax:
@@ -425,13 +429,29 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   for token in query_tokens:
     lex._entries[token] = []
 
+  # Prepare for syntactic bootstrap: pre-calculate distributions over semantic
+  # form elements conditioned on syntactic category.
+  lf_ngrams = lex.lf_ngrams(order=1, condition_on_syntax=True, smooth=True)
+
   # TODO need to work on *product space* for multiple query words
   successes = defaultdict(list)
   for token in query_tokens:
     cand_syntaxes = query_token_syntaxes[token]
-    for expr in ontology.iter_expressions(max_depth=4):
-      for category in cand_syntaxes:
+    for category in cand_syntaxes:
+      # BOOTSTRAP: Bias expression iteration based on the syntactic category.
+      cat_lf_ngrams = lf_ngrams[category]
+      # Redistribute UNK probability uniformly across predicates not observed
+      # for this category.
+      unk_lf_prob = cat_lf_ngrams.pop(None)
+      unobserved_preds = set(f.name for f in ontology.functions) - set(cat_lf_ngrams.keys())
+      cat_lf_ngrams.update({pred: unk_lf_prob / len(unobserved_preds)
+                           for pred in unobserved_preds})
+
+      # Now run the biased iteration.
+      exprs = ontology.iter_expressions(max_depth=4, function_weights=cat_lf_ngrams)
+      for expr in exprs:
         if not is_compatible(category, expr):
+          # TODO rather than arity-checking post-hoc, form a type request
           continue
 
         lex._entries[token] = [Token(token, category, expr)]

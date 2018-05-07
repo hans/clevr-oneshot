@@ -68,6 +68,8 @@ class Function(object):
   def __str__(self):
     return "function %s : %s" % (self.name, self.type)
 
+  __repr__ = __str__
+
 
 def make_application(fn_name, args):
   expr = l.ApplicationExpression(l.ConstantExpression(l.Variable(fn_name)),
@@ -232,10 +234,6 @@ class Ontology(object):
       functions: List of `k` `Function` instances
       variable_weight: log-probability of observing any variable
     """
-    # TODO do we need to require weights as explicit (log-)probability
-    # distributions here?
-    # I don't think so. Just need a total ordering.
-
     self.types = types
 
     self.functions = []
@@ -264,8 +262,8 @@ class Ontology(object):
   def _prepare(self):
     self._nltk_type_signature = self._make_nltk_type_signature()
 
-  def iter_expressions(self, max_depth=3):
-    ret = self._iter_expressions_inner(max_depth, bound_vars=())
+  def iter_expressions(self, max_depth=3, **kwargs):
+    ret = self._iter_expressions_inner(max_depth, bound_vars=(), **kwargs)
 
     # Extract lambda arguments to the top level.
     # NB, this breaks the type record. Should be fine.
@@ -276,7 +274,7 @@ class Ontology(object):
   #@functools.lru_cache(maxsize=None)
   @listify
   def _iter_expressions_inner(self, max_depth, bound_vars,
-                              type_request=None):
+                              type_request=None, function_weights=None):
     """
     Enumerate all legal expressions.
 
@@ -288,6 +286,8 @@ class Ontology(object):
       type_request: Optional requested type of the expression. This helps
         greatly restrict the space of enumerations when the type system is
         strong.
+      function_weights: Override for function weights to determine the order in
+        which we consider proposing function application expressions.
     """
     if max_depth == 0:
       return
@@ -295,8 +295,11 @@ class Ontology(object):
     for expr_type in self.EXPR_TYPES:
       if expr_type == l.ApplicationExpression and max_depth > 1:
         # Loop over functions according to their weights.
-        fns_sorted = sorted(self.functions_dict.values(),
-                            key=lambda fn: fn.weight,
+        # from pprint import pprint
+        # pprint(sorted([(fn.weight, fn.name) for fn in self.functions], key=lambda x: x[0]))
+        fn_weight_key = (lambda fn: function_weights[fn.name]) if function_weights is not None \
+                        else (lambda fn: fn.weight)
+        fns_sorted = sorted(self.functions_dict.values(), key=fn_weight_key,
                             reverse=True)
 
         for fn in fns_sorted:
@@ -319,7 +322,8 @@ class Ontology(object):
               sub_args.append(
                   self._iter_expressions_inner(max_depth=max_depth - 1,
                                                bound_vars=bound_vars,
-                                               type_request=arg_type_request))
+                                               type_request=arg_type_request,
+                                               function_weights=function_weights))
 
             for arg_combs in itertools.product(*sub_args):
               candidate = make_application(fn.name, arg_combs)
@@ -365,7 +369,8 @@ class Ontology(object):
 
             results = self._iter_expressions_inner(max_depth=max_depth - 1,
                                                     bound_vars=subexpr_bound_vars,
-                                                    type_request=subexpr_type_request)
+                                                    type_request=subexpr_type_request,
+                                                    function_weights=function_weights)
             for expr in results:
               candidate = l.LambdaExpression(bound_var, expr)
               valid = self._valid_lambda_expr(candidate, bound_vars)
