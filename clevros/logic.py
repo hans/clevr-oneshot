@@ -180,7 +180,7 @@ def read_ec_sexpr(sexpr):
   """
   tokens = re.split(r"([()\s])", sexpr)
 
-  bound_vars = {}
+  bound_vars = []
   is_call = False
   stack = [(None, None, [])]
   for token in tokens:
@@ -197,15 +197,15 @@ def read_ec_sexpr(sexpr):
     elif token == "lambda":
       is_call = False
       variable = next_bound_var(bound_vars, l.ANY_TYPE)
-      var_idx = "$%i" % len(bound_vars)
-      bound_vars[var_idx] = variable
+      bound_vars.append(variable)
 
       stack.append((l.LambdaExpression, variable, []))
     elif is_call:
       head = token
-      if head in bound_vars:
+      if head.startswith("$"):
+        bruijn_index = int(head[1:])
         # Bound variable is the head of an application expression.
-        head = l.FunctionVariableExpression(bound_vars[token])
+        head = l.FunctionVariableExpression(bound_vars[-1 - bruijn_index])
 
       stack.append((l.ApplicationExpression, head, []))
       is_call = False
@@ -217,6 +217,7 @@ def read_ec_sexpr(sexpr):
       elif stack_top[0] == l.LambdaExpression:
         _, variable, term = stack_top
         result = l.LambdaExpression(variable, term[0])
+        bound_vars.pop()
       else:
         raise RuntimeError("unknown element on stack", stack_top)
 
@@ -228,8 +229,9 @@ def read_ec_sexpr(sexpr):
       else:
         # Add to children of parent node.
         stack_parent[2].append(result)
-    elif token in bound_vars:
-      stack[-1][2].append(l.IndividualVariableExpression(bound_vars[token]))
+    elif token.startswith("$"):
+      bruijn_index = int(token[1:])
+      stack[-1][2].append(l.IndividualVariableExpression(bound_vars[-1 - bruijn_index]))
     else:
       stack[-1][2].append(l.ConstantExpression(l.Variable(token)))
 
