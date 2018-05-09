@@ -442,7 +442,11 @@ class Ontology(object):
         try:
           function_type = self.functions_dict[fn_name].type
         except KeyError:
-          function_type = extra_types[fn_name]
+          try:
+            function_type = extra_types[fn_name]
+          except KeyError:
+            # No function information available. Ditch.
+            return self.types.ANY_TYPE
 
         for i, arg in enumerate(node.args):
           visitor(arg)
@@ -451,6 +455,11 @@ class Ontology(object):
             # We've found a use of the value as a function argument -- extract
             # the apparent type.
             apparent_types.add(function_type.flat[i])
+          elif isinstance(arg, l.ApplicationExpression) and isinstance(arg.pred, l.FunctionVariableExpression) \
+              and arg.pred.variable.name == variable_name:
+            arg_types = ((self.types.ANY_TYPE,) * len(arg.args))
+            apparent_types.add(arg_types + (function_type.flat[i],))
+            print("here", variable_name, arg_types + (function_type.flat[i],))
       elif isinstance(node, l.LambdaExpression):
         visitor(node.term)
 
@@ -463,7 +472,8 @@ class Ontology(object):
         # TODO check type compatibility
         raise NotImplementedError("Multiple apparent types: %s" % apparent_types)
 
-    return next(iter(apparent_types))
+    type_ret = next(iter(apparent_types))
+    return self.types[type_ret]
 
   def get_expr_arity(self, expr):
     """

@@ -3,6 +3,7 @@ Utilities for going back and forth between EC and CCG frameworks
 """
 
 from collections import OrderedDict, defaultdict, namedtuple
+import copy
 import inspect
 
 from nltk.ccg.api import PrimitiveCategory
@@ -99,17 +100,30 @@ def grammar_to_ontology(grammar, ontology):
     # It's safe to just remove the invention marker and simplify the expression
     # afterward.
     inv_defn = inv_defn.replace("#", "")
-    print(inv_name, inv_defn)
 
     # First read an untyped version.
     inv_defn, bound_vars = read_ec_sexpr(inv_defn)
+    inv_defn = inv_defn.simplify()
 
     # Run type inference on the bound variables.
-    bound_signatures = {
-      bound_var.name: ontology.infer_type(inv_defn, bound_var.name,
-                                          extra_types=invention_types)
-      for bound_var in bound_vars.values()
-    }
+    bound_signatures = {var.name: None for var in bound_vars.values()}
+    extra_types = copy.copy(invention_types)
+    while not all(bound_signatures.values()):
+      # Need to loop multiple times over the var collection, in case there is a
+      # higher-order var which contains a var as one of its arguments.
+      for bound_var in bound_vars.values():
+        try:
+          var_type = ontology.infer_type(inv_defn, bound_var.name,
+                                        extra_types=extra_types)
+          bound_signatures[bound_var.name] = var_type
+
+          # This variable may be important for inferring types of other variables
+          # of higher order type as well.
+          extra_types[bound_var.name] = var_type
+        except StopIteration:
+          # This variable never appears in the definition. Ignore.
+          del bound_signatures[bound_var.name]
+
     ontology.typecheck(inv_defn, bound_signatures)
 
     invention_types[inv_name] = inv_defn.type
@@ -124,7 +138,7 @@ def grammar_to_ontology(grammar, ontology):
 
   # NB: Ordered from maximum to minimum depth
   invented_name_dict = OrderedDict([(name, inventions[name].original_name)
-                                    for name in depth_ordering[::-1]])
+                                    for name in depth_ordered[::-1]])
 
   return ontology, invented_name_dict
 
