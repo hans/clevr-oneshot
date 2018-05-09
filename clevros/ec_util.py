@@ -106,12 +106,12 @@ def grammar_to_ontology(grammar, ontology):
     inv_defn = inv_defn.simplify()
 
     # Run type inference on the bound variables.
-    bound_signatures = {var.name: None for var in bound_vars.values()}
+    bound_signatures = {var.name: None for var in bound_vars}
     extra_types = copy.copy(invention_types)
     while not all(bound_signatures.values()):
       # Need to loop multiple times over the var collection, in case there is a
       # higher-order var which contains a var as one of its arguments.
-      for bound_var in bound_vars.values():
+      for bound_var in bound_vars:
         try:
           var_type = ontology.infer_type(inv_defn, bound_var.name,
                                         extra_types=extra_types)
