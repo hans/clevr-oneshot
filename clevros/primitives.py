@@ -23,3 +23,12 @@ def fn_cylinder(x): return x["shape"] == "cylinder"
 
 def fn_object(x): return isinstance(x, (frozendict, dict))
 
+
+class Action(object): pass
+class Move(Action):
+  def __init__(self, obj, dest):
+    self.obj = obj
+    self.dest = dest
+
+class Transfer(Move):
+  pass

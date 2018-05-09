@@ -74,21 +74,6 @@ scene = \
  'split': 'train'}
 
 
-examples = [
-  ("is the cube left_of the sphere", scene, True),
-  ("is the sphere left_of the cube", scene, False),
-  ("is the cube above the sphere", scene, False),
-  ("is the sphere above the cube", scene, True),
-  ("is the pyramid above the cube", scene, False),
-  ("is the cube right_of the sphere", scene, False),
-  ("is the sphere right_of the cube", scene, True),
-  ("is the cube below the sphere", scene, True),
-  ("is the sphere below the cube", scene, False),
-  ("is the sphere behind the cube", scene, True),
-  ("is the cube behind the sphere", scene, False),
-]
-
-
 #####################
 
 
@@ -102,8 +87,6 @@ lex = Lexicon.fromstring(r"""
   donut => N {\x.and_(object(x),donut(x))}
   hose => N {\x.and_(object(x),hose(x))}
   cylinder => N {\x.and_(object(x),cylinder(x))}
-
-  # dev
   pyramid => N {\x.and_(object(x),pyramid(x))}
 
 #  cube => N {\x.and_(ax_x,cube(x))}
@@ -112,19 +95,19 @@ lex = Lexicon.fromstring(r"""
 #  hose => N {\x.and_(ax_x,hose(x))}
 #  cylinder => N {\x.and_(ax_x,cylinder(x))}
 
-  is => S/Nd {\x.x}
+  # is => S/Nd {\x.x}
 
-  the => Nd/N {\x.unique(x)}
+  # the => Nd/N {\x.unique(x)}
 
-  below => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_z,a,b))}
-  behind =>  Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_y,b,a))}
+  # below => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_z,a,b))}
+  # behind =>  Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_y,b,a))}
 
-  above => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_z,b,a))}
-  left_of => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_x,a,b))}
-  in_front_of => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_y,a,b))}
+  # above => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_z,b,a))}
+  # left_of => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_x,a,b))}
+  # in_front_of => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_y,a,b))}
 
-  # todo not the right syntactic category
-  # Need to first untie syntactic / semantic arities.
+  # # todo not the right syntactic category
+  # # Need to first untie syntactic / semantic arities.
   # put => S/Nd/(Nd\Nd/Nd) {\a.\b.move(a,b)}
   # place => S/Nd/(Nd\Nd/Nd) {\a.\b.move(a,b)}
   """, include_semantics=semantics)
@@ -135,45 +118,26 @@ lex_voo = Lexicon.fromstring(r"""
   Mary => N {\x.and_(agent(x),female(x))}
   Mark => N {\x.and_(agent(x),male(x))}
 
-  letter => N {\x.letter(x)}
-  ball => N {\x.ball(x)}
-  package => N {\x.package(x)}
+  # letter => N {\x.letter(x)}
+  # ball => N {\x.ball(x)}
+  # package => N {\x.package(x)}
+
+  cube => N {\x.and_(object(x),cube(x))}
+  sphere => N {\x.and_(object(x),sphere(x))}
+  donut => N {\x.and_(object(x),donut(x))}
+  hose => N {\x.and_(object(x),hose(x))}
+  cylinder => N {\x.and_(object(x),cylinder(x))}
+  pyramid => N {\x.and_(object(x),pyramid(x))}
 
   the => N/N {\x.unique(x)}
 
-  give => S/N/N {\a x.transfer(a, x)}
-  send => S/N/N {\a x.transfer(a, x)}
-  hand => S/N/N {\a x.transfer(a, x)}
+  give => S/N/N {\a x.transfer(a,x)}
+  send => S/N/N {\a x.transfer(a,x)}
+  hand => S/N/N {\a x.transfer(a,x)}
   """, include_semantics=True)
 
 
-class Action(object): pass
-class Move(Action):
-  def __init__(self, obj, dest):
-    self.obj = obj
-    self.dest = dest
-
-def fn_unique(xs):
-  true_xs = [x for x, matches in xs.items() if matches]
-  assert len(true_xs) == 1
-  return true_xs[0]
-
-def fn_cmp_pos(ax, a, b): return a["3d_coords"][ax()] - b["3d_coords"][ax()]
-def fn_ltzero(x): return x < 0
-def fn_and(a, b): return a and b
-
-def fn_ax_x(): return 0
-def fn_ax_y(): return 1
-def fn_ax_z(): return 2
-
-def fn_cube(x): return x["shape"] == "cube"
-def fn_sphere(x): return x["shape"] == "sphere"
-def fn_donut(x): return x["shape"] == "donut"
-def fn_pyramid(x): return x["shape"] == "pyramid"
-def fn_hose(x): return x["shape"] == "hose"
-def fn_cylinder(x): return x["shape"] == "cylinder"
-
-def fn_object(x): return isinstance(x, (frozendict, dict))
+from clevros.primitives import *
 
 types = TypeSystem(["obj", "num", "ax", "boolean", "action"])
 
@@ -194,10 +158,15 @@ functions = [
   types.new_function("pyramid", ("obj", "boolean"), fn_pyramid),
   types.new_function("hose", ("obj", "boolean"), fn_hose),
   types.new_function("cylinder", ("obj", "boolean"), fn_cylinder),
-  types.new_function("object", (types.ANY_TYPE, "boolean"), fn_object),
 
-  # TODO not the right arg types. How to specify "dest" arg type?
-  # types.new_function("move", ("obj", "obj", "action"), lambda a, b: Move(a, b)),
+  types.new_function("male", ("obj", "boolean"), lambda x: True), # TODO
+  types.new_function("female", ("obj", "boolean"), lambda x: True), # TODO
+
+  types.new_function("object", (types.ANY_TYPE, "boolean"), fn_object),
+  types.new_function("agent", (types.ANY_TYPE, "boolean"), lambda x: True), # TODO
+
+  types.new_function("move", ("obj", ("obj", "boolean"), "action"), lambda obj, dest: Move(a, b)),
+  types.new_function("transfer", ("obj", "obj", "action"), lambda obj, agent: Transfer(obj, agent)),
 ]
 
 
