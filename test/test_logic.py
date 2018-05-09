@@ -53,6 +53,11 @@ def test_read_ec_sexpr_nested():
   eq_(expr, Expression.fromstring(r"\a.((\b.foo(b))(a))"))
 
 
+def test_read_ec_sexpr_higher_order_param():
+  expr, bound_vars = read_ec_sexpr("(lambda (lambda ($1 $0)))")
+  eq_(expr, Expression.fromstring(r"\a P.P(a)"))
+
+
 def test_valid_lambda_expr():
   """
   Regression test: valid_lambda_expr was rejecting this good sub-expression at c720b4

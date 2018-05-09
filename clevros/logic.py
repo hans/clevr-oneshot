@@ -202,7 +202,12 @@ def read_ec_sexpr(sexpr):
 
       stack.append((l.LambdaExpression, variable, []))
     elif is_call:
-      stack.append((l.ApplicationExpression, token, []))
+      head = token
+      if head in bound_vars:
+        # Bound variable is the head of an application expression.
+        head = l.FunctionVariableExpression(bound_vars[token])
+
+      stack.append((l.ApplicationExpression, head, []))
       is_call = False
     elif token == ")":
       stack_top = stack.pop()
