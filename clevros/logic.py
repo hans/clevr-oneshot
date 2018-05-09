@@ -71,9 +71,9 @@ class Function(object):
   __repr__ = __str__
 
 
-def make_application(fn_name, args):
-  expr = l.ApplicationExpression(l.ConstantExpression(l.Variable(fn_name)),
-                                 args[0])
+def make_application(pred, args):
+  pred = l.ConstantExpression(l.Variable(pred)) if isinstance(pred, str) else pred
+  expr = l.ApplicationExpression(pred, args[0])
   return functools.reduce(lambda x, y: l.ApplicationExpression(x, y),
                           args[1:], expr)
 
@@ -189,6 +189,10 @@ def read_ec_sexpr(sexpr):
       continue
 
     if token == "(":
+      if is_call:
+        # Second consecutive left-paren -- this means we have a complex
+        # function expression.
+        stack.append((l.ApplicationExpression, None, []))
       is_call = True
     elif token == "lambda":
       is_call = False
@@ -202,16 +206,23 @@ def read_ec_sexpr(sexpr):
       is_call = False
     elif token == ")":
       stack_top = stack.pop()
-      if stack_top[0] == l.LambdaExpression:
-        _, variable, term = stack_top
-        result = l.LambdaExpression(variable, term[0])
-      elif stack_top[0] == l.ApplicationExpression:
+      if stack_top[0] == l.ApplicationExpression:
         _, pred, args = stack_top
         result = make_application(pred, args)
+      elif stack_top[0] == l.LambdaExpression:
+        _, variable, term = stack_top
+        result = l.LambdaExpression(variable, term[0])
       else:
         raise RuntimeError("unknown element on stack", stack_top)
 
-      stack[-1][2].append(result)
+      stack_parent = stack[-1]
+      if stack_parent[0] == l.ApplicationExpression and stack_parent[1] is None:
+        # We have just finished reading the head of an application expression.
+        expr, _, args = stack_parent
+        stack[-1] = (expr, result, args)
+      else:
+        # Add to children of parent node.
+        stack_parent[2].append(result)
     elif token in bound_vars:
       stack[-1][2].append(l.IndividualVariableExpression(bound_vars[token]))
     else:

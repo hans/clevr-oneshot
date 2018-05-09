@@ -43,6 +43,16 @@ def test_read_ec_sexpr():
   eq_(expr, Expression.fromstring(r"\a b c.foo(bar(a,b),baz(b,c),blah)"))
 
 
+def test_read_ec_sexpr_nested():
+  """
+  read_ec_sexpr should support reading in applications where the function
+  itself is an expression (i.e. there is some not-yet-reduced beta reduction
+  candidate).
+  """
+  expr, bound_vars = read_ec_sexpr("(lambda ((lambda (foo $1)) $0))")
+  eq_(expr, Expression.fromstring(r"\a.((\b.foo(b))(a))"))
+
+
 def test_valid_lambda_expr():
   """
   Regression test: valid_lambda_expr was rejecting this good sub-expression at c720b4
