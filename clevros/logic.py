@@ -459,7 +459,6 @@ class Ontology(object):
               and arg.pred.variable.name == variable_name:
             arg_types = ((self.types.ANY_TYPE,) * len(arg.args))
             apparent_types.add(arg_types + (function_type.flat[i],))
-            print("here", variable_name, arg_types + (function_type.flat[i],))
       elif isinstance(node, l.LambdaExpression):
         visitor(node.term)
 
