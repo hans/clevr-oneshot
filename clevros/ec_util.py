@@ -64,29 +64,22 @@ def grammar_to_ontology(grammar, ontology):
 
   new_defns = {name: inv.defn for name, inv in inventions.items()}
 
+  defn_depths = {name: defn.count("(") for name, defn in new_defns.items()}
+  depth_ordered = sorted(defn_depths, key=lambda name: defn_depths[name])
+
   # String-replace hashtag-style invention names from EC with more compact
   # names that are clevros-friendly.
   #
   # The string-replace happens bottom-up in order to support nested inventions.
   # Inventions which are subexpressions of other inventions get substituted
   # first.
-  min_depth = -1
-  # Track the depth ordering we end up using here -- will be useful in the near
-  # future for type inference.
-  depth_ordering = []
-  while any([("#" in new_defn) for new_defn in new_defns.values()]):
-    min_depth += 1
-    for replace_source in inventions.values():
-      if replace_source.defn.count("(") == min_depth:
-        # This is one of the smallest remaining inventions --
-        # search-and-replace in any other inventions which might contain it.
-        for replace_target in inventions.values():
-          new_defns[replace_target.name] = new_defns[replace_target.name] \
-              .replace(replace_source.original_name, replace_source.name)
-
-        depth_ordering.append(replace_source.name)
-  # Highest-level inventions need to also be added to the depth ordering.
-  depth_ordering.extend(set(inventions.keys()) - set(depth_ordering))
+  for inv_name in depth_ordered:
+    # This is one of the smallest remaining inventions yet to be replaced --
+    # search-and-replace in any other inventions which might contain it.
+    replace_source = inventions[inv_name]
+    for replace_target in new_defns:
+      new_defns[replace_target] = new_defns[replace_target] \
+          .replace(replace_source.original_name, replace_source.name)
 
   # Convert invention definitions to native representation. Requires type
   # inference. Use the same increasing-depth ordering as before so that larger
@@ -94,11 +87,22 @@ def grammar_to_ontology(grammar, ontology):
   # inventions they contain.
   invention_types = {}
   ret_invs = []
-  for inv_name in depth_ordering:
+  for inv_name in depth_ordered:
     invention = inventions[inv_name]
 
+    inv_defn = new_defns[inv_name]
+    # If there are any remaining EC-style invention markers in the string, it's
+    # because there was some proposed invention A from an early stage, later
+    # consumed by a larger invention B, which was not returned as part of the
+    # final grammar.
+    #
+    # It's safe to just remove the invention marker and simplify the expression
+    # afterward.
+    inv_defn = inv_defn.replace("#", "")
+    print(inv_name, inv_defn)
+
     # First read an untyped version.
-    inv_defn, bound_vars = read_ec_sexpr(new_defns[inv_name])
+    inv_defn, bound_vars = read_ec_sexpr(inv_defn)
 
     # Run type inference on the bound variables.
     bound_signatures = {
