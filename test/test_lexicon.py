@@ -87,6 +87,10 @@ def test_propagate_derived_category():
       msg="Propagation of derived category should not affect `baz`, which has a "
           "category which is the same as the base of the derived category")
 
+  eq_(len(lex._entries["the"]), 2,
+      msg="Derived category propagation should have created a new functional "
+          "category entry for the higher-order `the`. Only %i entries." % len(lex._entries["the"]))
+
 
 def test_get_candidate_derived():
   """

@@ -154,6 +154,57 @@ class Lexicon(ccg_lexicon.CCGLexicon):
         if entry in involved_entries:
           entry._categ = categ
 
+    # Create duplicates of all entries with functional categories involving the
+    # base of the derived category.
+    #
+    # For example, if we have an entry of syntactic category `S/N/PP` and we
+    # have just created a derived category `D0` based on `N`, we need to make
+    # sure there is now a corresponding candidate entry of type `S/D0/PP`.
+    replacement_tasks = {}
+    for word, entries in self._entries.items():
+      new_entries = []
+
+      for entry in entries:
+        if not isinstance(entry.categ(), FunctionalCategory):
+          # TODO will break with DerivedCategory cases
+          continue
+
+        try:
+          categ_replacement_tasks = replacement_tasks[entry.categ()]
+        except KeyError:
+          # Might need to derive a new replacement task here.
+          # Find all reanalyses of the functional category which involve the
+          # derived category.
+          def make_res_recombiner(parent):
+            return lambda derived: FunctionalCategory(derived, parent.arg(), parent.dir())
+          def make_arg_recombiner(parent):
+            return lambda derived: FunctionalCategory(parent.res(), derived, parent.dir())
+
+          categ_replacement_tasks = []
+          stack = [entry.categ()]
+          while stack:
+            fun_node = stack.pop()
+
+            if isinstance(fun_node, FunctionalCategory):
+              stack.append(fun_node.res())
+              stack.append(fun_node.arg())
+
+              if fun_node.res() == categ.base:
+                categ_replacement_tasks.append(make_res_recombiner(fun_node))
+              elif fun_node.arg() == categ.base:
+                categ_replacement_tasks.append(make_arg_recombiner(fun_node))
+
+          replacement_tasks[entry.categ()] = categ_replacement_tasks
+
+        for replacement_category_fn in categ_replacement_tasks:
+          # We already know a replacement is necessary -- go ahead.
+          new_entry = entry.clone()
+          new_entry._categ = replacement_category_fn(categ)
+          new_entries.append(new_entry)
+
+      self._entries[word] = entries + new_entries
+
+
   def lf_ngrams(self, order=1, condition_on_syntax=True, smooth=True):
     """
     Calculate n-gram statistics about the predicates present in the semantic
@@ -236,6 +287,9 @@ class DerivedCategory(AbstractCCGCategory):
 
 
 class Token(ccg_lexicon.Token):
+
+  def clone(self):
+    return Token(self._token, self._categ, self._semantics, self._weight)
 
   def __str__(self):
     return "Token(%s => %s%s)" % (self._token, self._categ,
