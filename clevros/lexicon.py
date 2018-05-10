@@ -114,6 +114,28 @@ class Lexicon(ccg_lexicon.CCGLexicon):
                 for token_list in self._entries.values()
                 for token in token_list])
 
+  @property
+  def category_semantic_arities(self):
+    """
+    Get the arities of semantic expressions associated with each observed
+    syntactic category.
+    """
+    def get_lambda_arity(expr):
+      if not isinstance(expr, l.LambdaExpression):
+        return 0
+      return 1 + get_lambda_arity(expr.term)
+
+    entries_by_categ = {
+      category: set(entry for entry in itertools.chain.from_iterable(self._entries.values())
+                    if entry.categ() == category)
+      for category in self.observed_categories
+    }
+
+    return {
+      category: set(get_lambda_arity(entry.semantics()) for entry in entries)
+      for category, entries in entries_by_categ.items()
+    }
+
   def add_derived_category(self, involved_tokens):
     name = "D%i" % len(self._derived_categories)
     categ = DerivedCategory(name, involved_tokens[0].categ())

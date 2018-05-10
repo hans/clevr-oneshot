@@ -80,7 +80,7 @@ scene = \
 semantics = True
 
 lex = Lexicon.fromstring(r"""
-  :- S, Nd, N
+  :- S, PP, Nd, N
 
   cube => N {\x.and_(object(x),cube(x))}
   sphere => N {\x.and_(object(x),sphere(x))}
@@ -89,27 +89,19 @@ lex = Lexicon.fromstring(r"""
   cylinder => N {\x.and_(object(x),cylinder(x))}
   pyramid => N {\x.and_(object(x),pyramid(x))}
 
-#  cube => N {\x.and_(ax_x,cube(x))}
-#  sphere => N {\x.and_(ax_x,sphere(x))}
-#  donut => N {\x.and_(ax_x,donut(x))}
-#  hose => N {\x.and_(ax_x,hose(x))}
-#  cylinder => N {\x.and_(ax_x,cylinder(x))}
+  the => Nd/N {\x.unique(x)}
 
-  # is => S/Nd {\x.x}
+  below => PP/Nd {\b.\a.ltzero(cmp_pos(ax_z,a,b))}
+  behind =>  PP/Nd {\b.\a.ltzero(cmp_pos(ax_y,b,a))}
+  above => PP/Nd {\b.\a.ltzero(cmp_pos(ax_z,b,a))}
+  left_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_x,a,b))}
+  right_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_x,b,a))}
+  in_front_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_y,a,b))}
 
-  # the => Nd/N {\x.unique(x)}
-
-  # below => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_z,a,b))}
-  # behind =>  Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_y,b,a))}
-
-  # above => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_z,b,a))}
-  # left_of => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_x,a,b))}
-  # in_front_of => Nd\Nd/Nd {\b.\a.ltzero(cmp_pos(ax_y,a,b))}
-
-  # # todo not the right syntactic category
-  # # Need to first untie syntactic / semantic arities.
-  # put => S/Nd/(Nd\Nd/Nd) {\a.\b.move(a,b)}
-  # place => S/Nd/(Nd\Nd/Nd) {\a.\b.move(a,b)}
+  # todo not the right syntactic category
+  # Need to first untie syntactic / semantic arities.
+  put => S/Nd/PP {\a.\b.move(a,b)}
+  place => S/Nd/PP {\a.\b.move(a,b)}
   """, include_semantics=semantics)
 
 lex_voo = Lexicon.fromstring(r"""

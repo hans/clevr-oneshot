@@ -144,37 +144,35 @@ def grammar_to_ontology(grammar, ontology):
 
 
 
-def get_category_arity(cat):
-  #takes a category .categ() as input
+def get_semantic_arity(category, arity_overrides=None):
+  """
+  Get the expected arity of a semantic form corresponding to some syntactic
+  category.
+  """
+  arity_overrides = arity_overrides or {}
+  if category in arity_overrides:
+    return arity_overrides[category]
+
   if isinstance(cat, DerivedCategory):
-    return get_category_arity(cat.base)
-  if isinstance(cat, PrimitiveCategory):
+    return get_semantic_arity(cat.base, arity_overrides)
+  elif isinstance(cat, PrimitiveCategory):
     return 0
+  elif isinstance(cat, FunctionalCategory):
+    return 1 + get_semantic_arity(cat.arg(), arity_overrides) \
+      + get_semantic_arity(cat.res(), arity_overrides)
   else:
-    return 1 + get_category_arity(cat.arg()) \
-      + get_category_arity(cat.res())
-
-def get_semantic_arity(cat):
-  cat_ar = get_category_arity(cat)
-  if cat_ar == 0:
-    return 1
-  else:
-    return cat_ar
+    raise ValueError("unknown category type %r" % cat)
 
 
-
-
-def extract_frontiers_from_lexicon(lex, g, invented_name_dict=None):
+def extract_frontiers_from_lexicon(lex, g, invented_name_dict=None, arity_overrides=None):
   frontiers = []
-  for key in lex._entries:
 
-
+  for key, entries in lex._entries.items():
     # TODO assumes that all lexical entries for a word have the same
     # syntactic arity.
-    for entry in lex._entries[key]:
-      assert get_semantic_arity(entry.categ()) == get_semantic_arity(lex._entries[key][0].categ())
+    assert len(set(get_semantic_arity(entry.categ(), arity_overrides) for entry in entries)) == 1
 
-    request = convert_to_ec_type_vanilla(get_semantic_arity(lex._entries[key][0].categ()))
+    request = convert_to_ec_type_vanilla(get_semantic_arity(entries[0].categ(), arity_overrides))
 
     task = Task(key, request, [])
     #the following line won't work because first input to FrontierEntry must be a Program
@@ -190,14 +188,14 @@ def extract_frontiers_from_lexicon(lex, g, invented_name_dict=None):
       return p
 
     # DEBUG
-    for entry in lex._entries[key]:
+    for entry in entries:
       print("%60s %20s %60s" % (entry, request, program(entry.semantics())))
 
     #logLikelihood is 0.0 because we assume that it has parsed correctly already - may want to modify
     frontier_entry_list = [FrontierEntry(program(entry.semantics()),
                                          logPrior=g.logLikelihood(request, program(entry.semantics())),
                                          logLikelihood=0.0)
-                           for entry in lex._entries[key]]
+                           for entry in entries]
 
     frontier = Frontier(frontier_entry_list, task)
     frontiers.append(frontier)
@@ -298,9 +296,21 @@ class Compressor(object):
         invention.
     """
 
+    # By default, arity requests for semantics of an entry will be derived from
+    # the arity of the associated syntactic category. Use the existing lexicon
+    # to extract exceptional syntax/semantics arity relations.
+    arity_overrides = {
+      category: next(iter(sem_arities))
+      for category, sem_arities in lexicon.category_semantic_arities.items()
+      # Only impose an arity override rule if it is always observed in the
+      # current lexicon.
+      if len(sem_arities) == 1
+    }
+
     # TODO(max) document
     frontiers = extract_frontiers_from_lexicon(lexicon, self.grammar,
-                                               invented_name_dict=self.invented_name_dict)
+                                               invented_name_dict=self.invented_name_dict,
+                                               arity_overrides=arity_overrides)
 
     # Induce new inventions using the present grammar and frontiers.
     self.grammar, new_frontiers = induceGrammar(self.grammar, frontiers, **self.EC_kwargs)
