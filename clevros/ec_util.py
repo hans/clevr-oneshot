@@ -6,7 +6,7 @@ from collections import OrderedDict, defaultdict, namedtuple
 import copy
 import inspect
 
-from nltk.ccg.api import PrimitiveCategory
+from nltk.ccg.api import PrimitiveCategory, FunctionalCategory
 
 from clevros.lexicon import Token, DerivedCategory
 from clevros.logic import as_ec_sexpr, read_ec_sexpr
@@ -45,11 +45,11 @@ def ontology_to_grammar_initial(ontology):
   Otherwise, it will mess with the EC classes of invented vs primitives
   """
 
-  #get a list of types for all prims
-  #we will change this when we have more sophisticated types
-
   productions = [(fn.weight, Primitive(fn.name, convert_to_ec_type_vanilla(fn.arity), fn.defn))
                  for fn in ontology.functions]
+  # TODO weights on constants?
+  productions.extend([(0, Primitive(constant.name, tS, constant.name))
+                      for constant in ontology.constants])
 
   #return Grammar(logVariable, [(l, p.infer(), p) for l, p in productions])
   grammar = Grammar.fromProductions(productions, logVariable=ontology.variable_weight)
@@ -153,15 +153,15 @@ def get_semantic_arity(category, arity_overrides=None):
   if category in arity_overrides:
     return arity_overrides[category]
 
-  if isinstance(cat, DerivedCategory):
-    return get_semantic_arity(cat.base, arity_overrides)
-  elif isinstance(cat, PrimitiveCategory):
+  if isinstance(category, DerivedCategory):
+    return get_semantic_arity(category.base, arity_overrides)
+  elif isinstance(category, PrimitiveCategory):
     return 0
-  elif isinstance(cat, FunctionalCategory):
-    return 1 + get_semantic_arity(cat.arg(), arity_overrides) \
-      + get_semantic_arity(cat.res(), arity_overrides)
+  elif isinstance(category, FunctionalCategory):
+    return 1 + get_semantic_arity(category.arg(), arity_overrides) \
+      + get_semantic_arity(category.res(), arity_overrides)
   else:
-    raise ValueError("unknown category type %r" % cat)
+    raise ValueError("unknown category type %r" % category)
 
 
 def extract_frontiers_from_lexicon(lex, g, invented_name_dict=None, arity_overrides=None):
