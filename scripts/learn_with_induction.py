@@ -123,6 +123,8 @@ lex = Lexicon.fromstring(r"""
 
   the => N/N {\x.unique(x)}
 
+  const => S {near}
+
   give => S/N/N {\a x.transfer(a,x,any)}
   send => S/N/N {\a x.transfer(a,x,far)}
   hand => S/N/N {\a x.transfer(a,x,near)}
@@ -161,30 +163,33 @@ functions = [
   types.new_function("transfer", ("obj", "obj", "action"), lambda obj, agent: Transfer(obj, agent)),
 ]
 
+constants = [types.new_constant("any", "dist"),
+             types.new_constant("far", "dist"),
+             types.new_constant("near", "dist")]
 
-ontology = Ontology(types, functions, variable_weight=0.1)
+ontology = Ontology(types, functions, constants, variable_weight=0.1)
 compressor = Compressor(ontology, **EC_kwargs)
 
 #############
 invented_name_dict = None
-for sentence, scene, answer in examples:
-  sentence = sentence.split()
+if True:#for sentence, scene, answer in examples:
+  # sentence = sentence.split()
 
-  model = Model(scene, ontology)
-  parse_results = WeightedCCGChartParser(lex).parse(sentence)
-  if not parse_results:
-    print("ERROR: Parse failed for sentence '%s'" % " ".join(sentence))
+  # model = Model(scene, ontology)
+  # parse_results = WeightedCCGChartParser(lex).parse(sentence)
+  if True:#not parse_results:
+    # print("ERROR: Parse failed for sentence '%s'" % " ".join(sentence))
 
-    query_tokens = [word for word in sentence if not lex._entries.get(word, [])]
-    print("\tNovel words: ", " ".join(query_tokens))
-    query_token_syntaxes = get_candidate_categories(lex, query_tokens, sentence)
-    print("\tCandidate categories:", query_token_syntaxes)
+    # query_tokens = [word for word in sentence if not lex._entries.get(word, [])]
+    # print("\tNovel words: ", " ".join(query_tokens))
+    # query_token_syntaxes = get_candidate_categories(lex, query_tokens, sentence)
+    # print("\tCandidate categories:", query_token_syntaxes)
 
-    # Augment the lexicon with all entries for novel words which yield the
-    # correct answer to the sentence under some parse. Restrict the search by
-    # the supported syntaxes for the novel words (`query_token_syntaxes`).
-    lex = augment_lexicon_distant(lex, query_tokens, query_token_syntaxes,
-                                  sentence, ontology, model, answer)
+    # # Augment the lexicon with all entries for novel words which yield the
+    # # correct answer to the sentence under some parse. Restrict the search by
+    # # the supported syntaxes for the novel words (`query_token_syntaxes`).
+    # lex = augment_lexicon_distant(lex, query_tokens, query_token_syntaxes,
+    #                               sentence, ontology, model, answer)
 
     # Run EC compression on the entries of the induced lexicon. This may create
     # new inventions, updating both the `ontology` and the provided `lex`.
@@ -207,6 +212,8 @@ for sentence, scene, answer in examples:
     #print("parse_results:", parse_results)
 
   final_sem = parse_results[0].label()[0].semantics()
+
+  sys.exit()
 
   print(" ".join(sentence), len(parse_results), final_sem)
   print("\t", model.evaluate(final_sem))
