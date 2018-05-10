@@ -104,7 +104,7 @@ lex = Lexicon.fromstring(r"""
   place => S/Nd/PP {\a.\b.move(a,b)}
   """, include_semantics=semantics)
 
-lex_voo = Lexicon.fromstring(r"""
+lex = Lexicon.fromstring(r"""
   :- S, N
 
   Mary => N {\x.and_(agent(x),female(x))}
@@ -123,15 +123,15 @@ lex_voo = Lexicon.fromstring(r"""
 
   the => N/N {\x.unique(x)}
 
-  give => S/N/N {\a x.transfer(a,x)}
-  send => S/N/N {\a x.transfer(a,x)}
-  hand => S/N/N {\a x.transfer(a,x)}
+  give => S/N/N {\a x.transfer(a,x,any)}
+  send => S/N/N {\a x.transfer(a,x,far)}
+  hand => S/N/N {\a x.transfer(a,x,near)}
   """, include_semantics=True)
 
 
 from clevros.primitives import *
 
-types = TypeSystem(["obj", "num", "ax", "boolean", "action"])
+types = TypeSystem(["obj", "num", "ax", "dist", "boolean", "action"])
 
 functions = [
   types.new_function("cmp_pos", ("ax", "obj", "obj", "num"), fn_cmp_pos),

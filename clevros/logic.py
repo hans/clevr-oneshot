@@ -40,6 +40,10 @@ class TypeSystem(object):
     type = self[type]
     return Function(name, type, defn, **kwargs)
 
+  def new_constant(self, name, type, **kwargs):
+    type = self[type]
+    return l.Variable(name, type)
+
 
 # Wrapper for a typed function.
 class Function(object):
@@ -152,26 +156,24 @@ def as_ec_sexpr(expr):
   """
   Convert an `nltk.sem.logic` `Expression` to an S-expr string.
   """
-  var_map = {}
-  def inner(expr):
+  def inner(expr, var_stack):
     if isinstance(expr, l.LambdaExpression):
       # Add lambda variable to var map.
-      var_idx = len(var_map)
-      var_map[expr.variable.name] = var_idx
-      return "(lambda %s)" % inner(expr.term)
+      return "(lambda %s)" % inner(expr.term, var_stack + [expr.variable.name])
     elif isinstance(expr, l.ApplicationExpression):
-      args = [inner(arg) for arg in expr.args]
+      args = [inner(arg, var_stack) for arg in expr.args]
       return "(%s %s)" % (expr.pred.variable.name, " ".join(args))
     # elif isinstance(expr, l.AndExpression):
     #   return "(and %s %s)" % (inner(expr.first), inner(expr.second))
     elif isinstance(expr, l.IndividualVariableExpression):
-      return "$%i" % var_map[expr.variable.name]
+      bruijn_index = len(var_stack) - var_stack.index(expr.variable.name) - 1
+      return "$%i" % bruijn_index
     elif isinstance(expr, l.ConstantExpression):
       return expr.variable.name
     else:
       raise ValueError("un-handled expression component %r" % expr)
 
-  return inner(expr)
+  return inner(expr, [])
 
 
 def read_ec_sexpr(sexpr):
@@ -245,11 +247,12 @@ class Ontology(object):
   TODO
   """
 
-  def __init__(self, types, functions, variable_weight=0.1):
+  def __init__(self, types, functions, constants, variable_weight=0.1):
     """
     Arguments:
       types: TypeSystem
       functions: List of `k` `Function` instances
+      constants: List of constants as (optionally typed) `Variable` instances
       variable_weight: log-probability of observing any variable
     """
     self.types = types
@@ -259,6 +262,7 @@ class Ontology(object):
     self.variable_weight = variable_weight
 
     self.add_functions(functions)
+    self.constants = constants
 
     self._prepare()
 
@@ -413,6 +417,12 @@ class Ontology(object):
           # print("\t" * (6-max_depth), "var %s" % bound_var)
 
           yield l.IndividualVariableExpression(bound_var)
+      elif expr_type == l.ConstantExpression:
+        for constant in self.constants:
+          if type_request is not None and not constant.type.matches(type_request):
+            continue
+
+          yield l.ConstantExpression(constant)
 
   def typecheck(self, expr, extra_type_signature=None):
     type_signature = self._nltk_type_signature

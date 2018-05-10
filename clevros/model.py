@@ -103,7 +103,8 @@ class Model(object):
         cf[u] = val
       return cf
     else:
-      return self.i(expr, assignments)
+      ret = self.i(expr, assignments)
+      return ret
 
   def i(self, expr, assignments):
     """
@@ -127,6 +128,8 @@ class Model(object):
       return self.ontology.functions_dict[expr.variable.name].defn
     elif isinstance(expr, IndividualVariableExpression):
       return assignments[expr.variable.name]
+    elif isinstance(expr, ConstantExpression) and expr.variable in self.ontology.constants:
+      # TODO should compare name, not variable instance -- in case types are not set
+      return expr.variable.name
     else:
-      print("expr:", expr)
       raise ValueError("Can't find a value for %s" % expr)
