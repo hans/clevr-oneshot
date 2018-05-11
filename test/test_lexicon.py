@@ -59,6 +59,9 @@ def _make_lexicon_with_derived_category():
 
   the => S/NP {\x.unique(x)}
 
+  # Have an entry taking the same argument type twice.
+  derp => S/NP/NP {\a b.derp(a,b)}
+
   foo => NP {\x.foo(x)}
   bar => NP {\x.bar(x)}
   baz => NP {\x.baz(x)}
@@ -90,6 +93,11 @@ def test_propagate_derived_category():
   eq_(len(lex._entries["the"]), 2,
       msg="Derived category propagation should have created a new functional "
           "category entry for the higher-order `the`. Only %i entries." % len(lex._entries["the"]))
+
+  # Should try one of each possible replacement with a derived category,
+  # yielding 3 entries for derp
+  eq_(set(str(entry.categ()) for entry in lex._entries["derp"]),
+      set(["((S/NP)/NP)", "((S/NP)/D0{NP})", "((S/D0{NP})/NP)"]))
 
 
 def test_get_candidate_derived():

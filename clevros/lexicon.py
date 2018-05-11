@@ -160,7 +160,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     # For example, if we have an entry of syntactic category `S/N/PP` and we
     # have just created a derived category `D0` based on `N`, we need to make
     # sure there is now a corresponding candidate entry of type `S/D0/PP`.
-    replacement_tasks = {}
+    replacements = {}
     for word, entries in self._entries.items():
       new_entries = []
 
@@ -170,36 +170,33 @@ class Lexicon(ccg_lexicon.CCGLexicon):
           continue
 
         try:
-          categ_replacement_tasks = replacement_tasks[entry.categ()]
+          categ_replacements = replacements[entry.categ()]
         except KeyError:
           # Might need to derive a new replacement task here.
           # Find all reanalyses of the functional category which involve the
           # derived category.
-          def make_res_recombiner(parent):
-            return lambda derived: FunctionalCategory(derived, parent.arg(), parent.dir())
-          def make_arg_recombiner(parent):
-            return lambda derived: FunctionalCategory(parent.res(), derived, parent.dir())
+          def traverse(node):
+            # TODO support derived functional categories here
+            if node == categ.base:
+              return [categ]
+            elif isinstance(node, FunctionalCategory):
+              left_results = traverse(node.res())
+              left_results = [FunctionalCategory(left_result, node.arg(), node.dir())
+                              for left_result in left_results]
+              right_results = traverse(node.arg())
+              right_results = [FunctionalCategory(node.res(), right_result, node.dir())
+                               for right_result in right_results]
+              return left_results + right_results
+            else:
+              return []
 
-          categ_replacement_tasks = []
-          stack = [entry.categ()]
-          while stack:
-            fun_node = stack.pop()
+          categ_replacements = set(traverse(entry.categ()))
+          replacements[entry.categ()] = categ_replacements
 
-            if isinstance(fun_node, FunctionalCategory):
-              stack.append(fun_node.res())
-              stack.append(fun_node.arg())
-
-              if fun_node.res() == categ.base:
-                categ_replacement_tasks.append(make_res_recombiner(fun_node))
-              elif fun_node.arg() == categ.base:
-                categ_replacement_tasks.append(make_arg_recombiner(fun_node))
-
-          replacement_tasks[entry.categ()] = categ_replacement_tasks
-
-        for replacement_category_fn in categ_replacement_tasks:
+        for replacement_category in categ_replacements:
           # We already know a replacement is necessary -- go ahead.
           new_entry = entry.clone()
-          new_entry._categ = replacement_category_fn(categ)
+          new_entry._categ = replacement_category
           new_entries.append(new_entry)
 
       self._entries[word] = entries + new_entries
@@ -281,7 +278,7 @@ class DerivedCategory(AbstractCCGCategory):
     return self.base.dir()
 
   def __str__(self):
-    return "F_%s(%s)" % (self.name, self.base)
+    return "%s{%s}" % (self.name, self.base)
 
   __repr__ = __str__
 
