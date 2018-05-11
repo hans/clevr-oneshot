@@ -110,6 +110,8 @@ lex = Lexicon.fromstring(r"""
   Mary => N {\x.and_(agent(x),female(x))}
   Mark => N {\x.and_(agent(x),male(x))}
 
+  female => N {\x.and_(agent(x),female(x))}
+
   # letter => N {\x.letter(x)}
   # ball => N {\x.ball(x)}
   # package => N {\x.package(x)}
@@ -130,12 +132,19 @@ lex = Lexicon.fromstring(r"""
   hand => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,near))}
   """, include_semantics=True)
 
-examples = [
-  ("gorp Mary the cube", {"objects": []}, False), # TODO meaning
-]
-
-
 from clevros.primitives import *
+
+scene = {
+    "objects": [
+      frozendict({"female": True, "agent": True, "shape": "person"}),
+      frozendict({"shape": "donut"}),
+      frozendict({"shape": "cube"}),
+      ]
+    }
+examples = [
+    ("gorp the female the cube", scene,
+     ComposedAction(CausePossession(scene["objects"][0], {"shape": "cube"}), Transfer({"shape": "cube"}, scene["objects"][0], "far"))),
+]
 
 types = TypeSystem(["obj", "num", "ax", "dist", "boolean", "action"])
 
@@ -197,38 +206,39 @@ def compress_lexicon(lex):
 
 #############
 
-# Run compression on the initial lexicon.
-lex = compress_lexicon(lex)
+if __name__ == "__main__":
+  # Run compression on the initial lexicon.
+  lex = compress_lexicon(lex)
 
 
-for sentence, scene, answer in examples:
-  sentence = sentence.split()
+  for sentence, scene, answer in examples:
+    sentence = sentence.split()
 
-  model = Model(scene, ontology)
-  parse_results = WeightedCCGChartParser(lex).parse(sentence)
-  if not parse_results:
-    print("ERROR: Parse failed for sentence '%s'" % " ".join(sentence))
-
-    query_tokens = [word for word in sentence if not lex._entries.get(word, [])]
-    print("\tNovel words: ", " ".join(query_tokens))
-    query_token_syntaxes = get_candidate_categories(lex, query_tokens, sentence)
-    print("\tCandidate categories:", query_token_syntaxes)
-
-    # Augment the lexicon with all entries for novel words which yield the
-    # correct answer to the sentence under some parse. Restrict the search by
-    # the supported syntaxes for the novel words (`query_token_syntaxes`).
-    lex = augment_lexicon_distant(lex, query_tokens, query_token_syntaxes,
-                                  sentence, ontology, model, answer)
-
-    lex = compress_lexicon(lex)
-
+    model = Model(scene, ontology)
     parse_results = WeightedCCGChartParser(lex).parse(sentence)
-    #print("parse_results:", parse_results)
+    if not parse_results:
+      print("ERROR: Parse failed for sentence '%s'" % " ".join(sentence))
 
-  final_sem = parse_results[0].label()[0].semantics()
+      query_tokens = [word for word in sentence if not lex._entries.get(word, [])]
+      print("\tNovel words: ", " ".join(query_tokens))
+      query_token_syntaxes = get_candidate_categories(lex, query_tokens, sentence)
+      print("\tCandidate categories:", query_token_syntaxes)
 
-  sys.exit()
+      # Augment the lexicon with all entries for novel words which yield the
+      # correct answer to the sentence under some parse. Restrict the search by
+      # the supported syntaxes for the novel words (`query_token_syntaxes`).
+      lex = augment_lexicon_distant(lex, query_tokens, query_token_syntaxes,
+                                    sentence, ontology, model, answer)
 
-  print(" ".join(sentence), len(parse_results), final_sem)
-  print("\t", model.evaluate(final_sem))
+      lex = compress_lexicon(lex)
+
+      parse_results = WeightedCCGChartParser(lex).parse(sentence)
+      #print("parse_results:", parse_results)
+
+    final_sem = parse_results[0].label()[0].semantics()
+
+    sys.exit()
+
+    print(" ".join(sentence), len(parse_results), final_sem)
+    print("\t", model.evaluate(final_sem))
 

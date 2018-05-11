@@ -501,6 +501,8 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
       cat_lf_ngrams.update({pred: unk_lf_prob / len(unobserved_preds)
                            for pred in unobserved_preds})
 
+      print(category, cat_lf_ngrams)
+
       # Now run the biased iteration.
       exprs = ontology.iter_expressions(max_depth=4, function_weights=cat_lf_ngrams)
       for expr in exprs:
@@ -516,15 +518,23 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
           # Parse succeeded -- check the candidate results.
           for result in results:
             # TODO skip re-checking parses with the same semantics
+            if "cause_possession" in str(expr):
+              print(expr, result.label()[0].semantics())
             semantics = result.label()[0].semantics()
 
             try:
               pred_answer = model.evaluate(semantics)
-            except (TypeError, AttributeError):
+              if "cause_possession" in str(expr):
+                print("R %r" % pred_answer)
+            except (TypeError, AttributeError) as e:
               # Type inconsistency. TODO catch this in the iter_expression stage.
+              if "cause_possession" in str(expr):
+                print("TypeError or AttributeError", e)
               continue
-            except AssertionError:
+            except AssertionError as e:
               # Precondition of semantics failed to pass.
+              if "cause_possession" in str(expr):
+                raise e
               continue
 
             if pred_answer == answer:
