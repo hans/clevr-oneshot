@@ -160,7 +160,7 @@ functions = [
   types.new_function("agent", (types.ANY_TYPE, "boolean"), lambda x: True), # TODO
 
   types.new_function("move", ("obj", ("obj", "boolean"), "action"), lambda obj, dest: Move(a, b)),
-  types.new_function("transfer", ("obj", "obj", "action"), lambda obj, agent: Transfer(obj, agent)),
+  types.new_function("transfer", ("obj", "obj", "dist", "action"), lambda obj, agent, dist: Transfer(obj, agent, dist)),
 ]
 
 constants = [types.new_constant("any", "dist"),

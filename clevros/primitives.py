@@ -26,9 +26,10 @@ def fn_object(x): return isinstance(x, (frozendict, dict))
 
 class Action(object): pass
 class Move(Action):
-  def __init__(self, obj, dest):
+  def __init__(self, obj, dest, manner):
     self.obj = obj
     self.dest = dest
+    self.manner = manner
 
 class Transfer(Move):
   pass
