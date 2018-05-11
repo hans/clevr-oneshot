@@ -344,34 +344,6 @@ def get_candidate_categories(lex, tokens, sentence):
     lex._entries[token] = []
 
   candidate_categories = lex.observed_categories
-  # Also consider as candidates derived categories / functional categories
-  # taking derived categories as arguments which may not yet be attested.
-  extra_candidates = set()
-  # Stack stores candidates which might also exist as derived categories, as
-  # well as a lambda which substitutes a derived category into the original
-  # containing category expression.
-  stack = [(cand, lambda x: x) for cand in candidate_categories]
-  while stack:
-    cand, recombiner = stack.pop()
-
-    try:
-      derived_categs = lex._derived_categories_by_base[cand]
-    except KeyError:
-      continue
-    else:
-      extra_candidates |= set([recombiner(derived_categ) for derived_categ in derived_categs])
-
-    # Necessary to define this way to make variable closure work.
-    def make_res_recombiner(parent):
-      return lambda derived: FunctionalCategory(derived, parent.arg(), parent.dir())
-    def make_arg_recombiner(parent):
-      return lambda derived: FunctionalCategory(parent.res(), derived, parent.dir())
-
-    if isinstance(cand, FunctionalCategory):
-      stack.append((cand.res(), make_res_recombiner(cand)))
-      stack.append((cand.arg(), make_arg_recombiner(cand)))
-
-  candidate_categories = set(candidate_categories) | extra_candidates
 
   ret = defaultdict(set)
 
