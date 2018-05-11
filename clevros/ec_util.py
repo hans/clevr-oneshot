@@ -8,7 +8,7 @@ import inspect
 
 from nltk.ccg.api import PrimitiveCategory, FunctionalCategory
 
-from clevros.lexicon import Token, DerivedCategory
+from clevros.lexicon import Token, DerivedCategory, get_semantic_arity
 from clevros.logic import as_ec_sexpr, read_ec_sexpr
 
 
@@ -141,27 +141,6 @@ def grammar_to_ontology(grammar, ontology):
                                     for name in depth_ordered[::-1]])
 
   return ontology, invented_name_dict
-
-
-
-def get_semantic_arity(category, arity_overrides=None):
-  """
-  Get the expected arity of a semantic form corresponding to some syntactic
-  category.
-  """
-  arity_overrides = arity_overrides or {}
-  if category in arity_overrides:
-    return arity_overrides[category]
-
-  if isinstance(category, DerivedCategory):
-    return get_semantic_arity(category.base, arity_overrides)
-  elif isinstance(category, PrimitiveCategory):
-    return 0
-  elif isinstance(category, FunctionalCategory):
-    return 1 + get_semantic_arity(category.arg(), arity_overrides) \
-      + get_semantic_arity(category.res(), arity_overrides)
-  else:
-    raise ValueError("unknown category type %r" % category)
 
 
 def extract_frontiers_from_lexicon(lex, g, invented_name_dict=None, arity_overrides=None):

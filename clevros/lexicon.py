@@ -295,15 +295,24 @@ class Token(ccg_lexicon.Token):
   __repr__ = __str__
 
 
-def get_category_arity(cat):
+def get_semantic_arity(category, arity_overrides=None):
   """
-  Get the syntactic arity of a syntactic category.
+  Get the expected arity of a semantic form corresponding to some syntactic
+  category.
   """
-  if isinstance(cat, PrimitiveCategory):
+  arity_overrides = arity_overrides or {}
+  if category in arity_overrides:
+    return arity_overrides[category]
+
+  if isinstance(category, DerivedCategory):
+    return get_semantic_arity(category.base, arity_overrides)
+  elif isinstance(category, PrimitiveCategory):
     return 0
+  elif isinstance(category, FunctionalCategory):
+    return 1 + get_semantic_arity(category.arg(), arity_overrides) \
+      + get_semantic_arity(category.res(), arity_overrides)
   else:
-    return 1 + get_category_arity(cat.arg()) \
-        + get_category_arity(cat.res())
+    raise ValueError("unknown category type %r" % category)
 
 
 def is_compatible(category, lf):
@@ -313,7 +322,7 @@ def is_compatible(category, lf):
   syntactic category is a simple category.)
   """
   # Get category arity by DFS.
-  category_arity = get_category_arity(category)
+  category_arity = get_semantic_arity(category)
 
   def visit_node(node):
     delta = 1 if isinstance(node, l.LambdaExpression) else 0
