@@ -21,7 +21,7 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
 
   def __init__(self, lexicon, ruleset=None, *args, **kwargs):
     if ruleset is None:
-      ruleset = nchart.DefaultRuleSet
+      ruleset = nchart.ApplicationRuleSet
     super().__init__(lexicon, ruleset, *args, **kwargs)
 
   def _parse_inner(self, chart):
