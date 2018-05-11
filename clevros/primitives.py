@@ -24,7 +24,14 @@ def fn_cylinder(x): return x["shape"] == "cylinder"
 def fn_object(x): return isinstance(x, (frozendict, dict))
 
 
-class Action(object): pass
+class Action(object):
+  def __add__(self, other):
+    return ComposedAction([self, other])
+
+class ComposedAction(Action):
+  def __init__(self, *actions):
+    self.actions = actions
+
 class Move(Action):
   def __init__(self, obj, dest, manner):
     self.obj = obj
@@ -33,3 +40,9 @@ class Move(Action):
 
 class Transfer(Move):
   pass
+
+class StateChange(Action): pass
+class CausePossession(StateChange):
+  def __init__(self, agent, obj):
+    self.agent = agent
+    self.obj = obj

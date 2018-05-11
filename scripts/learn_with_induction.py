@@ -125,9 +125,9 @@ lex = Lexicon.fromstring(r"""
 
   const => S {near}
 
-  give => S/N/N {\a x.transfer(a,x,any)}
-  send => S/N/N {\a x.transfer(a,x,far)}
-  hand => S/N/N {\a x.transfer(a,x,near)}
+  give => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,any))}
+  send => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,far))}
+  hand => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,near))}
   """, include_semantics=True)
 
 
@@ -160,7 +160,10 @@ functions = [
   types.new_function("agent", (types.ANY_TYPE, "boolean"), lambda x: True), # TODO
 
   types.new_function("move", ("obj", ("obj", "boolean"), "action"), lambda obj, dest: Move(a, b)),
+  types.new_function("cause_possession", ("obj", "obj", "action"), lambda agent, obj: CausePossession(agent, obj)),
   types.new_function("transfer", ("obj", "obj", "dist", "action"), lambda obj, agent, dist: Transfer(obj, agent, dist)),
+
+  types.new_function("do_", ("action", "action", "action"), lambda a1, a2: a1 + a2),
 ]
 
 constants = [types.new_constant("any", "dist"),
