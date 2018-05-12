@@ -79,7 +79,7 @@ scene = \
 
 semantics = True
 
-lex = Lexicon.fromstring(r"""
+lex_vol = Lexicon.fromstring(r"""
   :- S, PP, Nd, N
 
   cube => N {\x.and_(object(x),cube(x))}
@@ -92,16 +92,14 @@ lex = Lexicon.fromstring(r"""
   the => Nd/N {\x.unique(x)}
 
   below => PP/Nd {\b.\a.ltzero(cmp_pos(ax_z,a,b))}
-  behind =>  PP/Nd {\b.\a.ltzero(cmp_pos(ax_y,b,a))}
-  above => PP/Nd {\b.\a.ltzero(cmp_pos(ax_z,b,a))}
-  left_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_x,a,b))}
+  # behind =>  PP/Nd {\b.\a.ltzero(cmp_pos(ax_y,b,a))}
+  # above => PP/Nd {\b.\a.ltzero(cmp_pos(ax_z,b,a))}
+  # left_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_x,a,b))}
   right_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_x,b,a))}
   in_front_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_y,a,b))}
 
-  # todo not the right syntactic category
-  # Need to first untie syntactic / semantic arities.
-  put => S/Nd/PP {\a.\b.move(a,b)}
-  place => S/Nd/PP {\a.\b.move(a,b)}
+  put => S/Nd/PP {\a.\b.move(a,b,slow)}
+  drop => S/Nd/PP {\a.\b.move(a,b,fast)}
   """, include_semantics=semantics)
 
 lex = Lexicon.fromstring(r"""
@@ -133,19 +131,23 @@ lex = Lexicon.fromstring(r"""
 from clevros.primitives import *
 
 scene = {
-    "objects": [
-      frozendict({"female": True, "agent": True, "shape": "person"}),
-      frozendict({"shape": "donut"}),
-      frozendict({"shape": "cube"}),
-      ]
-    }
+  "objects": [
+    frozendict({"female": True, "agent": True, "shape": "person"}),
+    frozendict({"shape": "donut"}),
+    frozendict({"shape": "cube"}),
+  ]
+}
+examples_vol = [
+  ("place the donut right_of the cube", scene,
+   Move(scene["objects"][1], scene["objects"][2], "slow")),
+]
 examples = [
     ("gorp the woman the cube", scene,
      ComposedAction(CausePossession(scene["objects"][0], scene["objects"][2]),
                     Transfer(scene["objects"][2], scene["objects"][0], "far"))),
 ]
 
-types = TypeSystem(["obj", "num", "ax", "dist", "boolean", "action"])
+types = TypeSystem(["obj", "num", "ax", "dist", "speed", "boolean", "action"])
 
 functions = [
   types.new_function("cmp_pos", ("ax", "obj", "obj", "num"), fn_cmp_pos),
@@ -171,7 +173,7 @@ functions = [
   types.new_function("object", (types.ANY_TYPE, "boolean"), fn_object),
   types.new_function("agent", (types.ANY_TYPE, "boolean"), lambda x: True), # TODO
 
-  types.new_function("move", ("obj", ("obj", "boolean"), "action"), lambda obj, dest: Move(a, b)),
+  types.new_function("move", ("obj", ("obj", "boolean"), "speed", "action"), lambda obj, dest, manner: Move(a, b, manner)),
   types.new_function("cause_possession", ("obj", "obj", "action"), lambda agent, obj: CausePossession(agent, obj)),
   types.new_function("transfer", ("obj", "obj", "dist", "action"), lambda obj, agent, dist: Transfer(obj, agent, dist)),
 
@@ -180,7 +182,9 @@ functions = [
 
 constants = [types.new_constant("any", "dist"),
              types.new_constant("far", "dist"),
-             types.new_constant("near", "dist")]
+             types.new_constant("near", "dist"),
+             types.new_constant("slow", "speed"),
+             types.new_constant("fast", "speed")]
 
 ontology = Ontology(types, functions, constants, variable_weight=0.1)
 compressor = Compressor(ontology, **EC_kwargs)

@@ -363,7 +363,7 @@ def get_candidate_categories(lex, tokens, sentence):
       lex._entries[token] = [Token(token, category)]
 
     # Attempt a parse.
-    results = chart.WeightedCCGChartParser(lex).parse(sentence)
+    results = chart.WeightedCCGChartParser(lex, chart.DefaultRuleSet).parse(sentence)
     if results:
       # Good, we have a parse. Add candidate categories to return.
       for token, category in zip(tokens, cat_assignment):

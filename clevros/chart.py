@@ -6,6 +6,9 @@ import numpy as np
 
 printCCGDerivation = nchart.printCCGDerivation
 
+DefaultRuleSet = nchart.DefaultRuleSet
+ApplicationRuleSet = nchart.ApplicationRuleSet
+
 
 class WeightedCCGChartParser(nchart.CCGChartParser):
   """
@@ -21,7 +24,7 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
 
   def __init__(self, lexicon, ruleset=None, *args, **kwargs):
     if ruleset is None:
-      ruleset = nchart.ApplicationRuleSet
+      ruleset = ApplicationRuleSet
     super().__init__(lexicon, ruleset, *args, **kwargs)
 
   def _parse_inner(self, chart):
