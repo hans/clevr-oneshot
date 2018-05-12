@@ -1,5 +1,6 @@
 from nose.tools import *
 
+from frozendict import frozendict
 from nltk.sem.logic import Expression
 
 from clevros.logic import Ontology, TypeSystem, Function
@@ -61,3 +62,56 @@ def test_model_induced_functions():
 
   for msg, expr, expected in cases:
     yield test, msg, expr, expected
+
+
+def test_model_complex():
+  """
+  Test evaluating some complex expressions (which yield Python objects as results).
+  """
+
+  from clevros import primitives as p
+
+  scene = {
+    "objects": [
+      frozendict({"female": True, "agent": True, "shape": "person"}),
+      frozendict({"shape": "donut"}),
+      frozendict({"shape": "cube"}),
+    ]
+  }
+  examples = [
+    ("gorp the female the cube", scene,
+     p.ComposedAction(p.CausePossession(scene["objects"][0], {"shape": "cube"}), p.Transfer({"shape": "cube"}, scene["objects"][0], "far"))),
+  ]
+
+  types = TypeSystem(["obj", "num", "ax", "dist", "boolean", "action"])
+
+  functions = [
+    types.new_function("and_", ("boolean", "boolean", "boolean"), p.fn_and),
+
+    types.new_function("unique", (("obj", "boolean"), "obj"), p.fn_unique),
+
+    types.new_function("cube", ("obj", "boolean"), p.fn_cube),
+
+    types.new_function("male", ("obj", "boolean"), lambda x: x.get("male", False)),
+    types.new_function("female", ("obj", "boolean"), lambda x: x.get("female", False)),
+
+    types.new_function("object", (types.ANY_TYPE, "boolean"), p.fn_object),
+    types.new_function("agent", (types.ANY_TYPE, "boolean"), lambda x: x.get("agent", False)),
+
+    types.new_function("cause_possession", ("obj", "obj", "action"), lambda agent, obj: p.CausePossession(agent, obj)),
+    types.new_function("transfer", ("obj", "obj", "dist", "action"), lambda obj, agent, dist: p.Transfer(obj, agent, dist)),
+
+    types.new_function("do_", ("action", "action", "action"), lambda a1, a2: a1 + a2),
+  ]
+
+  constants = [types.new_constant("any", "dist"), types.new_constant("far", "dist"), types.new_constant("near", "dist")]
+
+  ontology = Ontology(types, functions, constants, variable_weight=0.1)
+  model = Model(scene, ontology)
+
+  # eq_(model.evaluate(Expression.fromstring(r"cause_possession(unique(\a.female(a)),unique(\b.and_(object(b),cube(b))))")),
+  #     p.CausePossession(scene["objects"][0], scene["objects"][2]))
+
+  eq_(model.evaluate(Expression.fromstring(r"do_(cause_possession(unique(\a.female(a)),unique(\b.and_(object(b),cube(b)))),transfer(unique(\c.and_(object(c),cube(c))),unique(\d.female(d)),any))")),
+      p.ComposedAction(p.CausePossession(scene["objects"][0], scene["objects"][2]),
+                       p.Transfer(scene["objects"][2], scene["objects"][0], "any")))

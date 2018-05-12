@@ -107,10 +107,8 @@ lex = Lexicon.fromstring(r"""
 lex = Lexicon.fromstring(r"""
   :- S, N
 
-  Mary => N {\x.and_(agent(x),female(x))}
-  Mark => N {\x.and_(agent(x),male(x))}
-
-  female => N {\x.and_(agent(x),female(x))}
+  woman => N {\x.and_(agent(x),female(x))}
+  man => N {\x.and_(agent(x),male(x))}
 
   # letter => N {\x.letter(x)}
   # ball => N {\x.ball(x)}
@@ -142,7 +140,7 @@ scene = {
       ]
     }
 examples = [
-    ("gorp the female the cube", scene,
+    ("gorp the woman the cube", scene,
      ComposedAction(CausePossession(scene["objects"][0], {"shape": "cube"}), Transfer({"shape": "cube"}, scene["objects"][0], "far"))),
 ]
 

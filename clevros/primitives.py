@@ -26,17 +26,36 @@ def fn_object(x): return isinstance(x, (frozendict, dict))
 
 class Action(object):
   def __add__(self, other):
-    return ComposedAction([self, other])
+    return ComposedAction(self, other)
+
+  def __eq__(self, other):
+    return hash(self) == hash(other)
 
 class ComposedAction(Action):
   def __init__(self, *actions):
     self.actions = actions
+
+  def __hash__(self):
+    return hash(tuple(self.actions))
+
+  def __str__(self):
+    return "+(%s)" % (",".join(str(action) for action in self.actions))
+
+  __repr__ = __str__
 
 class Move(Action):
   def __init__(self, obj, dest, manner):
     self.obj = obj
     self.dest = dest
     self.manner = manner
+
+  def __hash__(self):
+    return hash((self.obj, self.dest, self.manner))
+
+  def __str__(self):
+    return "%s(%s -> %s, %s)" % (self.__class__.__name__, self.obj, self.dest, self.manner)
+
+  __repr__ = __str__
 
 class Transfer(Move):
   pass
@@ -46,3 +65,11 @@ class CausePossession(StateChange):
   def __init__(self, agent, obj):
     self.agent = agent
     self.obj = obj
+
+  def __hash__(self):
+    return hash((self.agent, self.obj))
+
+  def __str__(self):
+    return "%s(%s <- %s)" % (self.__class__.__name__, self.agent, self.obj)
+
+  __repr__ = __str__
