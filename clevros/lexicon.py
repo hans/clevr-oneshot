@@ -315,6 +315,26 @@ def get_semantic_arity(category, arity_overrides=None):
     raise ValueError("unknown category type %r" % category)
 
 
+def get_yield(category):
+  """
+  Get the root node of a syntactic category.
+  """
+  if isinstance(category, DerivedCategory):
+    if isinstance(category.base, PrimitiveCategory):
+      return category.categ()
+    else:
+      return get_yield(category.base)
+  elif isinstance(category, PrimitiveCategory):
+    return category.categ()
+  elif isinstance(category, FunctionalCategory):
+    if category.dir().is_forward():
+      return get_yield(category.res())
+    else:
+      return get_yield(category.arg())
+  else:
+    raise ValueError("unknown category type with instance %r" % category)
+
+
 def is_compatible(category, lf):
   """
   Determine if a syntactic category and a logical form are functionally

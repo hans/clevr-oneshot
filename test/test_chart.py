@@ -1,6 +1,6 @@
 from nose.tools import *
 
-from clevros.chart import WeightedCCGChartParser, printCCGDerivation
+from clevros.chart import *
 from clevros.lexicon import Lexicon
 
 
@@ -36,3 +36,21 @@ def test_parse_with_derived_category():
 
   eq_(len(results), len(results))
   eq_(results[0].label()[0].semantics(), old_results[0].label()[0].semantics())
+
+
+def test_parse_oblique():
+  """
+  Test parsing a verb with an oblique PP -- this shouldn't require type raising?
+  """
+
+  lex = Lexicon.fromstring(r"""
+  :- S, NP, PP
+
+  place => S/NP/PP
+  it => NP
+  on => PP/NP
+  the_table => NP
+  """)
+
+  parser = WeightedCCGChartParser(lex, ApplicationRuleSet)
+  printCCGDerivation(parser.parse("place it on the_table".split())[0])
