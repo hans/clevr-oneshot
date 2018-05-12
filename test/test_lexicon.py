@@ -25,7 +25,7 @@ def test_filter_lexicon_entry():
   eq_(str(entries[0].semantics()), "filter_shape(scene,sphere)")
 
 
-def test_get_category_arity():
+def test_get_semantic_arity():
   from nltk.ccg.lexicon import augParseCategory
   lex = Lexicon.fromstring(r"""
     :- NN, DET, ADJ
@@ -46,7 +46,7 @@ def test_get_category_arity():
   ]
 
   def test_case(cat, expected):
-    eq_(get_category_arity(augParseCategory(cat, lex._primitives, lex._families)[0]),
+    eq_(get_semantic_arity(augParseCategory(cat, lex._primitives, lex._families)[0]),
         expected, msg=str(cat))
 
   for cat, expected in cases:
