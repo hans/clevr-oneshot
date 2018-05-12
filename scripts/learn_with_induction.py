@@ -141,7 +141,8 @@ scene = {
     }
 examples = [
     ("gorp the woman the cube", scene,
-     ComposedAction(CausePossession(scene["objects"][0], {"shape": "cube"}), Transfer({"shape": "cube"}, scene["objects"][0], "far"))),
+     ComposedAction(CausePossession(scene["objects"][0], scene["objects"][2]),
+                    Transfer(scene["objects"][2], scene["objects"][0], "far"))),
 ]
 
 types = TypeSystem(["obj", "num", "ax", "dist", "boolean", "action"])
