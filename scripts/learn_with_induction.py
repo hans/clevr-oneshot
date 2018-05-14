@@ -126,6 +126,7 @@ scene = {
     frozendict({"female": True, "agent": True, "shape": "person"}),
     frozendict({"shape": "letter"}),
     frozendict({"shape": "package"}),
+    frozendict({"male": True, "agent": True, "shape": "person"}),
   ]
 }
 examples_vol = [
@@ -133,12 +134,16 @@ examples_vol = [
    Move(scene["objects"][1], scene["objects"][2], "slow")),
 ]
 examples = [
+    ("send the boy the package", scene,
+     ComposedAction(CausePossession(scene["objects"][3], scene["objects"][2]),
+                    Transfer(scene["objects"][2], scene["objects"][3], "far"))),
+
     ("gorp the woman the letter", scene,
      ComposedAction(CausePossession(scene["objects"][0], scene["objects"][2]),
                     Transfer(scene["objects"][2], scene["objects"][0], "far"))),
 ]
 
-types = TypeSystem(["obj", "num", "ax", "dist", "speed", "boolean", "action"])
+types = TypeSystem(["obj", "num", "ax", "manner", "boolean", "action"])
 
 functions = [
   types.new_function("cmp_pos", ("ax", "obj", "obj", "num"), fn_cmp_pos),
@@ -161,24 +166,24 @@ functions = [
   types.new_function("letter", ("obj", "boolean"), lambda x: x["shape"] == "letter"),
   types.new_function("package", ("obj", "boolean"), lambda x: x["shape"] == "package"),
 
-  types.new_function("male", ("obj", "boolean"), lambda x: True), # TODO
-  types.new_function("female", ("obj", "boolean"), lambda x: True), # TODO
+  types.new_function("male", ("obj", "boolean"), lambda x: not x["female"]),
+  types.new_function("female", ("obj", "boolean"), lambda x: x["female"]),
 
   types.new_function("object", (types.ANY_TYPE, "boolean"), fn_object),
-  types.new_function("agent", (types.ANY_TYPE, "boolean"), lambda x: True), # TODO
+  types.new_function("agent", (types.ANY_TYPE, "boolean"), lambda x: x["agent"]),
 
-  types.new_function("move", ("obj", ("obj", "boolean"), "speed", "action"), lambda obj, dest, manner: Move(a, b, manner)),
+  types.new_function("move", ("obj", ("obj", "boolean"), "manner", "action"), lambda obj, dest, manner: Move(a, b, manner)),
   types.new_function("cause_possession", ("obj", "obj", "action"), lambda agent, obj: CausePossession(agent, obj)),
-  types.new_function("transfer", ("obj", "obj", "dist", "action"), lambda obj, agent, dist: Transfer(obj, agent, dist)),
+  types.new_function("transfer", ("obj", "obj", "manner", "action"), lambda obj, agent, dist: Transfer(obj, agent, dist)),
 
   types.new_function("do_", ("action", "action", "action"), lambda a1, a2: a1 + a2),
 ]
 
-constants = [types.new_constant("any", "dist"),
-             types.new_constant("far", "dist"),
-             types.new_constant("near", "dist"),
-             types.new_constant("slow", "speed"),
-             types.new_constant("fast", "speed")]
+constants = [types.new_constant("any", "manner"),
+             types.new_constant("far", "manner"),
+             types.new_constant("near", "manner"),
+             types.new_constant("slow", "manner"),
+             types.new_constant("fast", "manner")]
 
 ontology = Ontology(types, functions, constants, variable_weight=0.1)
 compressor = Compressor(ontology, **EC_kwargs)

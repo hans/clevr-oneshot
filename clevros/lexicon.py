@@ -397,10 +397,24 @@ def get_candidate_categories(lex, tokens, sentence):
       lex._entries[token] = [Token(token, category)]
 
     # Attempt a parse.
-    results = chart.WeightedCCGChartParser(lex, chart.DefaultRuleSet).parse(sentence)
+    results = chart.WeightedCCGChartParser(lex, chart.DefaultRuleSet).parse(sentence,
+        return_aux=True)
     if results:
-      # TODO weight based on lexical entry weights
-      return 1.0
+      # Prior weight for category comes from lexicon.
+      #
+      # Might also downweight categories which require type-lifting parses by
+      # default?
+      score = 0.0
+      for token, category in zip(tokens, cat_assignment):
+        category_score = sum(entry.weight() for entries in lex._entries.values()
+                             for entry in entries if entry.categ() == category)
+        score += category_score
+
+      # Likelihood weight comes from parse score?
+      # return sum(weight for _, weight, _ in results)
+
+      return score
+
     return 0.0
 
   # NB does not cover the case where a single token needs multiple syntactic
