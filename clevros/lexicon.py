@@ -572,7 +572,8 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
       print(category, cat_lf_ngrams)
 
       # Now run the biased iteration.
-      exprs = ontology.iter_expressions(max_depth=4, function_weights=cat_lf_ngrams)
+      exprs = ontology.iter_expressions(max_depth=3, function_weights=cat_lf_ngrams)
+      semantics_results = {}
       for expr in exprs:
         if not is_compatible(category, expr):
           # TODO rather than arity-checking post-hoc, form a type request
@@ -586,28 +587,30 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
           # Parse succeeded -- check the candidate results.
           for result in results:
             # TODO skip re-checking parses with the same semantics
-            if "cause_possession" in str(expr):
-              print(expr, result.label()[0].semantics())
             semantics = result.label()[0].semantics()
 
-            try:
-              pred_answer = model.evaluate(semantics)
-              if "cause_possession" in str(expr):
-                print("R %r" % pred_answer)
-            except (TypeError, AttributeError) as e:
-              # Type inconsistency. TODO catch this in the iter_expression stage.
-              if "cause_possession" in str(expr):
-                print("TypeError or AttributeError", e)
-              continue
-            except AssertionError as e:
-              # Precondition of semantics failed to pass.
-              if "cause_possession" in str(expr):
-                raise e
-              continue
+            # Check cached result first.
+            success = semantics_results.get(semantics, None)
+            if success is None:
+              # Evaluate the expression and cache result.
+              try:
+                pred_answer = model.evaluate(semantics)
+              except (TypeError, AttributeError) as e:
+                # Type inconsistency. TODO catch this in the iter_expression stage.
+                success = False
+              except AssertionError as e:
+                # Precondition of semantics failed to pass.
+                success = False
+              else:
+                success = pred_answer == answer
 
-            if pred_answer == answer:
-              # Parse succeeded with correct meaning. Add to the EC frontier.
+              # Cache evaluation result.
+              semantics_results[semantics] = success
+
+            if success:
+              # Parse succeeded with correct meaning. Add candidate lexical entry.
               successes[token].append(Token(token, category, expr))
+              print("SUCCESS ", token, category, expr)
 
   for token in query_tokens:
     if not successes[token]:
