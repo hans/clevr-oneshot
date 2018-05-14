@@ -99,11 +99,12 @@ class Lexicon(ccg_lexicon.CCGLexicon):
 
     return ret
 
+  def parse_category(self, cat_str):
+    return ccg_lexicon.augParseCategory(cat_str, self._primitives, self._families)[0]
+
   @property
   def primitive_categories(self):
-    return set([ccg_lexicon.augParseCategory(prim, self._primitives,
-                                             self._families)[0]
-                for prim in self._primitives])
+    return set([self.parse_category(prim) for prim in self._primitives])
 
   @property
   def observed_categories(self):
