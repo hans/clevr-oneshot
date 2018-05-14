@@ -126,7 +126,7 @@ scene = {
     frozendict({"female": True, "agent": True, "shape": "person"}),
     frozendict({"shape": "letter"}),
     frozendict({"shape": "package"}),
-    frozendict({"male": True, "agent": True, "shape": "person"}),
+    frozendict({"female": False, "agent": True, "shape": "person"}),
   ]
 }
 examples_vol = [
