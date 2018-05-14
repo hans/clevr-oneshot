@@ -108,20 +108,11 @@ lex = Lexicon.fromstring(r"""
   woman => N {\x.and_(agent(x),female(x))}
   man => N {\x.and_(agent(x),male(x))}
 
-  # letter => N {\x.letter(x)}
-  # ball => N {\x.ball(x)}
-  # package => N {\x.package(x)}
-
-  cube => N {\x.and_(object(x),cube(x))}
-  sphere => N {\x.and_(object(x),sphere(x))}
-  donut => N {\x.and_(object(x),donut(x))}
-  hose => N {\x.and_(object(x),hose(x))}
-  cylinder => N {\x.and_(object(x),cylinder(x))}
-  pyramid => N {\x.and_(object(x),pyramid(x))}
+  letter => N {\x.letter(x)}
+  ball => N {\x.sphere(x)}
+  package => N {\x.package(x)}
 
   the => N/N {\x.unique(x)}
-
-  const => S {near}
 
   give => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,any))}
   send => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,far))}
@@ -133,8 +124,8 @@ from clevros.primitives import *
 scene = {
   "objects": [
     frozendict({"female": True, "agent": True, "shape": "person"}),
-    frozendict({"shape": "donut"}),
-    frozendict({"shape": "cube"}),
+    frozendict({"shape": "letter"}),
+    frozendict({"shape": "package"}),
   ]
 }
 examples_vol = [
@@ -142,7 +133,7 @@ examples_vol = [
    Move(scene["objects"][1], scene["objects"][2], "slow")),
 ]
 examples = [
-    ("gorp the woman the cube", scene,
+    ("gorp the woman the letter", scene,
      ComposedAction(CausePossession(scene["objects"][0], scene["objects"][2]),
                     Transfer(scene["objects"][2], scene["objects"][0], "far"))),
 ]
@@ -166,6 +157,9 @@ functions = [
   types.new_function("pyramid", ("obj", "boolean"), fn_pyramid),
   types.new_function("hose", ("obj", "boolean"), fn_hose),
   types.new_function("cylinder", ("obj", "boolean"), fn_cylinder),
+
+  types.new_function("letter", ("obj", "boolean"), lambda x: x["shape"] == "letter"),
+  types.new_function("package", ("obj", "boolean"), lambda x: x["shape"] == "package"),
 
   types.new_function("male", ("obj", "boolean"), lambda x: True), # TODO
   types.new_function("female", ("obj", "boolean"), lambda x: True), # TODO
