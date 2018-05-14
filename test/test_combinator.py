@@ -7,11 +7,13 @@ from nltk.ccg.api import FunctionalCategory, PrimitiveCategory
 from nltk.sem.logic import Expression
 
 
-def test_positional_forward_raise():
-  lex = Lexicon.fromstring(r"""
+def _make_dummy_lexicon():
+  return Lexicon.fromstring(r"""
       :- A, B, C, D
       """)
 
+def test_positional_forward_raise():
+  lex = _make_dummy_lexicon()
   cases = [
     (0, "A/B", "C", "((A/(B/C))/C)"),
     (0, "A/B/C", "D", "(((A/B)/(C/D))/D)"),
@@ -30,9 +32,7 @@ def test_positional_forward_raise():
 
 
 def test_positional_forward_raise_semantics():
-  lex = Lexicon.fromstring(r"""
-      :- A, B, C
-      """, include_semantics=True)
+  lex = _make_dummy_lexicon()
 
   cases = [
     (0, "A/B", r"\b.foo(bar,b,baz)", "C", "((A/(B/C))/C)", r"\z1 F1.foo(bar,F1(z1),baz)"),
@@ -52,3 +52,46 @@ def test_positional_forward_raise_semantics():
 
   for index, left, semantics, right, expected_synt, expected_sem in cases:
     yield do_case, index, left, semantics, right, expected_synt, expected_sem
+
+
+def test_category_search_replace():
+  lex = _make_dummy_lexicon()
+
+  cases = [
+      ("A/B", "B", "C", ["A/C"]),
+      ("A/B", "A", "C", ["C/B"]),
+      ("A/A", "A", "B", ["A/B", "B/A"]), # NB: does not yield B/B
+
+      ("A/(B/C)", "B/C", "D", ["A/D"]),
+      ("(A/B)/C", "B/C", "D", []),
+  ]
+
+  def do_case(expr, search, replace, expected):
+    eq_(category_search_replace(lex.parse_category(expr), lex.parse_category(search),
+                                lex.parse_category(replace)),
+        set(lex.parse_category(expected_i) for expected_i in expected))
+
+  for expr, search, replace, expected in cases:
+    yield do_case, expr, search, replace, expected
+
+
+def test_type_raised_category_search_replace():
+  lex = _make_dummy_lexicon()
+
+  cases = [
+      # All basic cases should still pass.
+      ("A/B", "B", "C", ["A/C"]),
+      ("A/B", "A", "C", ["C/B"]),
+      ("A/A", "A", "B", ["A/B", "B/A"]), # NB: does not yield B/B
+
+      ("A/(B/C)", "B/C", "D", ["A/D", "((A/(D/C))/C)"]), # new PFR result on this one
+      ("(A/B)/C", "B/C", "D", []),
+  ]
+
+  def do_case(expr, search, replace, expected):
+    eq_(type_raised_category_search_replace(lex.parse_category(expr), lex.parse_category(search),
+                                            lex.parse_category(replace)),
+        set(lex.parse_category(expected_i) for expected_i in expected))
+
+  for expr, search, replace, expected in cases:
+    yield do_case, expr, search, replace, expected

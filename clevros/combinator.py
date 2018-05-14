@@ -182,13 +182,14 @@ def type_raised_category_search_replace(expr, search, replace):
   elif expr.is_function():
     results = set()
 
-    partial_yield = search.res()
-    left, right = expr, search.arg()
-    pfr = PositionalForwardRaiseCombinator(0)
-    if pfr.can_combine(left, right):
-      # Run search-replace with the PFR-resulting expression.
-      pfr_expr = next(iter(pfr.combine(left, right)))
-      results |= category_search_replace(pfr_expr, search, replace)
+    if search.is_function():
+      partial_yield = search.res()
+      left, right = expr, search.arg()
+      pfr = PositionalForwardRaiseCombinator(0)
+      if pfr.can_combine(left, right):
+        # Run search-replace with the PFR-resulting expression.
+        pfr_expr = next(iter(pfr.combine(left, right)))
+        results |= category_search_replace(pfr_expr, search, replace)
 
     results |= category_search_replace(expr, search, replace)
     return results
