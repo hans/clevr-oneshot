@@ -182,7 +182,9 @@ def read_ec_sexpr(sexpr):
   """
   tokens = re.split(r"([()\s])", sexpr)
 
-  bound_vars = []
+  bound_vars = set()
+  bound_var_stack = []
+
   is_call = False
   stack = [(None, None, [])]
   for token in tokens:
@@ -199,7 +201,8 @@ def read_ec_sexpr(sexpr):
     elif token == "lambda":
       is_call = False
       variable = next_bound_var(bound_vars, l.ANY_TYPE)
-      bound_vars.append(variable)
+      bound_vars.add(variable)
+      bound_var_stack.append(variable)
 
       stack.append((l.LambdaExpression, variable, []))
     elif is_call:
@@ -207,7 +210,7 @@ def read_ec_sexpr(sexpr):
       if head.startswith("$"):
         bruijn_index = int(head[1:])
         # Bound variable is the head of an application expression.
-        head = l.FunctionVariableExpression(bound_vars[-1 - bruijn_index])
+        head = l.FunctionVariableExpression(bound_var_stack[-1 - bruijn_index])
 
       stack.append((l.ApplicationExpression, head, []))
       is_call = False
@@ -219,7 +222,7 @@ def read_ec_sexpr(sexpr):
       elif stack_top[0] == l.LambdaExpression:
         _, variable, term = stack_top
         result = l.LambdaExpression(variable, term[0])
-        bound_vars.pop()
+        bound_var_stack.pop()
       else:
         raise RuntimeError("unknown element on stack", stack_top)
 
@@ -233,7 +236,7 @@ def read_ec_sexpr(sexpr):
         stack_parent[2].append(result)
     elif token.startswith("$"):
       bruijn_index = int(token[1:])
-      stack[-1][2].append(l.IndividualVariableExpression(bound_vars[-1 - bruijn_index]))
+      stack[-1][2].append(l.IndividualVariableExpression(bound_var_stack[-1 - bruijn_index]))
     else:
       stack[-1][2].append(l.ConstantExpression(l.Variable(token)))
 

@@ -123,6 +123,7 @@ def grammar_to_ontology(grammar, ontology):
           extra_types[bound_var.name] = var_type
         except StopIteration:
           # This variable never appears in the definition. Ignore.
+          print("Variable did not appear in invention: ", bound_var, inv_defn)
           del bound_signatures[bound_var.name]
 
     ontology.typecheck(inv_defn, bound_signatures)

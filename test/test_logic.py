@@ -43,6 +43,7 @@ def test_as_ec_sexpr():
 def test_read_ec_sexpr():
   expr, bound_vars = read_ec_sexpr("(lambda (lambda (lambda (foo (bar $0 $1) (baz $1 $2) blah))))")
   eq_(expr, Expression.fromstring(r"\a b c.foo(bar(c,b),baz(b,a),blah)"))
+  eq_(len(bound_vars), 3)
 
 
 def test_read_ec_sexpr_de_bruijn():
