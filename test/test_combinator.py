@@ -9,11 +9,12 @@ from nltk.sem.logic import Expression
 
 def test_positional_forward_raise():
   lex = Lexicon.fromstring(r"""
-      :- A, B, C
+      :- A, B, C, D
       """)
 
   cases = [
-    (0, "A/B", "C", "((A/(B/C))/C)")
+    (0, "A/B", "C", "((A/(B/C))/C)"),
+    (0, "A/B/C", "D", "(((A/B)/(C/D))/D)"),
   ]
 
   def do_case(index, left, right, expected):
@@ -22,7 +23,7 @@ def test_positional_forward_raise():
     right = lex.parse_category(right)
 
     ok_(pfr.can_combine(left, right))
-    eq_(str(pfr.combine(left, right)), expected)
+    eq_(str(next(iter(pfr.combine(left, right)))), expected)
 
   for index, left, right, expected in cases:
     yield do_case, index, left, right, expected
@@ -43,7 +44,7 @@ def test_positional_forward_raise_semantics():
     right = lex.parse_category(right)
 
     ok_(pfr.can_combine(left, right))
-    eq_(str(pfr.combine(left, right)), expected_synt)
+    eq_(str(next(iter(pfr.combine(left, right)))), expected_synt)
 
     semantics = Expression.fromstring(semantics)
     expected_sem = str(Expression.fromstring(expected_sem).simplify())

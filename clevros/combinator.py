@@ -92,7 +92,7 @@ class PositionalForwardRaiseCombinator(DirectedBinaryCombinator):
     # Type-raise the argument at index 0.
     raised_arg = FunctionalCategory(left.arg(), right, left.dir())
     left = FunctionalCategory(left.res(), raised_arg, left.dir())
-    return FunctionalCategory(left, right, left.dir())
+    yield FunctionalCategory(left, right, left.dir())
 
   def update_semantics(self, semantics):
     parent = None
