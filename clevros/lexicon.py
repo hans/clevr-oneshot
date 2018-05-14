@@ -15,6 +15,7 @@ from clevros import chart
 from clevros.combinator import category_search_replace, \
     type_raised_category_search_replace
 from clevros.clevr import scene_candidate_referents
+from clevros.logic import get_arity
 
 
 class Lexicon(ccg_lexicon.CCGLexicon):
@@ -343,29 +344,6 @@ def get_yield(category):
     raise ValueError("unknown category type with instance %r" % category)
 
 
-def is_compatible(category, lf):
-  """
-  Determine if a syntactic category and a logical form are functionally
-  compatible. (They should have the same number of arguments, unless the
-  syntactic category is a simple category.)
-  """
-  # Get category arity by DFS.
-  category_arity = get_semantic_arity(category)
-
-  def visit_node(node):
-    delta = 1 if isinstance(node, l.LambdaExpression) else 0
-
-    try:
-      res = node.visit(visit_node, sum)
-    except NotImplementedError:
-      res = 0
-    return delta + res
-
-  lf_arity = visit_node(lf)
-
-  return category_arity == 0 or category_arity == lf_arity
-
-
 def get_candidate_categories(lex, tokens, sentence):
   """
   Find candidate categories for the given tokens which appear in `sentence` such
@@ -555,6 +533,10 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   # form elements conditioned on syntactic category.
   lf_ngrams = lex.lf_ngrams(order=1, condition_on_syntax=True, smooth=True)
 
+  # We will restrict semantic arities based on the observed arities available
+  # for each category. Pre-calculate the necessary associations.
+  category_sem_arities = lex.category_semantic_arities
+
   # TODO need to work on *product space* for multiple query words
   successes = defaultdict(list)
   for token in query_tokens:
@@ -575,7 +557,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
       exprs = ontology.iter_expressions(max_depth=3, function_weights=cat_lf_ngrams)
       semantics_results = {}
       for expr in exprs:
-        if not is_compatible(category, expr):
+        if get_arity(expr) not in category_sem_arities[category]:
           # TODO rather than arity-checking post-hoc, form a type request
           continue
 

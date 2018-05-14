@@ -152,6 +152,16 @@ def extract_lambda(expr):
   return expr.normalize()
 
 
+def get_arity(expr):
+  """
+  Get the arity of a lambda-extracted expression.
+  """
+  if isinstance(expr, l.LambdaExpression):
+    return 1 + get_arity(expr.term)
+  else:
+    return 0
+
+
 def as_ec_sexpr(expr):
   """
   Convert an `nltk.sem.logic` `Expression` to an S-expr string.
