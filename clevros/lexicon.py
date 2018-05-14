@@ -370,6 +370,16 @@ def get_candidate_categories(lex, tokens, sentence):
   """
   Find candidate categories for the given tokens which appear in `sentence` such
   that `sentence` yields a parse.
+
+  Args:
+    lex:
+    tokens:
+    sentence
+
+  Returns:
+    Dictionary mapping each token to a ranking over candidate categories. The
+    dictionary values are a weighted list with elements of form `(category,
+    weight)`, sorted by descending weight.
   """
   assert set(tokens).issubset(set(sentence))
 
@@ -382,22 +392,38 @@ def get_candidate_categories(lex, tokens, sentence):
 
   candidate_categories = lex.observed_categories
 
-  ret = defaultdict(set)
-
-  # NB does not cover the case where a single token needs multiple syntactic
-  # interpretations for the sentence to parse
-  for cat_assignment in itertools.product(candidate_categories, repeat=len(tokens)):
+  def evaluate_cat_assignment(cat_assignment):
     for token, category in zip(tokens, cat_assignment):
       lex._entries[token] = [Token(token, category)]
 
     # Attempt a parse.
     results = chart.WeightedCCGChartParser(lex, chart.DefaultRuleSet).parse(sentence)
     if results:
-      # Good, we have a parse. Add candidate categories to return.
-      for token, category in zip(tokens, cat_assignment):
-        ret[token].add(category)
+      # TODO weight based on lexical entry weights
+      return 1.0
+    return 0.0
 
-  return dict(ret)
+  # NB does not cover the case where a single token needs multiple syntactic
+  # interpretations for the sentence to parse
+  cat_assignment_weights = {
+    cat_assignment: evaluate_cat_assignment(cat_assignment)
+    for cat_assignment in itertools.product(candidate_categories, repeat=len(tokens))
+  }
+
+  token_cat_weights = defaultdict(Counter)
+  for cat_assignment, weight in cat_assignment_weights.items():
+    for token, token_cat_assignment in zip(tokens, cat_assignment):
+      token_cat_weights[token][token_cat_assignment] += weight
+
+  # Normalize.
+  ret = {}
+  for token, weighted_list in token_cat_weights.items():
+    Z = sum(weighted_list.values())
+    weighted_list = [(cat, weight / Z) for cat, weight in weighted_list.items()]
+    weighted_list = sorted(weighted_list, reverse=True, key=lambda x: x[1])
+    ret[token] = weighted_list
+
+  return ret
 
 
 def augment_lexicon(old_lex, sentence, lf):
@@ -519,7 +545,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   successes = defaultdict(list)
   for token in query_tokens:
     cand_syntaxes = query_token_syntaxes[token]
-    for category in cand_syntaxes:
+    for category, _ in cand_syntaxes:
       # BOOTSTRAP: Bias expression iteration based on the syntactic category.
       cat_lf_ngrams = lf_ngrams[category]
       # Redistribute UNK probability uniformly across predicates not observed
