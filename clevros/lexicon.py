@@ -12,6 +12,8 @@ from nltk.ccg.api import PrimitiveCategory, FunctionalCategory, AbstractCCGCateg
 from nltk.sem import logic as l
 
 from clevros import chart
+from clevros.combinator import category_search_replace, \
+    type_raised_category_search_replace
 from clevros.clevr import scene_candidate_referents
 
 
@@ -161,6 +163,23 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     # For example, if we have an entry of syntactic category `S/N/PP` and we
     # have just created a derived category `D0` based on `N`, we need to make
     # sure there is now a corresponding candidate entry of type `S/D0/PP`.
+    #
+    # If we are using a functional category, also propagate the functional
+    # category onto entries which have its partial yield. (We can
+    # equivalently say that we are propagating onto instances using the
+    # type-lowered version of this functional category.)
+    #
+    # For example, suppose the base category is `PP/NP` and there is an entry
+    # with category `S/NP/PP`. The base category may participate in application
+    # with the category `S/NP/PP` via composition, and so we would like to have
+    # a type-lifted lexical entry involving the derived category which reflects
+    # that fact.
+    #
+    # This is all a bit of a hack to make sure that we can tag certain lexical
+    # entries as utilizing derived categories which are functional. There might
+    # be other better longer-term implementations -- e.g. creating a custom
+    # tagging mechanisms that accomplishes the same purpose.
+
     replacements = {}
     for word, entries in self._entries.items():
       new_entries = []
@@ -173,26 +192,14 @@ class Lexicon(ccg_lexicon.CCGLexicon):
         try:
           categ_replacements = replacements[entry.categ()]
         except KeyError:
-          # Might need to derive a new replacement task here.
-          # Find all reanalyses of the functional category which involve the
-          # derived category.
-          def traverse(node):
-            # TODO support derived functional categories here
-            if node == categ.base:
-              return [categ]
-            elif isinstance(node, FunctionalCategory):
-              left_results = traverse(node.res())
-              left_results = [FunctionalCategory(left_result, node.arg(), node.dir())
-                              for left_result in left_results]
-              right_results = traverse(node.arg())
-              right_results = [FunctionalCategory(node.res(), right_result, node.dir())
-                               for right_result in right_results]
-              return left_results + right_results
-            else:
-              return []
+          if isinstance(categ.base, PrimitiveCategory):
+            replacements[entry.categ()] = category_search_replace(
+                entry.categ(), categ.base, categ)
+          elif isinstance(categ.base, FunctionalCategory):
+            replacements[entry.categ()] = type_raised_category_search_replace(
+                entry.categ(), categ.base, categ)
 
-          categ_replacements = set(traverse(entry.categ()))
-          replacements[entry.categ()] = categ_replacements
+          categ_replacements = replacements[entry.categ()]
 
         for replacement_category in categ_replacements:
           # We already know a replacement is necessary -- go ahead.
@@ -652,7 +659,7 @@ def lf_parts(lf_str):
       continue
 
     # Create the candidate node(s).
-    variable = Variable("x")
+    variable = l.Variable("x")
     for i, arg in enumerate(node.args):
       if isinstance(arg, l.ApplicationExpression):
         new_arg_cands = [l.VariableExpression(variable)]

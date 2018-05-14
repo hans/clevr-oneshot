@@ -134,3 +134,56 @@ def test_get_lf_unigrams():
   ngrams = lex.lf_ngrams(order=1, condition_on_syntax=True, smooth=False)
   for categ, counter in ngrams.items():
     eq_(counter, expected[str(categ)])
+
+
+def test_get_yield():
+  from nltk.ccg.lexicon import augParseCategory
+  lex = Lexicon.fromstring(r"""
+    :- S, NN, PP
+
+    on => PP/NN
+    the => S/NN
+    the => NN/NN
+    sphere => NN
+    sphere => NN
+    """)
+
+  cases = [
+      ("S", "S"),
+      ("S/NN", "S"),
+      (r"NN\PP/NN", "PP"),
+      (r"NN/(PP/NN)", "NN"),
+  ]
+
+  def test_case(cat, cat_yield):
+    eq_(get_yield(augParseCategory(cat, lex._primitives, lex._families)[0]), cat_yield)
+
+  for cat, cat_yield in cases:
+    yield test_case, cat, cat_yield
+
+
+def test_propagate_functional_category():
+  """
+  Validate that functional categories are correctly propagated.
+  """
+
+  # This is very tricky! Suppose have a derived functional category `X/Y` and
+  # there are other entries `S/X`. After propagation, we want there to be some
+  # explicit type lifted form `S/(D0/Y)` where `D0 = (X/Y)`.
+  lex = Lexicon.fromstring(r"""
+  :- S, NN, PP
+
+  put => S/NN/PP
+  it => NN
+  on => PP/NN
+  the_table => NN
+  """)
+
+  involved_tokens = [lex._entries["on"][0]]
+  derived_categ = lex.add_derived_category(involved_tokens)
+  lex.propagate_derived_category(derived_categ)
+
+  eq_(set(str(entry.categ()) for entry in lex._entries["put"]),
+      set(["((S/NN)/PP)", "(((S/NN)/%s)/NN)" % lex._derived_categories[derived_categ][0]]))
+
+

@@ -1,4 +1,9 @@
-from nltk.ccg.api import FunctionalCategory
+"""
+Combinators and related utilities for operating on CCG syntactic types and
+semantic forms.
+"""
+
+from nltk.ccg.api import FunctionalCategory, PrimitiveCategory
 from nltk.ccg.combinator import DirectedBinaryCombinator
 from nltk.sem import logic as l
 
@@ -121,3 +126,71 @@ class PositionalForwardRaiseCombinator(DirectedBinaryCombinator):
       parent.term = node
 
     return l.LambdaExpression(extracted_arg, semantics)
+
+
+def category_search_replace(expr, search, replace):
+  """
+  Return all reanalyses of the syntactic category expression `expr` which
+  involve the (primitive) derived category. Effectively a search-replace
+  operation.
+
+  Args:
+    expr: `AbstractCCGCategory` expression
+    search: `AbstractCCGCategory` expression
+    replace: `AbstractCCGCategory` expression
+
+  Returns:
+    Set of modified forms of `expr` where combinations of instances of
+    `search` are replaced with `replace`.
+  """
+  # Find all reanalyses of the functional category expression `expr` which involve the
+  # derived category.
+  def traverse(node):
+    if node == search:
+      return [replace]
+    elif isinstance(node, FunctionalCategory):
+      left_results = traverse(node.res())
+      left_results = [FunctionalCategory(left_result, node.arg(), node.dir())
+                      for left_result in left_results]
+      right_results = traverse(node.arg())
+      right_results = [FunctionalCategory(node.res(), right_result, node.dir())
+                        for right_result in right_results]
+      return left_results + right_results
+    else:
+      return []
+
+  return set(traverse(expr))
+
+
+def type_raised_category_search_replace(expr, search, replace):
+  """
+  Search and replace category subexpressions in `expr`, allowing
+  type-raising of elements in `expr` in order to match the search
+  expression.
+
+  Args:
+    expr: `AbstractCCGCategory` expression
+    search: `AbstractCCGCategory` expression
+    replace: `AbstractCCGCategory` expression
+
+  Returns:
+    Set of modified forms of `expr` where combinations of instances of
+    `search` are replaced with `replace`.
+  """
+  if expr == search:
+    return set([replace])
+  elif expr.is_function():
+    results = set()
+
+    partial_yield = search.res()
+    left, right = expr, search.arg()
+    pfr = PositionalForwardRaiseCombinator(0)
+    if pfr.can_combine(left, right):
+      # Run search-replace with the PFR-resulting expression.
+      pfr_expr = next(iter(pfr.combine(left, right)))
+      results |= category_search_replace(pfr_expr, search, replace)
+
+    results |= category_search_replace(expr, search, replace)
+    return results
+  return set()
+

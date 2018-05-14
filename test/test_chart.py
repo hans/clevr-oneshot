@@ -54,3 +54,17 @@ def test_parse_oblique():
 
   parser = WeightedCCGChartParser(lex, ApplicationRuleSet)
   printCCGDerivation(parser.parse("place it on the_table".split())[0])
+
+
+def test_parse_oblique_raised():
+  lex = Lexicon.fromstring(r"""
+  :- S, NP, PP
+
+  place => S/NP/(PP/NP)/NP
+  it => NP
+  on => PP/NP
+  the_table => NP
+  """)
+
+  parser = WeightedCCGChartParser(lex, DefaultRuleSet)
+  printCCGDerivation(parser.parse("place it on the_table".split())[0])
