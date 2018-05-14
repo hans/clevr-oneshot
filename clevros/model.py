@@ -3,6 +3,7 @@ Model for evaluation of logical forms on CLEVR-like scenes.
 """
 
 from copy import deepcopy
+import traceback
 
 from nltk.sem.logic import *
 
@@ -95,7 +96,10 @@ class Model(object):
         assignments = deepcopy(assignments)
         assignments[var] = u
 
-        val = self.satisfy(expr.term, assignments)
+        try:
+          val = self.satisfy(expr.term, assignments)
+        except:
+          val = False
         # NB the dict would be a lot smaller if we do this:
         # if val: cf[u] = val
         # But then need to deal with cases where f(a) should yield
