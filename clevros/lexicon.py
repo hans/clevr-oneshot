@@ -356,9 +356,9 @@ def get_candidate_categories(lex, tokens, sentence):
     sentence
 
   Returns:
-    Dictionary mapping each token to a ranking over candidate categories. The
-    dictionary values are a weighted list with elements of form `(category,
-    weight)`, sorted by descending weight.
+    sorted_token_cat_weights: Dictionary mapping each token to a ranking over
+      candidate categories. The dictionary values are a weighted list with
+      elements of form `(category, weight)`, sorted by descending weight.
   """
   assert set(tokens).issubset(set(sentence))
 
@@ -376,8 +376,8 @@ def get_candidate_categories(lex, tokens, sentence):
       lex._entries[token] = [Token(token, category)]
 
     # Attempt a parse.
-    results = chart.WeightedCCGChartParser(lex, chart.DefaultRuleSet).parse(sentence,
-        return_aux=True)
+    results = chart.WeightedCCGChartParser(lex, chart.DefaultRuleSet) \
+        .parse(sentence)
     if results:
       # Prior weight for category comes from lexicon.
       #
@@ -409,14 +409,14 @@ def get_candidate_categories(lex, tokens, sentence):
       token_cat_weights[token][token_cat_assignment] += weight
 
   # Normalize.
-  ret = {}
+  sorted_token_cat_weights = {}
   for token, weighted_list in token_cat_weights.items():
     Z = sum(weighted_list.values())
     weighted_list = [(cat, weight / Z) for cat, weight in weighted_list.items()]
     weighted_list = sorted(weighted_list, reverse=True, key=lambda x: x[1])
-    ret[token] = weighted_list
+    sorted_token_cat_weights[token] = weighted_list
 
-  return ret
+  return sorted_token_cat_weights
 
 
 def augment_lexicon(old_lex, sentence, lf):
@@ -544,7 +544,12 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   for token in query_tokens:
     cand_syntaxes = query_token_syntaxes[token]
     for category, _ in cand_syntaxes:
-      # BOOTSTRAP: Bias expression iteration based on the syntactic category.
+      # Track: do we need to perform parsing with a full ruleset to make this
+      # category work?
+      needs_full_ruleset = False
+
+      # Prepare to BOOTSTRAP: Bias expression iteration based on the syntactic
+      # category.
       cat_lf_ngrams = lf_ngrams[category]
       # Redistribute UNK probability uniformly across predicates not observed
       # for this category.
@@ -566,9 +571,15 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
         # Attempt a parse. (Try with the simplest ruleset first, and only
         # expand ruleset if necessary. Saves time.)
-        results = chart.WeightedCCGChartParser(lex, ruleset=chart.ApplicationRuleSet).parse(sentence)
-        if not results:
-          results = chart.WeightedCCGChartParser(lex, ruleset=chart.DefaultRuleSet).parse(sentence)
+        if needs_full_ruleset is None:
+          # First iteration -- check whether we need to use the full ruleset.
+          # This will save lots of time in the future.
+          results = chart.WeightedCCGChartParser(lex, ruleset=chart.ApplicationRuleSet).parse(sentence)
+          needs_full_ruleset = bool(results)
+        else:
+          ruleset = chart.DefaultRuleSet if needs_full_ruleset else chart.ApplicationRuleSet
+          results = chart.WeightedCCGChartParser(lex, ruleset=ruleset).parse(sentence)
+
         if results:
           # Parse succeeded -- check the candidate results.
           for result in results:
