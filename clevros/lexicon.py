@@ -581,14 +581,14 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
               # Evaluate the expression and cache result.
               try:
                 pred_answer = model.evaluate(semantics)
+                success = pred_answer == answer
               except (TypeError, AttributeError) as e:
-                # Type inconsistency. TODO catch this in the iter_expression stage.
+                # Type inconsistency. TODO catch this in the iter_expression
+                # stage, or typecheck before evaluating.
                 success = False
               except AssertionError as e:
                 # Precondition of semantics failed to pass.
                 success = False
-              else:
-                success = pred_answer == answer
 
               # Cache evaluation result.
               semantics_results[semantics] = success

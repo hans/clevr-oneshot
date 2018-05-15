@@ -109,8 +109,8 @@ def test_model_complex():
   ontology = Ontology(types, functions, constants, variable_weight=0.1)
   model = Model(scene, ontology)
 
-  # eq_(model.evaluate(Expression.fromstring(r"cause_possession(unique(\a.female(a)),unique(\b.and_(object(b),cube(b))))")),
-  #     p.CausePossession(scene["objects"][0], scene["objects"][2]))
+  eq_(model.evaluate(Expression.fromstring(r"cause_possession(unique(\a.female(a)),unique(\b.and_(object(b),cube(b))))")),
+      p.CausePossession(scene["objects"][0], scene["objects"][2]))
 
   eq_(model.evaluate(Expression.fromstring(r"do_(cause_possession(unique(\a.female(a)),unique(\b.and_(object(b),cube(b)))),transfer(unique(\c.and_(object(c),cube(c))),unique(\d.female(d)),any))")),
       p.ComposedAction(p.CausePossession(scene["objects"][0], scene["objects"][2]),
