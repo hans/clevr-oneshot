@@ -538,6 +538,10 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   # for each category. Pre-calculate the necessary associations.
   category_sem_arities = lex.category_semantic_arities
 
+  # Enumerate expressions just once! We'll bias the search over the enumerated
+  # forms later.
+  candidate_exprs = set(ontology.iter_expressions(max_depth=3))
+
   # TODO need to work on *product space* for multiple query words
   successes = defaultdict(set)
   semantics_results = {}
@@ -575,9 +579,8 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
       results = chart.WeightedCCGChartParser(lex, ruleset=chart.ApplicationRuleSet) \
           .parse(sentence)
 
-      # Now run the biased iteration.
-      exprs = ontology.iter_expressions(max_depth=3, function_weights=cat_lf_ngrams)
-      for expr in set(exprs):
+      for expr in candidate_exprs:
+        # TODO reinstate biased iteration
         if get_arity(expr) not in category_sem_arities[category]:
           # TODO rather than arity-checking post-hoc, form a type request
           continue

@@ -7,9 +7,12 @@ import copy
 import functools
 import inspect
 import itertools
+import logging
 import re
 
 from nltk.sem import logic as l
+
+L = logging.getLogger(__name__)
 
 
 class TypeSystem(object):
@@ -284,7 +287,7 @@ class Ontology(object):
             "Function name clash: existing %r, inserting %r" % (existing_function, function)
       else:
         new_functions.append(function)
-    print("No function clashes.", functions)
+    logging.debug("No function clashes: %r", functions)
 
     self.functions.extend(functions)
     self.functions_dict.update({fn.name: fn for fn in functions})
