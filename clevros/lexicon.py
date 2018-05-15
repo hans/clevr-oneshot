@@ -560,6 +560,21 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
       print(category, cat_lf_ngrams)
 
+      # Parse just once with a dummy variable in the place of the candidate
+      # semantics.
+      #
+      # We'll next enumerate all possible expressions, substitute in for this
+      # dummy variable, and then attempt to evaluate.
+      sub_target = l.Variable("F0000")
+      sub_expr = l.FunctionVariableExpression(sub_target)
+      lex._entries[token] = [Token(token, category, sub_expr)]
+      # TODO this only works for basic application right now -- we can't yet
+      # support composition with the dummy variable setup. Need to extract some
+      # lambdas from the dummy variable s.t. the parser can work its
+      # composition magic.
+      results = chart.WeightedCCGChartParser(lex, ruleset=chart.ApplicationRuleSet) \
+          .parse(sentence)
+
       # Now run the biased iteration.
       exprs = ontology.iter_expressions(max_depth=3, function_weights=cat_lf_ngrams)
       for expr in set(exprs):
@@ -567,23 +582,11 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
           # TODO rather than arity-checking post-hoc, form a type request
           continue
 
-        lex._entries[token] = [Token(token, category, expr)]
-
-        # Attempt a parse. (Try with the simplest ruleset first, and only
-        # expand ruleset if necessary. Saves time.)
-        if needs_full_ruleset is None:
-          # First iteration -- check whether we need to use the full ruleset.
-          # This will save lots of time in the future.
-          results = chart.WeightedCCGChartParser(lex, ruleset=chart.ApplicationRuleSet).parse(sentence)
-          needs_full_ruleset = bool(results)
-        else:
-          ruleset = chart.DefaultRuleSet if needs_full_ruleset else chart.ApplicationRuleSet
-          results = chart.WeightedCCGChartParser(lex, ruleset=ruleset).parse(sentence)
-
         if results:
           # Parse succeeded -- check the candidate results.
           for result in results:
             semantics = result.label()[0].semantics()
+            semantics = semantics.replace(sub_target, expr)
 
             # Check cached result first.
             success = semantics_results.get(semantics, None)
