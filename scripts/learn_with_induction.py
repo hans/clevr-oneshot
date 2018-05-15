@@ -17,13 +17,13 @@ from clevros.lexicon import Lexicon, Token, \
     augment_lexicon_distant, get_candidate_categories
 from clevros.logic import Ontology, Function, TypeSystem
 from clevros.model import Model
-from clevros.perceptron import update_perceptron_batch
+from clevros.perceptron import update_perceptron_distant
 from clevros.compression import Compressor
 
 import random
 random.seed(4)
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 L = logging.getLogger(__name__)
 
 
@@ -178,6 +178,7 @@ scene = {
     frozendict({"shape": "letter"}),
     frozendict({"shape": "package"}),
     frozendict({"female": False, "agent": True, "shape": "person"}),
+    frozendict({"shape": "sphere"}),
   ]
 }
 examples_vol = [
@@ -188,6 +189,9 @@ examples = [
     ("send the boy the package", scene,
      ComposedAction(CausePossession(scene["objects"][3], scene["objects"][2]),
                     Transfer(scene["objects"][2], scene["objects"][3], "far"))),
+    ("give the lady the ball", scene,
+     ComposedAction(CausePossession(scene["objects"][0], scene["objects"][4]),
+                    Transfer(scene["objects"][4], scene["objects"][0], "any"))),
 
     ("gorp the woman the letter", scene,
      ComposedAction(CausePossession(scene["objects"][0], scene["objects"][2]),
@@ -229,14 +233,16 @@ if __name__ == "__main__":
     sentence = sentence.split()
 
     model = Model(scene, ontology)
-    parse_results = WeightedCCGChartParser(lex).parse(sentence)
-    if not parse_results:
-      print("ERROR: Parse failed for sentence '%s'" % " ".join(sentence))
+
+    try:
+      weighted_results, _ = update_perceptron_distant(lex, sentence, model, answer)
+    except ValueError:
+      # No parse succeeded -- attempt lexical induction.
+      L.warning("Parse failed for sentence '%s'", " ".join(sentence))
 
       query_tokens = [word for word in sentence if not lex._entries.get(word, [])]
-      print("\tNovel words: ", " ".join(query_tokens))
+      L.info("Novel words: %s", " ".join(query_tokens))
       query_token_syntaxes = get_candidate_categories(lex, query_tokens, sentence)
-      print("\tCandidate categories:", query_token_syntaxes)
 
       # Augment the lexicon with all entries for novel words which yield the
       # correct answer to the sentence under some parse. Restrict the search by
@@ -244,13 +250,13 @@ if __name__ == "__main__":
       lex = augment_lexicon_distant(lex, query_tokens, query_token_syntaxes,
                                     sentence, ontology, model, answer)
 
+      # Run compression on the augmented lexicon.
       lex = compress_lexicon(lex)
 
-      parse_results = WeightedCCGChartParser(lex).parse(sentence)
-      #print("parse_results:", parse_results)
+      # Attempt a new parameter update.
+      weighted_results, _ = update_perceptron_distant(lex, sentence, model, answer)
 
-    final_sem = parse_results[0].label()[0].semantics()
+    final_sem = weighted_results[0][0].label()[0].semantics()
 
-    print(" ".join(sentence), len(parse_results), final_sem)
+    print(" ".join(sentence), len(weighted_results), final_sem)
     print("\t", model.evaluate(final_sem))
-

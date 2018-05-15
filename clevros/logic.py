@@ -287,7 +287,6 @@ class Ontology(object):
             "Function name clash: existing %r, inserting %r" % (existing_function, function)
       else:
         new_functions.append(function)
-    logging.debug("No function clashes: %r", functions)
 
     self.functions.extend(functions)
     self.functions_dict.update({fn.name: fn for fn in functions})

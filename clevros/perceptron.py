@@ -45,3 +45,36 @@ def update_perceptron_batch(lexicon, data, learning_rate=0.1, parser=None):
           leaf_token._weight += delta
 
   return norm
+
+
+def update_perceptron_distant(lexicon, sentence, model, answer,
+                              learning_rate=0.1, parser=None):
+  if parser is None:
+    parser = WeightedCCGChartParser(lexicon)
+
+  norm = 0.0
+  weighted_results = parser.parse(sentence, return_aux=True)
+  if not weighted_results:
+    raise ValueError("No successful parses computed.")
+
+  max_result, max_score, _ = weighted_results[0]
+  correct_result, correct_score = None, None
+
+  for result, score, _ in weighted_results:
+    root_token, _ = result.label()
+    if model.evaluate(root_token.semantics()) == answer:
+      correct_result, correct_score = result, score
+      break
+  else:
+    raise ValueError("No valid parse derived.")
+
+  # Update to separate max-scoring parse from max-scoring correct parse if
+  # necessary.
+  if correct_score < max_score:
+    for result, sign in zip([correct_result, max_result], [1, -1]):
+      for _, leaf_token in result.pos():
+        delta = sign * learning_rate
+        norm += delta ** 2
+        leaf_token._weight += delta
+
+  return weighted_results, norm

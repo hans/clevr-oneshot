@@ -6,6 +6,7 @@ from collections import defaultdict, Counter
 import copy
 from functools import reduce
 import itertools
+import logging
 import queue
 
 from nltk.ccg import lexicon as ccg_lexicon
@@ -18,6 +19,9 @@ from clevros.combinator import category_search_replace, \
     type_raised_category_search_replace
 from clevros.clevr import scene_candidate_referents
 from clevros.logic import get_arity
+
+
+L = logging.getLogger(__name__)
 
 
 class Lexicon(ccg_lexicon.CCGLexicon):
@@ -563,6 +567,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
     sub_expr = l.FunctionVariableExpression(sub_target)
 
     cand_syntaxes = query_token_syntaxes[token]
+    L.info("Candidate syntaxes for %s: %r", token, cand_syntaxes)
     for category, category_weight in cand_syntaxes:
       # Prepare to BOOTSTRAP: Bias expression iteration based on the syntactic
       # category.
@@ -666,8 +671,8 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
                            in zip(successes_t, weights_t)]
 
     # DEBUG
-    for success in successes[token]:
-      print(success)
+    for (_, entry_info), weight in zip(successes_t, weights_t):
+      L.debug("%.4f %s", weight, entry_info)
 
   return lex
 
