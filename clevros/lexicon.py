@@ -638,13 +638,23 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
         if success:
           # Parse succeeded with correct meaning. Add candidate lexical entry.
-          successes[token].add((category, expr))
+          successes[token].add((joint_score, (category, expr)))
 
   for token in query_tokens:
-    if not successes[token]:
+    try:
+      successes_t = list(successes[token])
+    except KeyError:
       raise RuntimeError("Failed to derive any meanings for token %s." % token)
-    lex._entries[token] = [Token(token, category, expr)
-                           for category, expr in successes[token]]
+
+    # Compute weights for competing entries by a stable softmax.
+    weights_t = np.array([weight for weight, _ in successes_t])
+    weights_t -= weights_t.max()
+    weights_t = np.exp(weights_t)
+    weights_t /= weights_t.sum()
+
+    lex._entries[token] = [Token(token, category, expr, weight=softmax_weight)
+                           for (_, (category, expr)), softmax_weight
+                           in zip(successes_t, weights_t)]
 
     # DEBUG
     for success in successes[token]:
