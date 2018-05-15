@@ -26,6 +26,8 @@ def _make_mock_ontology():
 
     types.new_function("cube", ("obj", "boolean"), lambda x: x["shape"] == "cube"),
     types.new_function("sphere", ("obj", "boolean"), lambda x: x["shape"] == "sphere"),
+
+    types.new_function("and_", ("boolean", "boolean", "boolean"), lambda x, y: x and y),
   ]
 
   constants = [types.new_constant("one", "num"), types.new_constant("two", "num")]
@@ -109,6 +111,7 @@ def test_infer_type():
     (r"\a.ltzero(cmp_pos(ax_x,a,a))", "a", ontology.types["obj"]),
     (r"\a b.ltzero(cmp_pos(ax_x,a,b))", "a", ontology.types["obj"]),
     (r"\a b.ltzero(cmp_pos(ax_x,a,b))", "b", ontology.types["obj"]),
+    (r"\A b.and_(ltzero(b),A(b))", "A", ontology.types[ontology.types.ANY_TYPE, "boolean"]),
   ]
 
   for expr, query_variable, expected_type in cases:

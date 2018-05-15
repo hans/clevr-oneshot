@@ -115,7 +115,7 @@ def grammar_to_ontology(grammar, ontology):
       for bound_var in bound_vars:
         try:
           var_type = ontology.infer_type(inv_defn, bound_var.name,
-                                        extra_types=extra_types)
+                                         extra_types=extra_types)
           bound_signatures[bound_var.name] = var_type
 
           # This variable may be important for inferring types of other variables
