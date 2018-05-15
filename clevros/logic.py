@@ -214,13 +214,23 @@ def read_ec_sexpr(sexpr):
       bound_vars.add(variable)
       bound_var_stack.append(variable)
 
-      stack.append((l.LambdaExpression, variable, []))
+      stack.append((l.LambdaExpression, None, []))
     elif is_call:
       head = token
       if head.startswith("$"):
         bruijn_index = int(head[1:])
         # Bound variable is the head of an application expression.
-        head = l.FunctionVariableExpression(bound_var_stack[-1 - bruijn_index])
+        # First replace with a function-looking variable, then update parser
+        # state.
+        var_idx = -1 - bruijn_index
+        var = bound_var_stack[var_idx]
+        bound_vars.remove(var)
+
+        new_var = l.Variable(var.name.upper())
+        bound_var_stack[var_idx] = new_var
+        bound_vars.add(new_var)
+
+        head = l.FunctionVariableExpression(new_var)
 
       stack.append((l.ApplicationExpression, head, []))
       is_call = False
@@ -230,9 +240,9 @@ def read_ec_sexpr(sexpr):
         _, pred, args = stack_top
         result = make_application(pred, args)
       elif stack_top[0] == l.LambdaExpression:
-        _, variable, term = stack_top
+        _, _, term = stack_top
+        variable = bound_var_stack.pop()
         result = l.LambdaExpression(variable, term[0])
-        bound_var_stack.pop()
       else:
         raise RuntimeError("unknown element on stack", stack_top)
 
