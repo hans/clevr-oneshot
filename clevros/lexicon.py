@@ -20,7 +20,7 @@ from clevros.logic import get_arity
 
 class Lexicon(ccg_lexicon.CCGLexicon):
 
-  def __init__(self, start, primitives, families, entries):
+  def __init__(self, start, primitives, families, entries, ontology=None):
     """
     Create a new Lexicon.
 
@@ -37,11 +37,13 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     self._families = families
     self._entries = entries
 
+    self.ontology = ontology
+
     self._derived_categories = {}
     self._derived_categories_by_base = defaultdict(set)
 
   @classmethod
-  def fromstring(cls, lex_str, include_semantics=False):
+  def fromstring(cls, lex_str, ontology=None, include_semantics=False):
     """
     Convert string representation into a lexicon for CCGs.
     """
@@ -87,7 +89,8 @@ class Lexicon(ccg_lexicon.CCGLexicon):
           # Word definition
           # ie, which => (N\N)/(S/NP)
           entries[ident].append(Token(ident, cat, semantics, weight))
-    return cls(primitives[0], primitives, families, entries)
+    return cls(primitives[0], primitives, families, entries,
+               ontology=ontology)
 
   def clone(self, retain_semantics=True):
     """
@@ -124,10 +127,8 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     Get the arities of semantic expressions associated with each observed
     syntactic category.
     """
-    def get_lambda_arity(expr):
-      if not isinstance(expr, l.LambdaExpression):
-        return 0
-      return 1 + get_lambda_arity(expr.term)
+    # If possible, lean on the type system to help determine expression arity.
+    get_arity = (self.ontology and self.ontology.get_expr_arity) or get_arity
 
     entries_by_categ = {
       category: set(entry for entry in itertools.chain.from_iterable(self._entries.values())
@@ -136,7 +137,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     }
 
     return {
-      category: set(get_lambda_arity(entry.semantics()) for entry in entries)
+      category: set(get_arity(entry.semantics()) for entry in entries)
       for category, entries in entries_by_categ.items()
     }
 

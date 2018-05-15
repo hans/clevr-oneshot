@@ -180,6 +180,23 @@ def as_ec_sexpr(expr):
       return "$%i" % bruijn_index
     elif isinstance(expr, l.ConstantExpression):
       return expr.variable.name
+    elif isinstance(expr, l.FunctionVariableExpression):
+      # EC requires S-expressions in normal form -- i.e. functions need to
+      # appear in their applied form. We'll need a valid function type here
+      # to get anything done.
+      if expr.variable.type is None:
+        raise ValueError("Need typed function (at least arity) in order to convert to EC-friendly normal form.")
+
+      expr_type = expr.variable.type
+      n_vars = 0
+      while isinstance(expr_type, l.ComplexType):
+        n_vars += 1
+        expr_type = expr_type.second
+
+      return ("(lambda " * n_vars) + \
+          ("(%s %s)" % (expr.variable.name,
+                        " ".join("$%i" % (idx - 1) for idx in range(n_vars, 0, -1)))) + \
+          (")" * n_vars)
     else:
       raise ValueError("un-handled expression component %r" % expr)
 
@@ -532,6 +549,9 @@ class Ontology(object):
     elif isinstance(expr, l.ApplicationExpression):
       function = self.functions_dict[expr.pred.variable.name]
       return function.arity - len(expr.args)
+    elif isinstance(expr, (l.FunctionVariableExpression, l.ConstantExpression)) \
+        and expr.variable.name in self.functions_dict:
+      return self.functions_dict[expr.variable.name].arity
     elif callable(expr):
       return len(inspect.getargspec(expr).args)
     else:

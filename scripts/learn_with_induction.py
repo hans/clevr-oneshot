@@ -73,75 +73,9 @@ scene = \
               'size': 'large'})],
  'split': 'train'}
 
-
 #####################
 
-
-semantics = True
-
-lex_vol = Lexicon.fromstring(r"""
-  :- S, PP, Nd, N
-
-  cube => N {\x.and_(object(x),cube(x))}
-  sphere => N {\x.and_(object(x),sphere(x))}
-  donut => N {\x.and_(object(x),donut(x))}
-  hose => N {\x.and_(object(x),hose(x))}
-  cylinder => N {\x.and_(object(x),cylinder(x))}
-  pyramid => N {\x.and_(object(x),pyramid(x))}
-
-  the => Nd/N {\x.unique(x)}
-
-  below => PP/Nd {\b.\a.ltzero(cmp_pos(ax_z,a,b))}
-  # behind =>  PP/Nd {\b.\a.ltzero(cmp_pos(ax_y,b,a))}
-  # above => PP/Nd {\b.\a.ltzero(cmp_pos(ax_z,b,a))}
-  # left_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_x,a,b))}
-  right_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_x,b,a))}
-  in_front_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_y,a,b))}
-
-  put => S/Nd/PP {\a.\b.move(a,b,slow)}
-  drop => S/Nd/PP {\a.\b.move(a,b,fast)}
-  """, include_semantics=semantics)
-
-lex = Lexicon.fromstring(r"""
-  :- S, N
-
-  woman => N {\x.and_(agent(x),female(x))}
-  man => N {\x.and_(agent(x),male(x))}
-
-  letter => N {\x.letter(x)}
-  ball => N {\x.sphere(x)}
-  package => N {\x.package(x)}
-
-  the => N/N {\x.unique(x)}
-
-  give => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,any))}
-  send => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,far))}
-  hand => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,near))}
-  """, include_semantics=True)
-
 from clevros.primitives import *
-
-scene = {
-  "objects": [
-    frozendict({"female": True, "agent": True, "shape": "person"}),
-    frozendict({"shape": "letter"}),
-    frozendict({"shape": "package"}),
-    frozendict({"female": False, "agent": True, "shape": "person"}),
-  ]
-}
-examples_vol = [
-  ("place the donut right_of the cube", scene,
-   Move(scene["objects"][1], scene["objects"][2], "slow")),
-]
-examples = [
-    ("send the boy the package", scene,
-     ComposedAction(CausePossession(scene["objects"][3], scene["objects"][2]),
-                    Transfer(scene["objects"][2], scene["objects"][3], "far"))),
-
-    ("gorp the woman the letter", scene,
-     ComposedAction(CausePossession(scene["objects"][0], scene["objects"][2]),
-                    Transfer(scene["objects"][2], scene["objects"][0], "far"))),
-]
 
 types = TypeSystem(["obj", "num", "ax", "manner", "boolean", "action"])
 
@@ -186,6 +120,75 @@ constants = [types.new_constant("any", "manner"),
              types.new_constant("fast", "manner")]
 
 ontology = Ontology(types, functions, constants, variable_weight=0.1)
+
+#####################
+
+
+semantics = True
+
+lex_vol = Lexicon.fromstring(r"""
+  :- S, PP, Nd, N
+
+  cube => N {\x.and_(object(x),cube(x))}
+  sphere => N {\x.and_(object(x),sphere(x))}
+  donut => N {\x.and_(object(x),donut(x))}
+  hose => N {\x.and_(object(x),hose(x))}
+  cylinder => N {\x.and_(object(x),cylinder(x))}
+  pyramid => N {\x.and_(object(x),pyramid(x))}
+
+  the => Nd/N {\x.unique(x)}
+
+  below => PP/Nd {\b.\a.ltzero(cmp_pos(ax_z,a,b))}
+  # behind =>  PP/Nd {\b.\a.ltzero(cmp_pos(ax_y,b,a))}
+  # above => PP/Nd {\b.\a.ltzero(cmp_pos(ax_z,b,a))}
+  # left_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_x,a,b))}
+  right_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_x,b,a))}
+  in_front_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_y,a,b))}
+
+  put => S/Nd/PP {\a.\b.move(a,b,slow)}
+  drop => S/Nd/PP {\a.\b.move(a,b,fast)}
+  """, ontology=ontology, include_semantics=semantics)
+
+lex = Lexicon.fromstring(r"""
+  :- S, N
+
+  woman => N {\x.and_(agent(x),female(x))}
+  man => N {\x.and_(agent(x),male(x))}
+
+  letter => N {letter}
+  ball => N {sphere}
+  package => N {package}
+
+  the => N/N {\x.unique(x)}
+
+  give => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,any))}
+  send => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,far))}
+  hand => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,near))}
+  """, ontology, include_semantics=True)
+
+
+scene = {
+  "objects": [
+    frozendict({"female": True, "agent": True, "shape": "person"}),
+    frozendict({"shape": "letter"}),
+    frozendict({"shape": "package"}),
+    frozendict({"female": False, "agent": True, "shape": "person"}),
+  ]
+}
+examples_vol = [
+  ("place the donut right_of the cube", scene,
+   Move(scene["objects"][1], scene["objects"][2], "slow")),
+]
+examples = [
+    ("send the boy the package", scene,
+     ComposedAction(CausePossession(scene["objects"][3], scene["objects"][2]),
+                    Transfer(scene["objects"][2], scene["objects"][3], "far"))),
+
+    ("gorp the woman the letter", scene,
+     ComposedAction(CausePossession(scene["objects"][0], scene["objects"][2]),
+                    Transfer(scene["objects"][2], scene["objects"][0], "far"))),
+]
+
 compressor = Compressor(ontology, **EC_kwargs)
 
 def compress_lexicon(lex):

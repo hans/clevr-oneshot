@@ -1,6 +1,6 @@
 from nose.tools import *
 
-from nltk.sem.logic import Expression, Variable
+from nltk.sem.logic import Expression, Variable, FunctionVariableExpression
 
 from clevros.logic import *
 
@@ -68,6 +68,12 @@ def test_iter_expressions():
 def test_as_ec_sexpr():
   expr = Expression.fromstring(r"\x y z.foo(bar(x,y),baz(y,z),blah)")
   eq_(as_ec_sexpr(expr), "(lambda (lambda (lambda (foo (bar $2 $1) (baz $1 $0) blah))))")
+
+
+def test_as_ec_sexpr_function():
+  ont = _make_mock_ontology()
+  expr = FunctionVariableExpression(Variable("F", ont.types["boolean", "boolean", "boolean"]))
+  eq_(as_ec_sexpr(expr), "(lambda (lambda (F $1 $0)))")
 
 
 def test_read_ec_sexpr():
