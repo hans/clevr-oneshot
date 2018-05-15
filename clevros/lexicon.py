@@ -6,7 +6,7 @@ from collections import defaultdict, Counter
 import copy
 from functools import reduce
 import itertools
-from queue import PriorityQueue
+import queue
 
 from nltk.ccg import lexicon as ccg_lexicon
 from nltk.ccg.api import PrimitiveCategory, FunctionalCategory, AbstractCCGCategory
@@ -547,7 +547,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   successes = defaultdict(set)
   semantics_results = {}
   for token in query_tokens:
-    candidate_queue = PriorityQueue(maxsize=1000)
+    candidate_queue = queue.PriorityQueue(maxsize=1000)
     category_parse_results = {}
 
     # Prepare dummy variable which will be inserted into parse checks.
@@ -555,7 +555,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
     sub_expr = l.FunctionVariableExpression(sub_target)
 
     cand_syntaxes = query_token_syntaxes[token]
-    for category, _ in cand_syntaxes:
+    for category, category_weight in cand_syntaxes:
       # Prepare to BOOTSTRAP: Bias expression iteration based on the syntactic
       # category.
       cat_lf_ngrams = lf_ngrams[category]
@@ -589,14 +589,17 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
           continue
 
         joint_score = 0.0 # TODO
-        candidate_queue.put((joint_score, (category, expr)))
+        try:
+          candidate_queue.put_nowait((joint_score, (category, expr)))
+        except queue.Full:
+          pass
 
     while True:
-      item = candidate_queue.get()
-      if item is None:
+      try:
+        joint_score, (category, expr) = candidate_queue.get_nowait()
+      except queue.Empty:
         break
 
-      category, expr = item
       parse_results = category_parse_results[category]
 
       # Parse succeeded -- check the candidate results.

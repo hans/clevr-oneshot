@@ -242,8 +242,6 @@ if __name__ == "__main__":
 
     final_sem = parse_results[0].label()[0].semantics()
 
-    sys.exit()
-
     print(" ".join(sentence), len(parse_results), final_sem)
     print("\t", model.evaluate(final_sem))
 
