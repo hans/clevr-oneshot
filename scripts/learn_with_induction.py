@@ -17,7 +17,7 @@ from clevros.lexicon import Lexicon, Token, \
 from clevros.logic import Ontology, Function, TypeSystem
 from clevros.model import Model
 from clevros.perceptron import update_perceptron_batch
-from clevros.ec_util import Compressor
+from clevros.compression import Compressor
 
 import random
 random.seed(4)
