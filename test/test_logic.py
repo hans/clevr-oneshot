@@ -84,20 +84,27 @@ def test_valid_lambda_expr():
 def test_typecheck():
   ontology = _make_mock_ontology()
 
-  def do_test(expr, extra_signature):
+  def do_test(expr, extra_signature, expected):
     expr = Expression.fromstring(expr)
     ontology.typecheck(expr, extra_signature)
-    print(expr.type)
+    eq_(expr.type, expected)
 
   exprs = [
       (r"ltzero(cmp_pos(ax_x,unique(\x.sphere(x)),unique(\y.cube(y))))",
-       {"x": ontology.types["obj"], "y": ontology.types["obj"]}),
+       {"x": ontology.types["obj"], "y": ontology.types["obj"]},
+       ontology.types["boolean"]),
+
       (r"\a b.ltzero(cmp_pos(ax_x,a,b))",
-       {"a": ontology.types["obj"], "b": ontology.types["obj"]}),
+       {"a": ontology.types["obj"], "b": ontology.types["obj"]},
+       ontology.types["obj", "obj", "boolean"]),
+
+      (r"\A b.and_(ltzero(b),A(b))",
+       {"A": ontology.types[ontology.types.ANY_TYPE, "boolean"], "b": ontology.types["num"]},
+       ontology.types[(ontology.types.ANY_TYPE, "boolean"), "num", "boolean"]),
   ]
 
-  for expr, extra_signature in exprs:
-    yield do_test, expr, extra_signature
+  for expr, extra_signature, expected in exprs:
+    yield do_test, expr, extra_signature, expected
 
 
 def test_infer_type():
