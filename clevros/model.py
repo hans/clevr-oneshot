@@ -22,6 +22,7 @@ class Model(object):
     try:
       return self.satisfy(expr)
     except:
+      # print(traceback.format_exc())
       return None
 
   def satisfy(self, expr, assignments=None):
