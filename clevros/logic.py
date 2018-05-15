@@ -69,6 +69,12 @@ class Function(object):
   def return_type(self):
     return self.type.flat[-1]
 
+  def __hash__(self):
+    return hash((self.name, self.type, self.defn))
+
+  def __eq__(self, other):
+    return hash(self) == hash(other)
+
   def __str__(self):
     return "function %s : %s" % (self.name, self.type)
 
@@ -118,7 +124,6 @@ def extract_lambda(expr):
   lambdas in order to perform function application during parsing.
   """
   variables = []
-  expr = copy.deepcopy(expr)
 
   def process_lambda(lambda_expr):
     # Create a new unique variable and substitute.
@@ -243,7 +248,7 @@ def read_ec_sexpr(sexpr):
 
 class Ontology(object):
   """
-  TODO
+  Defines an ontology for expressing and evaluating logical forms.
   """
 
   def __init__(self, types, functions, constants, variable_weight=0.1):
@@ -270,8 +275,16 @@ class Ontology(object):
                 l.FunctionVariableExpression]
 
   def add_functions(self, functions):
-    # Make sure there is no overlap.
-    assert not (set(self.functions_dict.keys()) & set(fn.name for fn in functions))
+    # Ignore functions which already exist.
+    new_functions = []
+    for function in functions:
+      if function.name in self.functions_dict:
+        existing_function = self.functions_dict[function.name]
+        assert existing_function == function, \
+            "Function name clash: existing %r, inserting %r" % (existing_function, function)
+      else:
+        new_functions.append(function)
+    print("No function clashes.", functions)
 
     self.functions.extend(functions)
     self.functions_dict.update({fn.name: fn for fn in functions})
@@ -293,7 +306,6 @@ class Ontology(object):
 
     return ret
 
-  #@functools.lru_cache(maxsize=None)
   @listify
   def _iter_expressions_inner(self, max_depth, bound_vars,
                               type_request=None, function_weights=None):

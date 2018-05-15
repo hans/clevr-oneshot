@@ -572,7 +572,6 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
         if results:
           # Parse succeeded -- check the candidate results.
           for result in results:
-            # TODO skip re-checking parses with the same semantics
             semantics = result.label()[0].semantics()
 
             # Check cached result first.
