@@ -11,6 +11,7 @@ import queue
 from nltk.ccg import lexicon as ccg_lexicon
 from nltk.ccg.api import PrimitiveCategory, FunctionalCategory, AbstractCCGCategory
 from nltk.sem import logic as l
+import numpy as np
 
 from clevros import chart
 from clevros.combinator import category_search_replace, \
@@ -547,7 +548,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   successes = defaultdict(set)
   semantics_results = {}
   for token in query_tokens:
-    candidate_queue = queue.PriorityQueue(maxsize=1000)
+    candidate_queue = queue.PriorityQueue(maxsize=100)
     category_parse_results = {}
 
     # Prepare dummy variable which will be inserted into parse checks.
@@ -583,23 +584,33 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
       category_parse_results[category] = results
 
       for expr in candidate_exprs:
-        # TODO reinstate biased iteration
         if get_arity(expr) not in category_sem_arities[category]:
           # TODO rather than arity-checking post-hoc, form a type request
           continue
 
-        joint_score = 0.0 # TODO
+        likelihood = 0.0
+        for predicate in expr.predicates():
+          if predicate.name in cat_lf_ngrams:
+            likelihood += np.log(cat_lf_ngrams[predicate.name])
+
+        joint_score = np.log(category_weight) + likelihood
+        new_item = (joint_score, (category, expr))
         try:
-          candidate_queue.put_nowait((joint_score, (category, expr)))
+          candidate_queue.put_nowait(new_item)
         except queue.Full:
-          pass
+          # See if this candidate is better than the worst item.
+          worst = candidate_queue.get()
+          if worst[0] < joint_score:
+            replacement = new_item
+          else:
+            replacement = worst
 
-    while True:
-      try:
-        joint_score, (category, expr) = candidate_queue.get_nowait()
-      except queue.Empty:
-        break
+          candidate_queue.put_nowait(replacement)
 
+    # NB not parallelizing anything below
+    candidates = sorted(candidate_queue.queue,
+                        key=lambda item: -item[0])
+    for joint_score, (category, expr) in candidates:
       parse_results = category_parse_results[category]
 
       # Parse succeeded -- check the candidate results.
