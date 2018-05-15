@@ -104,7 +104,6 @@ def grammar_to_ontology(grammar, ontology):
     # First read an untyped version.
     inv_defn, bound_vars = read_ec_sexpr(inv_defn)
     inv_defn = inv_defn.simplify()
-    print(inv_name, inv_defn)
 
     # Run type inference on the bound variables.
     bound_signatures = {var.name: None for var in bound_vars}

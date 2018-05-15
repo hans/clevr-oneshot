@@ -539,6 +539,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
   # TODO need to work on *product space* for multiple query words
   successes = defaultdict(list)
+  semantics_results = {}
   for token in query_tokens:
     cand_syntaxes = query_token_syntaxes[token]
     for category, _ in cand_syntaxes:
@@ -555,7 +556,6 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
       # Now run the biased iteration.
       exprs = ontology.iter_expressions(max_depth=3, function_weights=cat_lf_ngrams)
-      semantics_results = {}
       for expr in exprs:
         if get_arity(expr) not in category_sem_arities[category]:
           # TODO rather than arity-checking post-hoc, form a type request
