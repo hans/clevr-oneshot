@@ -6,6 +6,7 @@ from collections import defaultdict, Counter
 import copy
 from functools import reduce
 import itertools
+from queue import PriorityQueue
 
 from nltk.ccg import lexicon as ccg_lexicon
 from nltk.ccg.api import PrimitiveCategory, FunctionalCategory, AbstractCCGCategory
@@ -546,12 +547,15 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   successes = defaultdict(set)
   semantics_results = {}
   for token in query_tokens:
+    candidate_queue = PriorityQueue(maxsize=1000)
+    category_parse_results = {}
+
+    # Prepare dummy variable which will be inserted into parse checks.
+    sub_target = l.Variable("F0000")
+    sub_expr = l.FunctionVariableExpression(sub_target)
+
     cand_syntaxes = query_token_syntaxes[token]
     for category, _ in cand_syntaxes:
-      # Track: do we need to perform parsing with a full ruleset to make this
-      # category work?
-      needs_full_ruleset = False
-
       # Prepare to BOOTSTRAP: Bias expression iteration based on the syntactic
       # category.
       cat_lf_ngrams = lf_ngrams[category]
@@ -569,8 +573,6 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
       #
       # We'll next enumerate all possible expressions, substitute in for this
       # dummy variable, and then attempt to evaluate.
-      sub_target = l.Variable("F0000")
-      sub_expr = l.FunctionVariableExpression(sub_target)
       lex._entries[token] = [Token(token, category, sub_expr)]
       # TODO this only works for basic application right now -- we can't yet
       # support composition with the dummy variable setup. Need to extract some
@@ -578,6 +580,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
       # composition magic.
       results = chart.WeightedCCGChartParser(lex, ruleset=chart.ApplicationRuleSet) \
           .parse(sentence)
+      category_parse_results[category] = results
 
       for expr in candidate_exprs:
         # TODO reinstate biased iteration
@@ -585,33 +588,43 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
           # TODO rather than arity-checking post-hoc, form a type request
           continue
 
-        if results:
-          # Parse succeeded -- check the candidate results.
-          for result in results:
-            semantics = result.label()[0].semantics()
-            semantics = semantics.replace(sub_target, expr)
+        joint_score = 0.0 # TODO
+        candidate_queue.put((joint_score, (category, expr)))
 
-            # Check cached result first.
-            success = semantics_results.get(semantics, None)
-            if success is None:
-              # Evaluate the expression and cache result.
-              try:
-                pred_answer = model.evaluate(semantics)
-                success = pred_answer == answer
-              except (TypeError, AttributeError) as e:
-                # Type inconsistency. TODO catch this in the iter_expression
-                # stage, or typecheck before evaluating.
-                success = False
-              except AssertionError as e:
-                # Precondition of semantics failed to pass.
-                success = False
+    while True:
+      item = candidate_queue.get()
+      if item is None:
+        break
 
-              # Cache evaluation result.
-              semantics_results[semantics] = success
+      category, expr = item
+      parse_results = category_parse_results[category]
 
-            if success:
-              # Parse succeeded with correct meaning. Add candidate lexical entry.
-              successes[token].add((category, expr))
+      # Parse succeeded -- check the candidate results.
+      for result in parse_results:
+        semantics = result.label()[0].semantics()
+        semantics = semantics.replace(sub_target, expr)
+
+        # Check cached result first.
+        success = semantics_results.get(semantics, None)
+        if success is None:
+          # Evaluate the expression and cache result.
+          try:
+            pred_answer = model.evaluate(semantics)
+            success = pred_answer == answer
+          except (TypeError, AttributeError) as e:
+            # Type inconsistency. TODO catch this in the iter_expression
+            # stage, or typecheck before evaluating.
+            success = False
+          except AssertionError as e:
+            # Precondition of semantics failed to pass.
+            success = False
+
+          # Cache evaluation result.
+          semantics_results[semantics] = success
+
+        if success:
+          # Parse succeeded with correct meaning. Add candidate lexical entry.
+          successes[token].add((category, expr))
 
   for token in query_tokens:
     if not successes[token]:
