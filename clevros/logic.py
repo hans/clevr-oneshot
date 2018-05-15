@@ -162,47 +162,6 @@ def get_arity(expr):
     return 0
 
 
-def as_ec_sexpr(expr):
-  """
-  Convert an `nltk.sem.logic` `Expression` to an S-expr string.
-  """
-  def inner(expr, var_stack):
-    if isinstance(expr, l.LambdaExpression):
-      # Add lambda variable to var map.
-      return "(lambda %s)" % inner(expr.term, var_stack + [expr.variable.name])
-    elif isinstance(expr, l.ApplicationExpression):
-      args = [inner(arg, var_stack) for arg in expr.args]
-      return "(%s %s)" % (expr.pred.variable.name, " ".join(args))
-    # elif isinstance(expr, l.AndExpression):
-    #   return "(and %s %s)" % (inner(expr.first), inner(expr.second))
-    elif isinstance(expr, l.IndividualVariableExpression):
-      bruijn_index = len(var_stack) - var_stack.index(expr.variable.name) - 1
-      return "$%i" % bruijn_index
-    elif isinstance(expr, l.ConstantExpression):
-      return expr.variable.name
-    elif isinstance(expr, l.FunctionVariableExpression):
-      # EC requires S-expressions in normal form -- i.e. functions need to
-      # appear in their applied form. We'll need a valid function type here
-      # to get anything done.
-      if expr.variable.type is None:
-        raise ValueError("Need typed function (at least arity) in order to convert to EC-friendly normal form.")
-
-      expr_type = expr.variable.type
-      n_vars = 0
-      while isinstance(expr_type, l.ComplexType):
-        n_vars += 1
-        expr_type = expr_type.second
-
-      return ("(lambda " * n_vars) + \
-          ("(%s %s)" % (expr.variable.name,
-                        " ".join("$%i" % (idx - 1) for idx in range(n_vars, 0, -1)))) + \
-          (")" * n_vars)
-    else:
-      raise ValueError("un-handled expression component %r" % expr)
-
-  return inner(expr, [])
-
-
 def read_ec_sexpr(sexpr):
   """
   Parse an EC-style S-expression into an untyped NLTK representation.
@@ -608,3 +567,40 @@ class Ontology(object):
 
   def _make_nltk_type_signature(self):
     return {fn.name: fn.type for fn in self.functions}
+
+  def as_ec_sexpr(self, expr):
+    """
+    Convert an `nltk.sem.logic` `Expression` to an S-expr string.
+    """
+    def inner(expr, var_stack):
+      if isinstance(expr, l.LambdaExpression):
+        # Add lambda variable to var map.
+        return "(lambda %s)" % inner(expr.term, var_stack + [expr.variable.name])
+      elif isinstance(expr, l.ApplicationExpression):
+        args = [inner(arg, var_stack) for arg in expr.args]
+        return "(%s %s)" % (expr.pred.variable.name, " ".join(args))
+      # elif isinstance(expr, l.AndExpression):
+      #   return "(and %s %s)" % (inner(expr.first), inner(expr.second))
+      elif isinstance(expr, l.IndividualVariableExpression):
+        bruijn_index = len(var_stack) - var_stack.index(expr.variable.name) - 1
+        return "$%i" % bruijn_index
+      elif isinstance(expr, (l.ConstantExpression, l.FunctionVariableExpression)) \
+          and expr.variable.name in self.functions_dict:
+        # EC requires S-expressions in normal form -- i.e. functions need to
+        # appear in their applied form. We'll need a valid function type here
+        # to get anything done.
+        arity = self.functions_dict[expr.variable.name].arity
+
+        return ("(lambda " * arity) + \
+            ("(%s %s)" % (expr.variable.name,
+                          " ".join("$%i" % (idx - 1) for idx in range(arity, 0, -1)))) + \
+            (")" * arity)
+      elif isinstance(expr, l.FunctionVariableExpression):
+        raise ValueError("unknown function %s" % expr)
+      elif isinstance(expr, l.ConstantExpression):
+        return expr.variable.name
+      else:
+        raise ValueError("un-handled expression component %r" % expr)
+
+    return inner(expr, [])
+

@@ -9,7 +9,7 @@ import inspect
 from nltk.ccg.api import PrimitiveCategory, FunctionalCategory
 
 from clevros.lexicon import Token, DerivedCategory, get_semantic_arity
-from clevros.logic import as_ec_sexpr, read_ec_sexpr
+from clevros.logic import read_ec_sexpr
 
 
 #TODO:
@@ -144,7 +144,7 @@ def grammar_to_ontology(grammar, ontology):
   return ontology, invented_name_dict
 
 
-def extract_frontiers_from_lexicon(lex, g, invented_name_dict=None, arity_overrides=None):
+def extract_frontiers_from_lexicon(lex, ontology, g, invented_name_dict=None, arity_overrides=None):
   frontiers = []
 
   for key, entries in lex._entries.items():
@@ -159,7 +159,7 @@ def extract_frontiers_from_lexicon(lex, g, invented_name_dict=None, arity_overri
     #need function extract_s_exp
 
     def program(x):
-      x = as_ec_sexpr(x)
+      x = ontology.as_ec_sexpr(x)
       if invented_name_dict:
         for name in invented_name_dict:
           x = x.replace(name, invented_name_dict[name])
@@ -288,7 +288,7 @@ class Compressor(object):
     }
 
     # TODO(max) document
-    frontiers = extract_frontiers_from_lexicon(lexicon, self.grammar,
+    frontiers = extract_frontiers_from_lexicon(lexicon, self.ontology, self.grammar,
                                                invented_name_dict=self.invented_name_dict,
                                                arity_overrides=arity_overrides)
 
