@@ -37,6 +37,34 @@ def _make_mock_ontology():
   return ontology
 
 
+def test_iter_expressions():
+  """
+  Functional expression iteration test involving higher-order functions.
+  """
+
+  types = TypeSystem(["boolean", "obj"])
+  functions = [
+      types.new_function("and_", ("boolean", "boolean", "boolean"), lambda x, y: x and y),
+      types.new_function("foo", ("obj", "boolean"), lambda x: True),
+      types.new_function("bar", ("obj", "boolean"), lambda x: True),
+
+      types.new_function("invented_1", (("obj", "boolean"), "obj", "boolean"), lambda f, x: x is not None and f(x)),
+  ]
+  constants = []
+
+  ontology = Ontology(types, functions, constants, variable_weight=0.1)
+
+  expressions = list(ontology.iter_expressions(4))
+  from pprint import pprint
+  pprint(expressions)
+
+  expression_strs = list(map(str, expressions))
+  ok_(r"\z1.and_(foo(z1),bar(z1))" in expression_strs,
+      "Reuse of bound variable")
+  ok_(r"\z1.invented_1(foo,z1)" in expression_strs,
+      "Support passing functions as arguments to higher-order functions")
+
+
 def test_as_ec_sexpr():
   expr = Expression.fromstring(r"\x y z.foo(bar(x,y),baz(y,z),blah)")
   eq_(as_ec_sexpr(expr), "(lambda (lambda (lambda (foo (bar $2 $1) (baz $1 $0) blah))))")

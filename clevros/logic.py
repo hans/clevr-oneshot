@@ -290,7 +290,8 @@ class Ontology(object):
     self._prepare()
 
   EXPR_TYPES = [l.ApplicationExpression, l.ConstantExpression,
-                l.IndividualVariableExpression, l.LambdaExpression]
+                l.IndividualVariableExpression, l.LambdaExpression,
+                l.FunctionVariableExpression]
 
   def add_functions(self, functions):
     # Make sure there is no overlap.
@@ -363,7 +364,7 @@ class Ontology(object):
             # print("\t" * (6 - max_depth), fn, fn.arg_types)
             sub_args = []
             for i, arg_type_request in enumerate(fn.arg_types):
-              # print("\t" * (6 - max_depth + 1), "ARGUMENT %i (max_depth %i)" % (i, max_depth - 1))
+              # print("\t" * (6 - max_depth + 1), "ARGUMENT %i %s (max_depth %i)" % (i, arg_type_request, max_depth - 1))
               sub_args.append(
                   self._iter_expressions_inner(max_depth=max_depth - 1,
                                                bound_vars=bound_vars,
@@ -374,7 +375,7 @@ class Ontology(object):
               candidate = make_application(fn.name, arg_combs)
               valid = self._valid_application_expr(candidate)
               # print("\t" * (6 - max_depth + 1), "valid %s? %s" % (candidate, valid))
-              if self._valid_application_expr(candidate):
+              if valid:
                 yield candidate
       elif expr_type == l.LambdaExpression and max_depth > 1:
         for bound_var_type in self.types:
@@ -446,6 +447,19 @@ class Ontology(object):
             continue
 
           yield l.ConstantExpression(constant)
+      elif expr_type == l.FunctionVariableExpression:
+        # NB we don't support enumerating bound variables with function types
+        # right now -- the following only considers yielding fixed functions
+        # from the ontology.
+        for function in self.functions:
+          # Be a little strict here to avoid excessive enumeration -- only
+          # consider emitting functions when the type request specifically
+          # demands a function, not e.g. AnyType
+          if type_request is None or type_request == self.types.ANY_TYPE \
+              or not function.type.matches(type_request):
+            continue
+
+          yield l.FunctionVariableExpression(l.Variable(function.name, function.type))
 
   def typecheck(self, expr, extra_type_signature=None):
     type_signature = self._nltk_type_signature
