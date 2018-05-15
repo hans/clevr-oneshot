@@ -538,7 +538,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   category_sem_arities = lex.category_semantic_arities
 
   # TODO need to work on *product space* for multiple query words
-  successes = defaultdict(list)
+  successes = defaultdict(set)
   semantics_results = {}
   for token in query_tokens:
     cand_syntaxes = query_token_syntaxes[token]
@@ -556,15 +556,18 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
       # Now run the biased iteration.
       exprs = ontology.iter_expressions(max_depth=3, function_weights=cat_lf_ngrams)
-      for expr in exprs:
+      for expr in set(exprs):
         if get_arity(expr) not in category_sem_arities[category]:
           # TODO rather than arity-checking post-hoc, form a type request
           continue
 
         lex._entries[token] = [Token(token, category, expr)]
 
-        # Attempt a parse.
-        results = chart.WeightedCCGChartParser(lex).parse(sentence)
+        # Attempt a parse. (Try with the simplest ruleset first, and only
+        # expand ruleset if necessary. Saves time.)
+        results = chart.WeightedCCGChartParser(lex, ruleset=chart.ApplicationRuleSet).parse(sentence)
+        if not results:
+          results = chart.WeightedCCGChartParser(lex, ruleset=chart.DefaultRuleSet).parse(sentence)
         if results:
           # Parse succeeded -- check the candidate results.
           for result in results:
@@ -591,13 +594,13 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
             if success:
               # Parse succeeded with correct meaning. Add candidate lexical entry.
-              successes[token].append(Token(token, category, expr))
-              print("SUCCESS ", token, category, expr)
+              successes[token].add((category, expr))
 
   for token in query_tokens:
     if not successes[token]:
       raise RuntimeError("Failed to derive any meanings for token %s." % token)
-    lex._entries[token] = successes[token]
+    lex._entries[token] = [Token(token, category, expr)
+                           for category, expr in successes[token]]
 
     # DEBUG
     for success in successes[token]:
