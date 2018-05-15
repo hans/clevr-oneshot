@@ -169,7 +169,7 @@ def extract_frontiers_from_lexicon(lex, ontology, g, invented_name_dict=None, ar
 
     # DEBUG
     for entry in entries:
-      print("%60s %20s %60s" % (entry, request, program(entry.semantics())))
+      print("%.3f %60s %20s %60s" % (entry.weight(), entry, request, program(entry.semantics())))
 
     #logLikelihood is 0.0 because we assume that it has parsed correctly already - may want to modify
     frontier_entry_list = [FrontierEntry(program(entry.semantics()),

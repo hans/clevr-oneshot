@@ -12,7 +12,7 @@ from frozendict import frozendict
 from nltk.ccg import chart
 import numpy as np
 
-from clevros.chart import WeightedCCGChartParser
+from clevros.chart import WeightedCCGChartParser, DefaultRuleSet
 from clevros.lexicon import Lexicon, Token, \
     augment_lexicon_distant, get_candidate_categories
 from clevros.logic import Ontology, Function, TypeSystem
@@ -167,8 +167,11 @@ lex = Lexicon.fromstring(r"""
   the => N/N {\x.unique(x)}
 
   give => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,any))}
+  give => S/N/N {\a x.transfer(x,a,any)}
   send => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,far))}
+  send => S/N/N {\a x.transfer(x,a,far)}
   hand => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,near))}
+  hand => S/N/N {\a x.transfer(x,a,near)}
   """, ontology, include_semantics=True)
 
 
@@ -230,6 +233,8 @@ if __name__ == "__main__":
   lex = compress_lexicon(lex)
 
   for sentence, scene, answer in examples:
+    print("\n\n")
+
     sentence = sentence.split()
 
     model = Model(scene, ontology)
@@ -240,6 +245,7 @@ if __name__ == "__main__":
       # No parse succeeded -- attempt lexical induction.
       L.warning("Parse failed for sentence '%s'", " ".join(sentence))
 
+      print(lex)
       query_tokens = [word for word in sentence if not lex._entries.get(word, [])]
       L.info("Novel words: %s", " ".join(query_tokens))
       query_token_syntaxes = get_candidate_categories(lex, query_tokens, sentence)
@@ -255,6 +261,7 @@ if __name__ == "__main__":
 
       # Attempt a new parameter update.
       weighted_results, _ = update_perceptron_distant(lex, sentence, model, answer)
+      print("updated lexicon:", lex)
 
     final_sem = weighted_results[0][0].label()[0].semantics()
 
