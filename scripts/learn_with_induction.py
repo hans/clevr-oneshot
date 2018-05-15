@@ -4,6 +4,7 @@ basic CCG perceptron-style inference and update lexicon weights.
 """
 
 import inspect
+import logging
 import numbers
 from pprint import pprint
 
@@ -21,6 +22,10 @@ from clevros.compression import Compressor
 
 import random
 random.seed(4)
+
+logging.basicConfig(level=logging.DEBUG)
+L = logging.getLogger(__name__)
+
 
 #compression params:
 EC_kwargs = {
@@ -197,14 +202,19 @@ def compress_lexicon(lex):
   lex, affected_entries = compressor.make_inventions(lex)
 
   for invention_name, tokens in affected_entries.items():
+    if invention_name in lex._derived_categories_by_source:
+      continue
+
     affected_syntaxes = set(t.categ() for t in tokens)
     if len(affected_syntaxes) == 1:
       # Just one syntax is involved. Create a new derived category.
-      derived_name = lex.add_derived_category(tokens)
+      L.debug("Creating new derived category for tokens %r", tokens)
+
+      derived_name = lex.add_derived_category(tokens, source_name=invention_name)
       lex.propagate_derived_category(derived_name)
 
-      print("Created and propagated derived category %s == %s -- %r" %
-            (derived_name, lex._derived_categories[derived_name][0].base, tokens))
+      L.info("Created and propagated derived category %s == %s -- %r",
+             derived_name, lex._derived_categories[derived_name][0].base, tokens)
 
   return lex
 
@@ -214,7 +224,6 @@ def compress_lexicon(lex):
 if __name__ == "__main__":
   # Run compression on the initial lexicon.
   lex = compress_lexicon(lex)
-
 
   for sentence, scene, answer in examples:
     sentence = sentence.split()

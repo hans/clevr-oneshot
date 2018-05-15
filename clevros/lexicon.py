@@ -43,6 +43,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
 
     self._derived_categories = {}
     self._derived_categories_by_base = defaultdict(set)
+    self._derived_categories_by_source = {}
 
   @classmethod
   def fromstring(cls, lex_str, ontology=None, include_semantics=False):
@@ -143,12 +144,16 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       for category, entries in entries_by_categ.items()
     }
 
-  def add_derived_category(self, involved_tokens):
+  def add_derived_category(self, involved_tokens, source_name=None):
     name = "D%i" % len(self._derived_categories)
-    categ = DerivedCategory(name, involved_tokens[0].categ())
+    categ = DerivedCategory(name, involved_tokens[0].categ(),
+                            source_name=source_name)
     self._primitives.append(categ)
     self._derived_categories[name] = (categ, set(involved_tokens))
     self._derived_categories_by_base[categ.base].add(categ)
+
+    if source_name is not None:
+      self._derived_categories_by_source[source_name] = categ
 
     return name
 
@@ -256,9 +261,10 @@ class Lexicon(ccg_lexicon.CCGLexicon):
 
 class DerivedCategory(AbstractCCGCategory):
 
-  def __init__(self, name, base):
+  def __init__(self, name, base, source_name=None):
     self.name = name
     self.base = base
+    self.source_name = source_name
     self._comparison_key = (name, base)
 
   def is_primitive(self):
@@ -292,7 +298,8 @@ class DerivedCategory(AbstractCCGCategory):
   def __str__(self):
     return "%s{%s}" % (self.name, self.base)
 
-  __repr__ = __str__
+  def __repr__(self):
+    return "%s{%s}{%s}" % (self.name, self.base, self.source_name)
 
 
 class Token(ccg_lexicon.Token):
@@ -644,6 +651,8 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
     try:
       successes_t = list(successes[token])
     except KeyError:
+      raise RuntimeError("Failed to derive any meanings for token %s." % token)
+    if not successes_t:
       raise RuntimeError("Failed to derive any meanings for token %s." % token)
 
     # Compute weights for competing entries by a stable softmax.
