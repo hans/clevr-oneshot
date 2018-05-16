@@ -73,7 +73,7 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
     # Collect potential leaf edges for each index. May be multiple per
     # token.
     edge_cands = [[nchart.CCGLeafEdge(i, l_token, token) for l_token in lex.categories(token)]
-            for i, token in enumerate(tokens)]
+                   for i, token in enumerate(tokens)]
 
     # Run a parse for each of the product of possible leaf nodes,
     # and merge results.

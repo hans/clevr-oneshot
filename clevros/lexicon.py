@@ -672,6 +672,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
                            in zip(successes_t, weights_t)]
 
     # DEBUG
+    L.debug("Inferred %i novel entries for token %s:", len(successes_t), token)
     for (_, entry_info), weight in zip(successes_t, weights_t):
       L.debug("%.4f %s", weight, entry_info)
 
