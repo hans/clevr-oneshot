@@ -85,8 +85,8 @@ from clevros.primitives import *
 types = TypeSystem(["obj", "num", "ax", "manner", "boolean", "action"])
 
 functions = [
-  types.new_function("cmp_pos", ("ax", "obj", "obj", "num"), fn_cmp_pos),
-  types.new_function("ltzero", ("num", "boolean"), fn_ltzero),
+  # types.new_function("cmp_pos", ("ax", "obj", "obj", "num"), fn_cmp_pos),
+  # types.new_function("ltzero", ("num", "boolean"), fn_ltzero),
   types.new_function("and_", ("boolean", "boolean", "boolean"), fn_and),
 
   types.new_function("ax_x", ("ax",), fn_ax_x),
@@ -95,12 +95,12 @@ functions = [
 
   types.new_function("unique", (("obj", "boolean"), "obj"), fn_unique),
 
-  types.new_function("cube", ("obj", "boolean"), fn_cube),
+  # types.new_function("cube", ("obj", "boolean"), fn_cube),
   types.new_function("sphere", ("obj", "boolean"), fn_sphere),
-  types.new_function("donut", ("obj", "boolean"), fn_donut),
-  types.new_function("pyramid", ("obj", "boolean"), fn_pyramid),
-  types.new_function("hose", ("obj", "boolean"), fn_hose),
-  types.new_function("cylinder", ("obj", "boolean"), fn_cylinder),
+  # types.new_function("donut", ("obj", "boolean"), fn_donut),
+  # types.new_function("pyramid", ("obj", "boolean"), fn_pyramid),
+  # types.new_function("hose", ("obj", "boolean"), fn_hose),
+  # types.new_function("cylinder", ("obj", "boolean"), fn_cylinder),
 
   types.new_function("letter", ("obj", "boolean"), lambda x: x["shape"] == "letter"),
   types.new_function("package", ("obj", "boolean"), lambda x: x["shape"] == "package"),
@@ -108,8 +108,11 @@ functions = [
   types.new_function("male", ("obj", "boolean"), lambda x: not x["female"]),
   types.new_function("female", ("obj", "boolean"), lambda x: x["female"]),
 
+  types.new_function("young", ("obj", "boolean"), lambda x: x["age"] < 20),
+  types.new_function("old", ("obj", "boolean"), lambda x: x["age"] > 20),
+
   types.new_function("object", (types.ANY_TYPE, "boolean"), fn_object),
-  types.new_function("agent", (types.ANY_TYPE, "boolean"), lambda x: x["agent"]),
+  types.new_function("agent", ("obj", "boolean"), lambda x: x["agent"]),
 
   types.new_function("move", ("obj", ("obj", "boolean"), "manner", "action"), lambda obj, dest, manner: Move(a, b, manner)),
   types.new_function("cause_possession", ("obj", "obj", "action"), lambda agent, obj: CausePossession(agent, obj)),
@@ -177,11 +180,12 @@ lex = Lexicon.fromstring(r"""
 
 scene = {
   "objects": [
-    frozendict({"female": True, "agent": True, "shape": "person"}),
+    frozendict({"female": True, "agent": True, "age": 18, "shape": "person"}),
     frozendict({"shape": "letter"}),
     frozendict({"shape": "package"}),
-    frozendict({"female": False, "agent": True, "shape": "person"}),
+    frozendict({"female": False, "agent": True, "age": 5, "shape": "person"}),
     frozendict({"shape": "sphere"}),
+    # frozendict({"female": False, "agent": True, "age": 62, "shape": "person"}),
   ]
 }
 examples_vol = [

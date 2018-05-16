@@ -327,6 +327,10 @@ class Ontology(object):
     """
     if max_depth == 0:
       return
+    elif max_depth == 1 and not bound_vars:
+      # require some bound variables to generate a valid lexical entry
+      # semantics
+      return
 
     for expr_type in self.EXPR_TYPES:
       if expr_type == l.ApplicationExpression and max_depth > 1:
