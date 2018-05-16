@@ -2,6 +2,7 @@
 Structured perceptron algorithm for learning CCG weights.
 """
 
+from collections import Counter
 import logging
 
 from clevros import chart
@@ -59,41 +60,45 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
 
   norm = 0.0
   weighted_results = parser.parse(sentence, return_aux=True)
-  print(len(weighted_results))
   if not weighted_results:
     raise ValueError("No successful parses computed.")
 
-  correct_result, correct_score = None, None
-  incorrect_results = []
+  correct_results, incorrect_results = [], []
 
   for result, score, _ in weighted_results:
-    # Only track the max-scoring correct results and at least one incorrect
-    # result which ranks near it.
-    if incorrect_results and correct_result is not None:
-      break
-
     root_token, _ = result.label()
     try:
       if model.evaluate(root_token.semantics()) == answer:
-        correct_result, correct_score = result, score
+        correct_results.append(result)
       else:
         raise ValueError()
     except:
       incorrect_results.append(result)
   else:
-    if correct_result is None:
+    if not correct_results:
       raise ValueError("No parses derived have the correct answer.")
     elif not incorrect_results:
       L.warning("No incorrect parses. Skipping update.")
 
+  # TODO margin?
+
   # Update to separate max-scoring parse from max-scoring correct parse if
   # necessary.
+  positive_mass = 1 / len(correct_results)
   negative_mass = 1 / len(incorrect_results)
-  for results, delta in zip([[correct_result], incorrect_results],
-                             [learning_rate, -negative_mass * learning_rate]):
+
+  token_deltas = Counter()
+  for results, delta in zip([correct_results, incorrect_results],
+                             [positive_mass, -negative_mass]):
     for result in results:
       for _, leaf_token in result.pos():
-        norm += delta ** 2
-        leaf_token._weight += delta
+        token_deltas[leaf_token] += delta
+
+  for token, delta in token_deltas.items():
+    delta *= learning_rate
+    norm += delta ** 2
+
+    L.debug("Applying delta: %+.03f %s", delta, token)
+    token._weight += delta
 
   return weighted_results, norm

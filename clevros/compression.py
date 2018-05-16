@@ -5,6 +5,7 @@ Utilities for going back and forth between EC and CCG frameworks
 from collections import OrderedDict, defaultdict, namedtuple
 import copy
 import inspect
+import logging
 
 from nltk.ccg.api import PrimitiveCategory, FunctionalCategory
 
@@ -20,6 +21,8 @@ from ec.task import Task
 from ec.frontier import Frontier, FrontierEntry
 from ec.type import baseType, arrow
 from ec.program import Primitive, Program
+
+L = logging.getLogger(__name__)
 
 
 tS = baseType("S")
@@ -169,7 +172,7 @@ def extract_frontiers_from_lexicon(lex, ontology, g, invented_name_dict=None, ar
 
     # DEBUG
     for entry in entries:
-      print("%.3f %60s %20s %60s" % (entry.weight(), entry, request, program(entry.semantics())))
+      L.debug("%.3f %60s %20s %60s" % (entry.weight(), entry, request, program(entry.semantics())))
 
     #logLikelihood is 0.0 because we assume that it has parsed correctly already - may want to modify
     frontier_entry_list = [FrontierEntry(program(entry.semantics()),

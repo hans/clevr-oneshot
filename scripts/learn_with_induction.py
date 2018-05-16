@@ -245,7 +245,6 @@ if __name__ == "__main__":
       # No parse succeeded -- attempt lexical induction.
       L.warning("Parse failed for sentence '%s'", " ".join(sentence))
 
-      print(lex)
       query_tokens = [word for word in sentence if not lex._entries.get(word, [])]
       L.info("Novel words: %s", " ".join(query_tokens))
       query_token_syntaxes = get_candidate_categories(lex, query_tokens, sentence)
@@ -261,7 +260,6 @@ if __name__ == "__main__":
 
       # Attempt a new parameter update.
       weighted_results, _ = update_perceptron_distant(lex, sentence, model, answer)
-      print("updated lexicon:", lex)
 
     final_sem = weighted_results[0][0].label()[0].semantics()
 
