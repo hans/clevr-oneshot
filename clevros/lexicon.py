@@ -243,6 +243,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       for entry in entry_list:
         for predicate in entry.semantics().predicates():
           key = entry.categ() if condition_on_syntax else None
+          # TODO weight based on entry weight?
           ret[key][predicate.name] += 1
 
     if smooth:
