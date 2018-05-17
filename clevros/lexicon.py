@@ -288,7 +288,7 @@ class DerivedCategory(AbstractCCGCategory):
     return self.base.substitute(subs)
 
   def can_unify(self, other):
-    return self.base.can_unify
+    return self.base.can_unify(other)
 
   def arg(self):
     # exceptions in case is_primitive()
