@@ -580,7 +580,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
       cat_lf_ngrams.update({pred: unk_lf_prob / len(unobserved_preds)
                            for pred in unobserved_preds})
 
-      print(category, ", ".join("%.02f %s" % (prob, pred) for pred, prob
+      print(category, ", ".join("%.03f %s" % (prob, pred) for pred, prob
                                 in sorted(cat_lf_ngrams.items(), key=lambda x: x[1], reverse=True)))
 
       # Parse just once with a dummy variable in the place of the candidate
