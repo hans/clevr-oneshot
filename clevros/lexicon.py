@@ -288,6 +288,10 @@ class DerivedCategory(AbstractCCGCategory):
     return self.base.substitute(subs)
 
   def can_unify(self, other):
+    # The unification logic is critical here -- this determines how derived
+    # categories are treated relative to their base categories.
+    if self.is_primitive():
+      return other == self
     return self.base.can_unify(other)
 
   def arg(self):
