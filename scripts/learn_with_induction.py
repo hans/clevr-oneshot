@@ -131,11 +131,11 @@ lex = Lexicon.fromstring(r"""
   the => N/N {\x.unique(x)}
 
   give => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,any))}
-  give => S/N/N {\a x.transfer(x,a,any)}
+  # give => S/N/N {\a x.transfer(x,a,any)}
   send => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,far))}
-  send => S/N/N {\a x.transfer(x,a,far)}
+  # send => S/N/N {\a x.transfer(x,a,far)}
   hand => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,near))}
-  hand => S/N/N {\a x.transfer(x,a,near)}
+  # hand => S/N/N {\a x.transfer(x,a,near)}
   """, ontology, include_semantics=True)
 
 
@@ -146,9 +146,15 @@ scene = {
     frozendict({"shape": "package"}),
     frozendict({"female": False, "agent": True, "age": 5, "shape": "person"}),
     frozendict({"shape": "sphere"}),
-    # frozendict({"female": False, "agent": True, "age": 62, "shape": "person"}),
   ]
 }
+scene2 = {
+  "objects": [
+    frozendict({"female": True, "agent": True, "age": 9, "shape": "person"}),
+    frozendict({"shape": "sphere"}),
+  ]
+}
+
 examples_vol = [
   ("place the donut right_of the cube", scene,
    Move(scene["objects"][1], scene["objects"][2], "slow")),
@@ -157,6 +163,9 @@ examples = [
     ("send the boy the package", scene,
      ComposedAction(CausePossession(scene["objects"][3], scene["objects"][2]),
                     Transfer(scene["objects"][2], scene["objects"][3], "far"))),
+    ("hand the kid the ball", scene2,
+     ComposedAction(CausePossession(scene2["objects"][0], scene2["objects"][1]),
+                    Transfer(scene2["objects"][1], scene2["objects"][0], "near"))),
     ("give the lady the ball", scene,
      ComposedAction(CausePossession(scene["objects"][0], scene["objects"][4]),
                     Transfer(scene["objects"][4], scene["objects"][0], "any"))),
