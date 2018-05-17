@@ -39,45 +39,6 @@ EC_kwargs = {
 }
 
 
-# Teeny subset of CLEVR dataset :)
-scene = \
-  {'directions': {'above': [0.0, 0.0, 1.0],
-                  'behind': [-0.754490315914154, 0.6563112735748291, 0.0],
-                  'below': [-0.0, -0.0, -1.0],
-                  'front': [0.754490315914154, -0.6563112735748291, -0.0],
-                  'left': [-0.6563112735748291, -0.7544902563095093, 0.0],
-                  'right': [0.6563112735748291, 0.7544902563095093, -0.0]},
- 'image_filename': 'CLEVR_train_000002.png',
- 'image_index': 2,
- 'objects': [
-             frozendict({
-               '3d_coords': (2.1141371726989746,
-                            1.0,
-                            2),
-              'color': 'yellow',
-              'material': 'metal',
-              'rotation': 308.49217566676606,
-              'shape': 'sphere',
-              'size': 'large'}),
-            frozendict({
-              '3d_coords': (0, 0, 0),
-              'color': 'blue',
-              'material': 'rubber',
-              'pixel_coords': (188, 94, 12.699371337890625),
-              'rotation': 82.51702981683107,
-              'shape': 'pyramid',
-              'size': 'large'}),
-             frozendict({
-               '3d_coords': (-2.3854215145111084,
-                            0.0,
-                            0.699999988079071),
-              'color': 'blue',
-              'material': 'rubber',
-              'rotation': 82.51702981683107,
-              'shape': 'cube',
-              'size': 'large'})],
- 'split': 'train'}
-
 #####################
 
 from clevros.primitives import *
