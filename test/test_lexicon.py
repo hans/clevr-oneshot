@@ -3,6 +3,7 @@ from nose.tools import *
 from clevros.lexicon import *
 
 from nltk.ccg.lexicon import FunctionalCategory, PrimitiveCategory, Direction
+from nltk.sem.logic import Expression
 
 
 def test_filter_lexicon_entry():
@@ -170,3 +171,23 @@ def test_propagate_functional_category():
       set(["((S/NN)/PP)", "(((S/NN)/%s)/NN)" % lex._derived_categories[derived_categ][0]]))
 
 
+def test_attempt_candidate_parse():
+  """
+  Find parse candidates even when the parse requires composition.
+  """
+  lex = Lexicon.fromstring(r"""
+  :- S, N
+
+  gives => S\N/N/N {\o x y.give(x, y, o)}
+  John => N {\x.John(x)}
+  Mark => N {\x.Mark(x)}
+  it => N {\x.T}
+  """, include_semantics=True)
+  # TODO this doesn't actually require composition .. get one which does
+
+  cand_category = lex.parse_category(r"S\N/N/N")
+  cand_expressions = [Expression.fromstring(r"\o x y.give(x,y,o)")]
+  results = attempt_candidate_parse(lex, "sends", cand_category,
+                                    cand_expressions, "John sends Mark it".split())
+
+  ok_(len(results) > 0)

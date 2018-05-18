@@ -520,6 +520,56 @@ def augment_lexicon_scene(old_lex, sentence, scene):
   return lex
 
 
+def attempt_candidate_parse(lexicon, token, candidate_category,
+                            expressions, sentence, dummy_var=None):
+  """
+  Attempt to parse a sentence, mapping `token` to a new candidate lexical
+  entry.
+
+  Arguments:
+    lexicon: Current lexicon. Will modify in place -- send a copy.
+    token: String token to be attempted.
+    candidate_category:
+    candidate_expressions: Collection of candidate semantic forms.
+    sentence: Sentence which we are attempting to parse.
+  """
+
+  # Prepare dummy variable which will be inserted into parse checks.
+  sub_target = dummy_var or l.Variable("F000")
+  sub_expr = l.FunctionVariableExpression(sub_target)
+
+  lexicon._entries[token] = [Token(token, candidate_category, sub_expr)]
+
+  parse_results = []
+
+  # First attempt a parse with only function application rules.
+  results = chart.WeightedCCGChartParser(lexicon, ruleset=chart.ApplicationRuleSet) \
+      .parse(sentence)
+  if results:
+    # TODO: also attempt parses with composition?
+    return results, sub_target
+
+  print("here")
+  # Attempt to parse, allowing for function composition. In order to support
+  # this we need to pass a dummy expression which is a lambda.
+  arities = {expr: get_arity(expr) for expr in candidate_expressions}
+  max_arity = max(arities.values())
+
+  results, sub_expr_original = [], sub_expr
+  for arity in range(1, max(arities.values()) + 1):
+    sub_expr = sub_expr_original
+    for i in range(arity):
+      var_i = l.Variable("z%i" % (i + 1))
+      sub_expr = l.LambdaExpression(var_i, sub_expr)
+
+    lexicon._entries[token] = [Token(token, candidate_category, sub_expr)]
+    results.extend(
+        chart.WeightedCCGChartParser(lexicon, ruleset=chart.DefaultRuleSet).parse(sentence))
+
+  # TODO need to return more information if we've lifted the sub_target
+  return results, sub_target
+
+
 def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
                             sentence, ontology, model, answer,
                             bootstrap=True):
@@ -578,16 +628,16 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   # forms later.
   candidate_exprs = set(ontology.iter_expressions(max_depth=3))
 
+  # Shared dummy variable which is included in candidate semantic forms, to be
+  # replaced by all candidate lexical expressions and evaluated.
+  dummy_var = None
+
   # TODO need to work on *product space* for multiple query words
   successes = defaultdict(set)
   semantics_results = {}
   for token in query_tokens:
     candidate_queue = queue.PriorityQueue(maxsize=100)
     category_parse_results = {}
-
-    # Prepare dummy variable which will be inserted into parse checks.
-    sub_target = l.Variable("F0000")
-    sub_expr = l.FunctionVariableExpression(sub_target)
 
     cand_syntaxes = query_token_syntaxes[token]
     L.info("Candidate syntaxes for %s: %r", token, cand_syntaxes)
@@ -605,18 +655,11 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
       print(category, ", ".join("%.03f %s" % (prob, pred) for pred, prob
                                 in sorted(cat_lf_ngrams.items(), key=lambda x: x[1], reverse=True)))
 
-      # Parse just once with a dummy variable in the place of the candidate
-      # semantics.
-      #
-      # We'll next enumerate all possible expressions, substitute in for this
-      # dummy variable, and then attempt to evaluate.
-      lex._entries[token] = [Token(token, category, sub_expr)]
-      # TODO this only works for basic application right now -- we can't yet
-      # support composition with the dummy variable setup. Need to extract some
-      # lambdas from the dummy variable s.t. the parser can work its
-      # composition magic.
-      results = chart.WeightedCCGChartParser(lex, ruleset=chart.ApplicationRuleSet) \
-          .parse(sentence)
+      # Attempt to parse with this parse category, and return the resulting
+      # syntactic parses + sentence-level semantic forms, with a dummy variable
+      # in place of where the candidate expressions will go.
+      results, dummy_var = attempt_candidate_parse(lex, token, category, candidate_exprs,
+                                                   sentence, dummy_var=dummy_var)
       category_parse_results[category] = results
 
       for expr in candidate_exprs:
@@ -653,7 +696,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
       # Parse succeeded -- check the candidate results.
       for result in parse_results:
         semantics = result.label()[0].semantics()
-        semantics = semantics.replace(sub_target, expr)
+        semantics = semantics.replace(dummy_var, expr)
 
         # Check cached result first.
         success = semantics_results.get(semantics, None)
