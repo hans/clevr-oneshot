@@ -125,9 +125,9 @@ lex_voo = Lexicon.fromstring(r"""
   woman => N {\x.and_(agent(x),female(x))}
   man => N {\x.and_(agent(x),male(x))}
 
-  letter => N {letter}
-  ball => N {sphere}
-  package => N {package}
+  letter => N {\x.letter(x)}
+  ball => N {\x.sphere(x)}
+  package => N {\x.package(x)}
 
   the => N/N {\x.unique(x)}
 
