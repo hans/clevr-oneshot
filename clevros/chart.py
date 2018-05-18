@@ -1,6 +1,7 @@
 import itertools
 
 from nltk.ccg import chart as nchart
+from nltk.tree import Tree
 import numpy as np
 
 
@@ -101,3 +102,30 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
     return [(parse, score_parse(parse), used_edges_i)
             for parse, used_edges_i in zip(results, used_edges)]
 
+
+def get_clean_parse_tree(ccg_chart_result):
+  """
+  Get a clean parse tree representation of a CCG derivation, as returned by
+  `CCGChartParser.parse`.
+  """
+  def traverse(node):
+    if not isinstance(node, Tree):
+      return
+
+    label = node.label()
+    if isinstance(label, tuple):
+      token, op = label
+      node.set_label(str(token.categ()))
+
+    for i, child in enumerate(node):
+      if len(child) == 1:
+        new_preterminal = child[0]
+        new_preterminal.set_label(str(new_preterminal.label().categ()))
+        node[i] = new_preterminal
+      else:
+        traverse(child)
+
+  ret = ccg_chart_result.copy(deep=True)
+  traverse(ret)
+
+  return ret
