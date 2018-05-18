@@ -3,6 +3,7 @@ Given an incomplete lexicon and fully supervised training data, run a
 basic CCG perceptron-style inference and update lexicon weights.
 """
 
+from argparse import ArgumentParser
 import inspect
 import logging
 import numbers
@@ -118,7 +119,7 @@ lex_vol = Lexicon.fromstring(r"""
   drop => S/Nd/PP {\a.\b.move(a,b,fast)}
   """, ontology=ontology, include_semantics=semantics)
 
-lex = Lexicon.fromstring(r"""
+lex_voo = Lexicon.fromstring(r"""
   :- S, N
 
   woman => N {\x.and_(agent(x),female(x))}
@@ -131,11 +132,8 @@ lex = Lexicon.fromstring(r"""
   the => N/N {\x.unique(x)}
 
   give => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,any))}
-  # give => S/N/N {\a x.transfer(x,a,any)}
   send => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,far))}
-  # send => S/N/N {\a x.transfer(x,a,far)}
   hand => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,near))}
-  # hand => S/N/N {\a x.transfer(x,a,near)}
   """, ontology, include_semantics=True)
 
 
@@ -159,7 +157,7 @@ examples_vol = [
   ("place the donut right_of the cube", scene,
    Move(scene["objects"][1], scene["objects"][2], "slow")),
 ]
-examples = [
+examples_voo = [
     ("send the boy the package", scene,
      ComposedAction(CausePossession(scene["objects"][3], scene["objects"][2]),
                     Transfer(scene["objects"][2], scene["objects"][3], "far"))),
@@ -202,9 +200,10 @@ def compress_lexicon(lex):
 
 #############
 
-if __name__ == "__main__":
-  # Run compression on the initial lexicon.
-  lex = compress_lexicon(lex)
+def main(args, lex, examples):
+  if not args.no_compress:
+    # Run compression on the initial lexicon.
+    lex = compress_lexicon(lex)
 
   for sentence, scene, answer in examples:
     print("\n\n")
@@ -227,10 +226,12 @@ if __name__ == "__main__":
       # correct answer to the sentence under some parse. Restrict the search by
       # the supported syntaxes for the novel words (`query_token_syntaxes`).
       lex = augment_lexicon_distant(lex, query_tokens, query_token_syntaxes,
-                                    sentence, ontology, model, answer)
+                                    sentence, ontology, model, answer,
+                                    bootstrap=not args.no_bootstrap)
 
-      # Run compression on the augmented lexicon.
-      lex = compress_lexicon(lex)
+      if not args.no_compress:
+        # Run compression on the augmented lexicon.
+        lex = compress_lexicon(lex)
 
       # Attempt a new parameter update.
       weighted_results, _ = update_perceptron_distant(lex, sentence, model, answer)
@@ -239,3 +240,13 @@ if __name__ == "__main__":
 
     print(" ".join(sentence), len(weighted_results), final_sem)
     print("\t", model.evaluate(final_sem))
+
+
+if __name__ == "__main__":
+  p = ArgumentParser()
+
+  # Model lesion options.
+  p.add_argument("--no-compress", action="store_true")
+  p.add_argument("--no-bootstrap", action="store_true")
+
+  main(p.parse_args(), lex_voo, examples_voo)

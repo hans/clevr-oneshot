@@ -521,11 +521,27 @@ def augment_lexicon_scene(old_lex, sentence, scene):
 
 
 def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
-                            sentence, ontology, model, answer):
+                            sentence, ontology, model, answer,
+                            bootstrap=True):
   """
   Augment a lexicon with candidate meanings for a given word using distant
   supervision. (The induced meanings for the queried words must yield parses
   that lead to `answer` under the `model`.)
+
+  Candidate entries will be assigned relative weights according to a posterior
+  distribution $P(word -> syntax, meaning | sentence, answer, lexicon)$. This
+  distribution incorporates multiple prior and likelihood terms:
+
+  1. A prior over syntactic categories (derived by inspection of the current
+     lexicon)
+  2. A likelihood over syntactic categories (derived by ranking candidate
+     parses conditioning on each syntactic category)
+  3. A prior over the predicates present in meaning representations,
+     conditioned on syntactic category choice ("syntactic bootstrapping")
+
+  The first two components are accomplished by `get_candidate_categories`,
+  while the third is calculated within this function. (The third can be
+  parametrically disabled using the `bootstrap` argument.)
 
   Arguments:
     old_lex: Existing lexicon which needs to be augmented. Do not write
@@ -539,6 +555,8 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
       forms.
     model: Scene model which evaluates logical forms to answers.
     answer: Ground-truth answer to `sentence`.
+    bootstrap: If `True`, incorporate priors over LF predicates conditioned on
+      syntactic category when scoring candidate lexical entries.
   """
 
   # Target lexicon to be returned.
@@ -607,9 +625,10 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
           continue
 
         likelihood = 0.0
-        for predicate in expr.predicates():
-          if predicate.name in cat_lf_ngrams:
-            likelihood += np.log(cat_lf_ngrams[predicate.name])
+        if bootstrap:
+          for predicate in expr.predicates():
+            if predicate.name in cat_lf_ngrams:
+              likelihood += np.log(cat_lf_ngrams[predicate.name])
 
         joint_score = np.log(category_weight) + likelihood
         new_item = (joint_score, (category, expr))
