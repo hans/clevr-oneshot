@@ -53,7 +53,7 @@ def update_perceptron_batch(lexicon, data, learning_rate=0.1, parser=None):
 
 
 def update_perceptron_distant(lexicon, sentence, model, answer,
-                              learning_rate=1, parser=None):
+                              learning_rate=10, parser=None):
   if parser is None:
     parser = chart.WeightedCCGChartParser(lexicon,
                                           ruleset=chart.DefaultRuleSet)
