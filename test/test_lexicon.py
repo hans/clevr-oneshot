@@ -143,7 +143,7 @@ def test_get_yield():
   ]
 
   def test_case(cat, cat_yield):
-    eq_(get_yield(augParseCategory(cat, lex._primitives, lex._families)[0]), cat_yield)
+    eq_(get_yield(lex.parse_category(cat)), lex.parse_category(cat_yield))
 
   for cat, cat_yield in cases:
     yield test_case, cat, cat_yield

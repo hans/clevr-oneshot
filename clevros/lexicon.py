@@ -345,15 +345,15 @@ def get_semantic_arity(category, arity_overrides=None):
 
 def get_yield(category):
   """
-  Get the root node of a syntactic category.
+  Get the primitive yield node of a syntactic category.
   """
   if isinstance(category, DerivedCategory):
     if isinstance(category.base, PrimitiveCategory):
-      return category.categ()
+      return category.base
     else:
       return get_yield(category.base)
   elif isinstance(category, PrimitiveCategory):
-    return category.categ()
+    return category
   elif isinstance(category, FunctionalCategory):
     if category.dir().is_forward():
       return get_yield(category.res())
