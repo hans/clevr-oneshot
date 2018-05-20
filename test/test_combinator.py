@@ -60,7 +60,7 @@ def test_category_search_replace():
   cases = [
       ("A/B", "B", "C", ["A/C"]),
       ("A/B", "A", "C", ["C/B"]),
-      ("A/A", "A", "B", ["A/B", "B/A"]), # NB: does not yield B/B
+      ("A/A", "A", "B", ["A/B", "B/A", "B/B"]),
 
       ("A/(B/C)", "B/C", "D", ["A/D"]),
       ("(A/B)/C", "B/C", "D", []),
@@ -82,7 +82,7 @@ def test_type_raised_category_search_replace():
       # All basic cases should still pass.
       ("A/B", "B", "C", ["A/C"]),
       ("A/B", "A", "C", ["C/B"]),
-      ("A/A", "A", "B", ["A/B", "B/A"]), # NB: does not yield B/B
+      ("A/A", "A", "B", ["A/B", "B/A", "B/B"]),
 
       ("A/(B/C)", "B/C", "D", ["A/D", "((A/(D/C))/C)"]), # new PFR result on this one
       ("(A/B)/C", "B/C", "D", []),

@@ -3,6 +3,8 @@ Combinators and related utilities for operating on CCG syntactic types and
 semantic forms.
 """
 
+import itertools
+
 from nltk.ccg.api import FunctionalCategory, PrimitiveCategory
 from nltk.ccg.combinator import DirectedBinaryCombinator
 from nltk.sem import logic as l
@@ -149,13 +151,14 @@ def category_search_replace(expr, search, replace):
     if node == search:
       return [replace]
     elif isinstance(node, FunctionalCategory):
-      left_results = traverse(node.res())
-      left_results = [FunctionalCategory(left_result, node.arg(), node.dir())
-                      for left_result in left_results]
-      right_results = traverse(node.arg())
-      right_results = [FunctionalCategory(node.res(), right_result, node.dir())
-                        for right_result in right_results]
-      return left_results + right_results
+      left_subresults = [node.res()] + traverse(node.res())
+      right_subresults = [node.arg()] + traverse(node.arg())
+
+      results = [FunctionalCategory(left_subresult, right_subresult, node.dir())
+                 for left_subresult, right_subresult
+                 in itertools.product(left_subresults, right_subresults)
+                 if not (left_subresult == node.res() and right_subresult == node.arg())]
+      return results
     else:
       return []
 
