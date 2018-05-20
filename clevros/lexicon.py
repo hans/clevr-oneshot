@@ -191,7 +191,6 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       for entry in entries:
         if not isinstance(entry.categ(), FunctionalCategory):
           # TODO will break with DerivedCategory cases
-          print("---", entry)
           continue
 
         try:
