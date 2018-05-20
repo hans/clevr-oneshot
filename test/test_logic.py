@@ -37,11 +37,7 @@ def _make_mock_ontology():
   return ontology
 
 
-def test_iter_expressions():
-  """
-  Functional expression iteration test involving higher-order functions.
-  """
-
+def _make_simple_mock_ontology():
   types = TypeSystem(["boolean", "obj"])
   functions = [
       types.new_function("and_", ("boolean", "boolean", "boolean"), lambda x, y: x and y),
@@ -49,20 +45,39 @@ def test_iter_expressions():
       types.new_function("bar", ("obj", "boolean"), lambda x: True),
 
       types.new_function("invented_1", (("obj", "boolean"), "obj", "boolean"), lambda f, x: x is not None and f(x)),
+
+      types.new_function("threeplace", ("boolean", "boolean", "obj", "boolean"), lambda x, y, o: True),
   ]
-  constants = []
+  constants = [types.new_constant("baz", "obj")]
 
   ontology = Ontology(types, functions, constants, variable_weight=0.1)
+  return ontology
 
-  expressions = list(ontology.iter_expressions(4))
+
+def test_iter_expressions():
+  ontology = _make_simple_mock_ontology()
   from pprint import pprint
-  pprint(expressions)
 
-  expression_strs = list(map(str, expressions))
-  ok_(r"\z1.and_(foo(z1),bar(z1))" in expression_strs,
-      "Reuse of bound variable")
-  ok_(r"\z1.invented_1(foo,z1)" in expression_strs,
-      "Support passing functions as arguments to higher-order functions")
+  cases = [
+    ("Reuse of bound variable", (r"\z1.and_(foo(z1),bar(z1))",)),
+    ("Support passing functions as arguments to higher-order functions",
+     (r"\z1.invented_1(foo,z1)",)),
+    ("Consider both argument orders",
+     (r"\z1 z2.and_(z1,z2)", r"\z1 z2.and_(z2,z1)")),
+    ("Consider both argument orders for three-place function",
+     (r"\z1 z2.threeplace(z1,z2,baz)", r"\z1 z2.threeplace(z2,z1,baz)")),
+  ]
+
+  def do_case(msg, assert_in):
+    expressions = list(ontology.iter_expressions(4))
+    expression_strs = list(map(str, expressions))
+
+    present = [expr in expression_strs for expr in assert_in]
+    pprint(list(zip(assert_in, present)))
+    ok_(all(present), msg)
+
+  for msg, assert_in in cases:
+    yield do_case, msg, assert_in
 
 
 def test_as_ec_sexpr():
