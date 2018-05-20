@@ -372,7 +372,7 @@ class Ontology(object):
               if valid:
                 yield candidate
       elif expr_type == l.LambdaExpression and max_depth > 1:
-        for bound_var_type in self.types:
+        for bound_var_type in self.observed_argument_types:
           bound_var = next_bound_var(bound_vars, bound_var_type)
           subexpr_bound_vars = bound_vars + (bound_var,)
 
@@ -516,6 +516,16 @@ class Ontology(object):
 
     type_ret = next(iter(apparent_types))
     return self.types[type_ret]
+
+  @property
+  def observed_argument_types(self):
+    """
+    Collection of types (primitive or functional) which have been observed as
+    arguments in this ontology's function.
+    """
+    obs_types = set(itertools.chain.from_iterable(
+      fn.arg_types for fn in self.functions))
+    return obs_types - set([self.types.ANY_TYPE])
 
   def get_expr_arity(self, expr):
     """

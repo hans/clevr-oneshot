@@ -47,8 +47,8 @@ from clevros.primitives import *
 types = TypeSystem(["obj", "num", "ax", "manner", "boolean", "action"])
 
 functions = [
-  # types.new_function("cmp_pos", ("ax", "obj", "obj", "num"), fn_cmp_pos),
-  # types.new_function("ltzero", ("num", "boolean"), fn_ltzero),
+  types.new_function("cmp_pos", ("ax", "obj", "obj", "num"), fn_cmp_pos),
+  types.new_function("ltzero", ("num", "boolean"), fn_ltzero),
   types.new_function("and_", ("boolean", "boolean", "boolean"), fn_and),
 
   types.new_function("ax_x", ("ax",), fn_ax_x),
@@ -57,12 +57,12 @@ functions = [
 
   types.new_function("unique", (("obj", "boolean"), "obj"), fn_unique),
 
-  # types.new_function("cube", ("obj", "boolean"), fn_cube),
+  types.new_function("cube", ("obj", "boolean"), fn_cube),
   types.new_function("sphere", ("obj", "boolean"), fn_sphere),
-  # types.new_function("donut", ("obj", "boolean"), fn_donut),
-  # types.new_function("pyramid", ("obj", "boolean"), fn_pyramid),
-  # types.new_function("hose", ("obj", "boolean"), fn_hose),
-  # types.new_function("cylinder", ("obj", "boolean"), fn_cylinder),
+  types.new_function("donut", ("obj", "boolean"), fn_donut),
+  types.new_function("pyramid", ("obj", "boolean"), fn_pyramid),
+  types.new_function("hose", ("obj", "boolean"), fn_hose),
+  types.new_function("cylinder", ("obj", "boolean"), fn_cylinder),
 
   types.new_function("letter", ("obj", "boolean"), lambda x: x["shape"] == "letter"),
   types.new_function("package", ("obj", "boolean"), lambda x: x["shape"] == "package"),
@@ -251,4 +251,5 @@ if __name__ == "__main__":
   p.add_argument("--no-compress", action="store_true")
   p.add_argument("--no-bootstrap", action="store_true")
 
-  main(p.parse_args(), lex_voo, examples_voo)
+  # main(p.parse_args(), lex_voo, examples_voo)
+  main(p.parse_args(), lex_vol, examples_vol)
