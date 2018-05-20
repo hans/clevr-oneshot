@@ -127,7 +127,6 @@ lex_voo = Lexicon.fromstring(r"""
 
   letter => N {\x.letter(x)}
   ball => N {\x.sphere(x)}
-  package => N {\x.package(x)}
 
   the => N/N {\x.unique(x)}
 
@@ -158,6 +157,9 @@ examples_vol = [
    Move(scene["objects"][1], scene["objects"][2], "slow")),
 ]
 examples_voo = [
+    ("send the woman the package", scene,
+     ComposedAction(CausePossession(scene["objects"][0], scene["objects"][2]),
+                    Transfer(scene["objects"][2], scene["objects"][0], "far"))),
     ("send the boy the package", scene,
      ComposedAction(CausePossession(scene["objects"][3], scene["objects"][2]),
                     Transfer(scene["objects"][2], scene["objects"][3], "far"))),
