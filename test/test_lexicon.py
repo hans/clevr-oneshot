@@ -62,6 +62,7 @@ def _make_lexicon_with_derived_category():
 
   # Have an entry taking the same argument type twice.
   derp => S/NP/NP {\a b.derp(a,b)}
+  dorp => NP/NP {\a.dorp(a)}
 
   foo => NP {\x.foo(x)}
   bar => NP {\x.bar(x)}
@@ -98,7 +99,9 @@ def test_propagate_derived_category():
   # Should try one of each possible replacement with a derived category,
   # yielding 3 entries for derp
   eq_(set(str(entry.categ()) for entry in lex._entries["derp"]),
-      set(["((S/NP)/NP)", "((S/NP)/D0{NP})", "((S/D0{NP})/NP)"]))
+      set(["((S/NP)/NP)", "((S/NP)/D0{NP})", "((S/D0{NP})/NP)", "((S/D0{NP})/D0{NP})"]))
+  eq_(set(str(entry.categ()) for entry in lex._entries["dorp"]),
+      set(["(NP/NP)", "(D0{NP}/D0{NP})", "(NP/D0{NP})", "(D0{NP}/NP)"]))
 
 
 def test_get_lf_unigrams():
