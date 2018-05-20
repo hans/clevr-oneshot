@@ -355,7 +355,7 @@ def set_yield(category, new_yield):
     raise ValueError("unknown category type of instance %r" % category)
 
 
-def get_candidate_categories(lex, tokens, sentence):
+def get_candidate_categories(lex, tokens, sentence, smooth=True):
   """
   Find candidate categories for the given tokens which appear in `sentence` such
   that `sentence` yields a parse.
@@ -363,7 +363,8 @@ def get_candidate_categories(lex, tokens, sentence):
   Args:
     lex:
     tokens:
-    sentence
+    sentence:
+    smooth: If `True`, add-1 smooth the returned distributions.
 
   Returns:
     sorted_token_cat_weights: Dictionary mapping each token to a ranking over
@@ -414,6 +415,11 @@ def get_candidate_categories(lex, tokens, sentence):
   }
 
   token_cat_weights = defaultdict(Counter)
+  if smooth:
+    for token in tokens:
+      for cat in candidate_categories:
+        token_cat_weights[token][cat] += 1
+
   for cat_assignment, weight in cat_assignment_weights.items():
     for token, token_cat_assignment in zip(tokens, cat_assignment):
       token_cat_weights[token][token_cat_assignment] += weight
@@ -421,7 +427,10 @@ def get_candidate_categories(lex, tokens, sentence):
   # Normalize.
   sorted_token_cat_weights = {}
   for token, weighted_list in token_cat_weights.items():
-    Z = sum(weighted_list.values())
+    if len(weighted_list) == 0:
+      raise RuntimeError("No valid syntactic categories available for token %s" % token)
+    Z = max(sum(weighted_list.values()), 1e-5)
+
     weighted_list = [(cat, weight / Z) for cat, weight in weighted_list.items()]
     weighted_list = sorted(weighted_list, reverse=True, key=lambda x: x[1])
     sorted_token_cat_weights[token] = weighted_list
