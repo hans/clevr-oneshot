@@ -170,8 +170,10 @@ def test_propagate_functional_category():
   derived_categ = lex.add_derived_category(involved_tokens)
   lex.propagate_derived_category(derived_categ)
 
+  eq_(set(str(entry.categ()) for entry in lex._entries["on"]),
+      set(["(D0{PP}/NN)"]))
   eq_(set(str(entry.categ()) for entry in lex._entries["put"]),
-      set(["((S/NN)/PP)", "(((S/NN)/%s)/NN)" % lex._derived_categories[derived_categ][0]]))
+      set(["((S/NN)/PP)", "((S/NN)/%s)" % lex._derived_categories[derived_categ][0]]))
 
 
 def test_attempt_candidate_parse():

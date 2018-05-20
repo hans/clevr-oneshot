@@ -150,7 +150,11 @@ class Lexicon(ccg_lexicon.CCGLexicon):
 
   def add_derived_category(self, involved_tokens, source_name=None):
     name = "D%i" % len(self._derived_categories)
-    categ = DerivedCategory(name, involved_tokens[0].categ(),
+
+    # The derived category will have as its base the yield of the source
+    # category. For example, tokens of type `PP/NP` will lead to a derived
+    # category of type `PP`.
+    categ = DerivedCategory(name, get_yield(involved_tokens[0].categ()),
                             source_name=source_name)
     self._primitives.append(categ)
     self._derived_categories[name] = (categ, set(involved_tokens))
@@ -168,7 +172,10 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     for entry_list in self._entries.values():
       for entry in entry_list:
         if entry in involved_entries:
-          entry._categ = categ
+          # Replace the yield of the syntactic category with our new derived
+          # category. (For primitive categories, setting the yield is
+          # equivalent to just changing the category.)
+          entry._categ = set_yield(entry.categ(), categ)
 
     # Create duplicates of all entries with functional categories involving the
     # base of the derived category.
@@ -176,22 +183,6 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     # For example, if we have an entry of syntactic category `S/N/PP` and we
     # have just created a derived category `D0` based on `N`, we need to make
     # sure there is now a corresponding candidate entry of type `S/D0/PP`.
-    #
-    # If we are using a functional category, also propagate the functional
-    # category onto entries which have its partial yield. (We can
-    # equivalently say that we are propagating onto instances using the
-    # type-lowered version of this functional category.)
-    #
-    # For example, suppose the base category is `PP/NP` and there is an entry
-    # with category `S/NP/PP`. The base category may participate in application
-    # with the category `S/NP/PP` via composition, and so we would like to have
-    # a type-lifted lexical entry involving the derived category which reflects
-    # that fact.
-    #
-    # This is all a bit of a hack to make sure that we can tag certain lexical
-    # entries as utilizing derived categories which are functional. There might
-    # be other better longer-term implementations -- e.g. creating a custom
-    # tagging mechanisms that accomplishes the same purpose.
 
     replacements = {}
     for word, entries in self._entries.items():
@@ -200,17 +191,14 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       for entry in entries:
         if not isinstance(entry.categ(), FunctionalCategory):
           # TODO will break with DerivedCategory cases
+          print("---", entry)
           continue
 
         try:
           categ_replacements = replacements[entry.categ()]
         except KeyError:
-          if isinstance(categ.base, PrimitiveCategory):
-            replacements[entry.categ()] = category_search_replace(
-                entry.categ(), categ.base, categ)
-          elif isinstance(categ.base, FunctionalCategory):
-            replacements[entry.categ()] = type_raised_category_search_replace(
-                entry.categ(), categ.base, categ)
+          replacements[entry.categ()] = category_search_replace(
+              entry.categ(), categ.base, categ)
 
           categ_replacements = replacements[entry.categ()]
 
@@ -264,7 +252,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     return ret_normalized
 
 
-class DerivedCategory(AbstractCCGCategory):
+class DerivedCategory(PrimitiveCategory):
 
   def __init__(self, name, base, source_name=None):
     self.name = name
@@ -273,36 +261,24 @@ class DerivedCategory(AbstractCCGCategory):
     self._comparison_key = (name, base)
 
   def is_primitive(self):
-    return self.base.is_primitive()
+    return True
 
   def is_function(self):
-    return self.base.is_function()
+    return False
 
   def is_var(self):
-    return self.base.is_var()
+    return False
 
   def categ(self):
-    return self.base.categ()
+    return self.name
 
   def substitute(self, subs):
-    return self.base.substitute(subs)
+    return self
 
   def can_unify(self, other):
     # The unification logic is critical here -- this determines how derived
     # categories are treated relative to their base categories.
-    if self.is_primitive():
-      return other == self
-    return self.base.can_unify(other)
-
-  def arg(self):
-    # exceptions in case is_primitive()
-    return self.base.arg()
-
-  def res(self):
-    return self.base.res()
-
-  def dir(self):
-    return self.base.dir()
+    return other == self
 
   def __str__(self):
     return "%s{%s}" % (self.name, self.base)
@@ -361,6 +337,22 @@ def get_yield(category):
       return get_yield(category.arg())
   else:
     raise ValueError("unknown category type with instance %r" % category)
+
+
+def set_yield(category, new_yield):
+  if isinstance(category, PrimitiveCategory):
+    return new_yield
+  elif isinstance(category, FunctionalCategory):
+    if category.dir().is_forward():
+      res = set_yield(category.res(), new_yield)
+      arg = category.arg()
+    else:
+      res = category.res()
+      arg = set_yield(category.arg(), new_yield)
+
+    return FunctionalCategory(res, arg, category.dir())
+  else:
+    raise ValueError("unknown category type of instance %r" % category)
 
 
 def get_candidate_categories(lex, tokens, sentence):
