@@ -277,7 +277,8 @@ class DerivedCategory(PrimitiveCategory):
   def can_unify(self, other):
     # The unification logic is critical here -- this determines how derived
     # categories are treated relative to their base categories.
-    return other == self
+    if other == self:
+      return []
 
   def __str__(self):
     return "%s{%s}" % (self.name, self.base)
