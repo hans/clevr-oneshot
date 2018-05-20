@@ -568,9 +568,17 @@ def attempt_candidate_parse(lexicon, token, candidate_category,
   results, sub_expr_original = [], sub_expr
   for arity in range(1, max(arities.values()) + 1):
     sub_expr = sub_expr_original
-    for i in range(arity):
-      var_i = l.Variable("z%i" % (i + 1))
-      sub_expr = l.LambdaExpression(var_i, sub_expr)
+
+    variables = [l.Variable("z%i" % (i + 1)) for i in range(arity)]
+    # Build curried application expression.
+    term = sub_expr
+    for variable in variables:
+      term = l.ApplicationExpression(term, l.IndividualVariableExpression(variable))
+
+    # Build surrounding lambda expression.
+    sub_expr = term
+    for variable in variables[::-1]:
+      sub_expr = l.LambdaExpression(variable, sub_expr)
 
     lexicon._entries[token] = [Token(token, candidate_category, sub_expr)]
     results.extend(
