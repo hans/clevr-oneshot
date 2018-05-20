@@ -129,6 +129,16 @@ class Lexicon(ccg_lexicon.CCGLexicon):
                 for token in token_list])
 
   @property
+  def start_categories(self):
+    """
+    Return primitive categories which are valid root nodes.
+    """
+    return [self._start] + list(self._derived_categories_by_base[self._start])
+
+  def start(self):
+    raise NotImplementedError("use #start_categories instead.")
+
+  @property
   def category_semantic_arities(self):
     """
     Get the arities of semantic expressions associated with each observed

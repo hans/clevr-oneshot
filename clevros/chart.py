@@ -51,7 +51,11 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
                 for newedge in rule.apply(chart,self._lexicon,left,right):
                   edges_added_by_rule += 1
 
-    parses = chart.parses(self._lexicon.start())
+    # Attempt parses with the lexicon's start category as the root, or any
+    # derived category which has the start category as base.
+    parses = []
+    for start_cat in self._lexicon.start_categories:
+      parses.extend(chart.parses(start_cat))
     return parses
 
   def parse(self, tokens, return_aux=False):
