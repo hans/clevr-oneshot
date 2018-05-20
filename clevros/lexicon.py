@@ -521,7 +521,7 @@ def augment_lexicon_scene(old_lex, sentence, scene):
 
 
 def attempt_candidate_parse(lexicon, token, candidate_category,
-                            expressions, sentence, dummy_var=None):
+                            candidate_expressions, sentence, dummy_var=None):
   """
   Attempt to parse a sentence, mapping `token` to a new candidate lexical
   entry.
@@ -549,7 +549,6 @@ def attempt_candidate_parse(lexicon, token, candidate_category,
     # TODO: also attempt parses with composition?
     return results, sub_target
 
-  print("here")
   # Attempt to parse, allowing for function composition. In order to support
   # this we need to pass a dummy expression which is a lambda.
   arities = {expr: get_arity(expr) for expr in candidate_expressions}
