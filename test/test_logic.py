@@ -46,12 +46,22 @@ def _make_simple_mock_ontology():
 
       types.new_function("invented_1", (("obj", "boolean"), "obj", "boolean"), lambda f, x: x is not None and f(x)),
 
-      types.new_function("threeplace", ("boolean", "boolean", "obj", "boolean"), lambda x, y, o: True),
+      types.new_function("threeplace", ("obj", "obj", "boolean", "result"), lambda x, y, o: True),
   ]
-  constants = [types.new_constant("baz", "obj")]
+  constants = [types.new_constant("baz", "boolean")]
 
   ontology = Ontology(types, functions, constants, variable_weight=0.1)
   return ontology
+
+
+def test_extract_lambda():
+  """
+  `extract_lambda` should support all possible orderings of the variables it
+  encounters.
+  """
+  expr = Expression.fromstring(r"foo(\a.a,\a.a)")
+  extracted = extract_lambda(expr)
+  eq_(len(extracted), 2)
 
 
 def test_iter_expressions():
@@ -59,25 +69,25 @@ def test_iter_expressions():
   from pprint import pprint
 
   cases = [
-    ("Reuse of bound variable", (r"\z1.and_(foo(z1),bar(z1))",)),
-    ("Support passing functions as arguments to higher-order functions",
+    (4, "Reuse of bound variable", (r"\z1.and_(foo(z1),bar(z1))",)),
+    (3, "Support passing functions as arguments to higher-order functions",
      (r"\z1.invented_1(foo,z1)",)),
-    ("Consider both argument orders",
-     (r"\z1 z2.and_(z1,z2)", r"\z1 z2.and_(z2,z1)")),
-    ("Consider both argument orders for three-place function",
-     (r"\z1 z2.threeplace(z1,z2,baz)", r"\z1 z2.threeplace(z2,z1,baz)")),
+    (3, "Consider both argument orders",
+     (r"\z1 z2.and_(z1,z2)", r"\z2 z1.and_(z1,z2)")),
+    (3, "Consider both argument orders for three-place function",
+     (r"\z1 z2.threeplace(z1,z2,baz)", r"\z2 z1.threeplace(z1,z2,baz)")),
   ]
 
-  def do_case(msg, assert_in):
-    expressions = list(ontology.iter_expressions(4))
+  def do_case(max_depth, msg, assert_in):
+    expressions = set(ontology.iter_expressions(max_depth=max_depth))
     expression_strs = list(map(str, expressions))
 
     present = [expr in expression_strs for expr in assert_in]
     pprint(list(zip(assert_in, present)))
     ok_(all(present), msg)
 
-  for msg, assert_in in cases:
-    yield do_case, msg, assert_in
+  for max_depth, msg, assert_in in cases:
+    yield do_case, max_depth, msg, assert_in
 
 
 def test_as_ec_sexpr():

@@ -154,10 +154,16 @@ def extract_lambda(expr):
       return node
 
   expr = inner(expr)
-  for variable in variables[::-1]:
-    expr = l.LambdaExpression(variable, expr)
+  wrappings = []
 
-  return expr.normalize()
+  for variable_ordering in itertools.permutations(variables):
+    wrapping = expr
+    for variable in variable_ordering:
+      wrapping = l.LambdaExpression(variable, wrapping)
+
+    wrappings.append(wrapping.normalize())
+
+  return wrappings
 
 
 def get_arity(expr):
@@ -304,7 +310,14 @@ class Ontology(object):
 
     # Extract lambda arguments to the top level.
     # NB, this breaks the type record. Should be fine.
-    ret = [extract_lambda(expr) for expr in ret]
+    #
+    # TODO: Currently the program enumeration is generating *both* programs of
+    # the structure `\x y z.(..x..y..z..)` and `..(\x.(..),\y.(..),\z.(..))` --
+    # that is, with broad and narrow scope. The `extract_lambda` operation
+    # reduces a lot of these expressions to be overlapping. It'd be more
+    # efficient to pick a single enumeration strategy and stick with it.
+    ret = itertools.chain.from_iterable(
+        extract_lambda(expr) for expr in ret)
 
     return ret
 
