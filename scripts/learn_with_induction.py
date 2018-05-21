@@ -171,8 +171,8 @@ examples_voo = [
                     Transfer(scene["objects"][4], scene["objects"][0], "any"))),
 
     ("gorp the woman the letter", scene,
-     ComposedAction(CausePossession(scene["objects"][0], scene["objects"][2]),
-                    Transfer(scene["objects"][2], scene["objects"][0], "far"))),
+     ComposedAction(CausePossession(scene["objects"][0], scene["objects"][1]),
+                    Transfer(scene["objects"][1], scene["objects"][0], "far"))),
 ]
 
 compressor = Compressor(ontology, **EC_kwargs)
