@@ -47,9 +47,11 @@ from clevros.primitives import *
 types = TypeSystem(["obj", "num", "ax", "manner", "boolean", "action"])
 
 functions = [
-  types.new_function("cmp_pos", ("ax", "obj", "obj", "num"), fn_cmp_pos),
+  types.new_function("cmp_pos", ("ax", "manner", "v", "obj", "num"), fn_cmp_pos),
   types.new_function("ltzero", ("num", "boolean"), fn_ltzero),
   types.new_function("and_", ("boolean", "boolean", "boolean"), fn_and),
+  types.new_function("constraint", ("boolean", "manner"), lambda fn: Constraint(fn)),
+  types.new_function("e", ("v",), Event()),
 
   types.new_function("ax_x", ("ax",), fn_ax_x),
   types.new_function("ax_y", ("ax",), fn_ax_y),
@@ -76,7 +78,7 @@ functions = [
   types.new_function("object", (types.ANY_TYPE, "boolean"), fn_object),
   types.new_function("agent", ("obj", "boolean"), lambda x: x["agent"]),
 
-  types.new_function("move", ("obj", ("obj", "boolean"), "manner", "action"), lambda obj, dest, manner: Move(a, b, manner)),
+  types.new_function("move", ("obj", ("obj", "boolean"), "manner", "action"), lambda obj, dest, manner: Move(obj, dest, manner)),
   types.new_function("cause_possession", ("obj", "obj", "action"), lambda agent, obj: CausePossession(agent, obj)),
   types.new_function("transfer", ("obj", "obj", "manner", "action"), lambda obj, agent, dist: Transfer(obj, agent, dist)),
 
@@ -87,7 +89,9 @@ constants = [types.new_constant("any", "manner"),
              types.new_constant("far", "manner"),
              types.new_constant("near", "manner"),
              types.new_constant("slow", "manner"),
-             types.new_constant("fast", "manner")]
+             types.new_constant("fast", "manner"),
+             types.new_constant("pos", "manner"),
+             types.new_constant("neg", "manner")]
 
 ontology = Ontology(types, functions, constants, variable_weight=0.1)
 
@@ -108,15 +112,12 @@ lex_vol = Lexicon.fromstring(r"""
 
   the => Nd/N {\x.unique(x)}
 
-  below => PP/Nd {\b.\a.ltzero(cmp_pos(ax_z,a,b))}
-  # behind =>  PP/Nd {\b.\a.ltzero(cmp_pos(ax_y,b,a))}
-  # above => PP/Nd {\b.\a.ltzero(cmp_pos(ax_z,b,a))}
-  # left_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_x,a,b))}
-  right_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_x,b,a))}
-  in_front_of => PP/Nd {\b.\a.ltzero(cmp_pos(ax_y,a,b))}
+  below => PP/Nd {\a.constraint(ltzero(cmp_pos(ax_z,pos,e,a)))}
+  right_of => PP/Nd {\a.constraint(ltzero(cmp_pos(ax_x,neg,e,a)))}
+  in_front_of => PP/Nd {\a.constraint(ltzero(cmp_pos(ax_y,neg,e,a)))}
 
-  put => S/Nd/PP {\a.\b.move(a,b,slow)}
-  drop => S/Nd/PP {\a.\b.move(a,b,fast)}
+  put => S/Nd/PP {\b a.move(a,b,slow)}
+  drop => S/Nd/PP {\b a.move(a,b,fast)}
   """, ontology=ontology, include_semantics=semantics)
 
 lex_voo = Lexicon.fromstring(r"""
@@ -151,10 +152,48 @@ scene2 = {
     frozendict({"shape": "sphere"}),
   ]
 }
+scene_vol = \
+  {'directions': {'above': [0.0, 0.0, 1.0],
+                  'behind': [-0.754490315914154, 0.6563112735748291, 0.0],
+                  'below': [-0.0, -0.0, -1.0],
+                  'front': [0.754490315914154, -0.6563112735748291, -0.0],
+                  'left': [-0.6563112735748291, -0.7544902563095093, 0.0],
+                  'right': [0.6563112735748291, 0.7544902563095093, -0.0]},
+ 'image_filename': 'CLEVR_train_000002.png',
+ 'image_index': 2,
+ 'objects': [
+             frozendict({
+               '3d_coords': (2.1141371726989746,
+                            1.0,
+                            2),
+              'color': 'yellow',
+              'material': 'metal',
+              'rotation': 308.49217566676606,
+              'shape': 'sphere',
+              'size': 'large'}),
+            frozendict({
+              '3d_coords': (0, 0, 0),
+              'color': 'blue',
+              'material': 'rubber',
+              'pixel_coords': (188, 94, 12.699371337890625),
+              'rotation': 82.51702981683107,
+              'shape': 'pyramid',
+              'size': 'large'}),
+             frozendict({
+               '3d_coords': (-2.3854215145111084,
+                            0.0,
+                            0.699999988079071),
+              'color': 'blue',
+              'material': 'rubber',
+              'rotation': 82.51702981683107,
+              'shape': 'cube',
+              'size': 'large'})],
+ 'split': 'train'}
+
 
 examples_vol = [
-  ("place the donut right_of the cube", scene,
-   Move(scene["objects"][1], scene["objects"][2], "slow")),
+  ("place the donut right_of the cube", scene_vol,
+   Move(scene_vol["objects"][1], scene_vol["objects"][2], "slow")),
 ]
 examples_voo = [
     ("send the woman the package", scene,
@@ -209,6 +248,14 @@ def main(args, lex, examples):
 
   for sentence, scene, answer in examples:
     print("\n\n")
+
+    from clevros.chart import WeightedCCGChartParser, DefaultRuleSet
+    results = WeightedCCGChartParser(lex, ruleset=DefaultRuleSet).parse("put the sphere right_of the cube".split())
+    print(len(results))
+    print(results[0].label()[0].semantics())
+    model = Model(scene, ontology)
+    print(model.evaluate(results[0].label()[0].semantics()))
+    sys.exit(1)
 
     sentence = sentence.split()
 

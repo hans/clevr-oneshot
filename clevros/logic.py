@@ -18,10 +18,14 @@ L = logging.getLogger(__name__)
 class TypeSystem(object):
 
   ANY_TYPE = l.ANY_TYPE
+  EVENT_TYPE = l.EVENT_TYPE
 
   def __init__(self, primitive_types):
+    assert "?" not in primitive_types, "Cannot override ANY_TYPE name"
+    assert "v" not in primitive_types, "Cannot override EVENT_TYPE name"
     self._types = {primitive_type_name: l.BasicType(l.ENTITY_TYPE)
                    for primitive_type_name in primitive_types}
+    self._types["v"] = self.EVENT_TYPE
 
   def __getitem__(self, type_expr):
     if isinstance(type_expr, l.Type):
@@ -613,6 +617,11 @@ class Ontology(object):
     """
     Convert an `nltk.sem.logic` `Expression` to an S-expr string.
     """
+
+    # Expressions which might contain a function reference
+    func_exprs = (l.ConstantExpression, l.EventVariableExpression,
+                  l.FunctionVariableExpression)
+
     def inner(expr, var_stack):
       if isinstance(expr, l.LambdaExpression):
         # Add lambda variable to var map.
@@ -622,11 +631,7 @@ class Ontology(object):
         return "(%s %s)" % (expr.pred.variable.name, " ".join(args))
       # elif isinstance(expr, l.AndExpression):
       #   return "(and %s %s)" % (inner(expr.first), inner(expr.second))
-      elif isinstance(expr, l.IndividualVariableExpression):
-        bruijn_index = len(var_stack) - var_stack.index(expr.variable.name) - 1
-        return "$%i" % bruijn_index
-      elif isinstance(expr, (l.ConstantExpression, l.FunctionVariableExpression)) \
-          and expr.variable.name in self.functions_dict:
+      elif isinstance(expr, func_exprs) and expr.variable.name in self.functions_dict:
         # EC requires S-expressions in normal form -- i.e. functions need to
         # appear in their applied form. We'll need a valid function type here
         # to get anything done.
@@ -636,6 +641,9 @@ class Ontology(object):
             ("(%s %s)" % (expr.variable.name,
                           " ".join("$%i" % (idx - 1) for idx in range(arity, 0, -1)))) + \
             (")" * arity)
+      elif isinstance(expr, l.IndividualVariableExpression):
+        bruijn_index = len(var_stack) - var_stack.index(expr.variable.name) - 1
+        return "$%i" % bruijn_index
       elif isinstance(expr, l.FunctionVariableExpression):
         raise ValueError("unknown function %s" % expr)
       elif isinstance(expr, l.ConstantExpression):
