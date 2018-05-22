@@ -46,7 +46,7 @@ def _make_simple_mock_ontology():
 
       types.new_function("invented_1", (("obj", "boolean"), "obj", "boolean"), lambda f, x: x is not None and f(x)),
 
-      types.new_function("threeplace", ("obj", "obj", "boolean", "result"), lambda x, y, o: True),
+      types.new_function("threeplace", ("obj", "obj", "boolean", "obj"), lambda x, y, o: True),
   ]
   constants = [types.new_constant("baz", "boolean")]
 
