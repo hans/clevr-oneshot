@@ -192,8 +192,10 @@ scene_vol = \
 
 
 examples_vol = [
-  ("place the donut right_of the cube", scene_vol,
-   Move(scene_vol["objects"][1], scene_vol["objects"][2], "slow")),
+  ("place the sphere right_of the cube", scene_vol,
+   Move(scene_vol["objects"][0],
+        Constraint(-1 * (Event()["3d_coords"][0] - scene_vol["objects"][2]["3d_coords"][0]) < 0),
+        "slow")),
 ]
 examples_voo = [
     ("send the woman the package", scene,
@@ -248,14 +250,6 @@ def main(args, lex, examples):
 
   for sentence, scene, answer in examples:
     print("\n\n")
-
-    from clevros.chart import WeightedCCGChartParser, DefaultRuleSet
-    results = WeightedCCGChartParser(lex, ruleset=DefaultRuleSet).parse("put the sphere right_of the cube".split())
-    print(len(results))
-    print(results[0].label()[0].semantics())
-    model = Model(scene, ontology)
-    print(model.evaluate(results[0].label()[0].semantics()))
-    sys.exit(1)
 
     sentence = sentence.split()
 

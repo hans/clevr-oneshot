@@ -29,7 +29,16 @@ class EventOp(object):
   def __init__(self, base, op, *args):
     self.base = base
     self.op = op
-    self.args = args
+    self.args = tuple(args)
+
+  def __hash__(self):
+    return hash((self.base, self.op, self.args))
+
+  # TODO ambiguous API semantics -- should this yield a new EventOp, or should
+  # it be used to compare with another EventOp? Typing won't save us here,
+  # either...
+  def __eq__(self, other):
+    return hash(self) == hash(other)
 
   def __getitem__(self, attr):
     return EventOp(self, getattr, attr)
