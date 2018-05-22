@@ -102,7 +102,7 @@ ontology = Ontology(types, functions, constants, variable_weight=0.1)
 semantics = True
 
 lex_vol = Lexicon.fromstring(r"""
-  :- S, PP, Nd, N
+  :- S, PP, N
 
   cube => N {\x.and_(object(x),cube(x))}
   sphere => N {\x.and_(object(x),sphere(x))}
@@ -111,14 +111,14 @@ lex_vol = Lexicon.fromstring(r"""
   cylinder => N {\x.and_(object(x),cylinder(x))}
   pyramid => N {\x.and_(object(x),pyramid(x))}
 
-  the => Nd/N {\x.unique(x)}
+  the => N/N {\x.unique(x)}
 
-  below => PP/Nd {\a.constraint(ltzero(cmp_pos(ax_z,pos,e,a)))}
-  right_of => PP/Nd {\a.constraint(ltzero(cmp_pos(ax_x,neg,e,a)))}
-  in_front_of => PP/Nd {\a.constraint(ltzero(cmp_pos(ax_y,neg,e,a)))}
+  below => PP/N {\a.constraint(ltzero(cmp_pos(ax_z,pos,e,a)))}
+  right_of => PP/N {\a.constraint(ltzero(cmp_pos(ax_x,neg,e,a)))}
+  in_front_of => PP/N {\a.constraint(ltzero(cmp_pos(ax_y,neg,e,a)))}
 
-  put => S/Nd/PP {\b a.move(a,b,slow)}
-  drop => S/Nd/PP {\b a.move(a,b,fast)}
+  put => S/N/PP {\b a.move(a,b,slow)}
+  drop => S/N/PP {\b a.move(a,b,fast)}
   """, ontology=ontology, include_semantics=semantics)
 
 lex_voo = Lexicon.fromstring(r"""
