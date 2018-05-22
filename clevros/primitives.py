@@ -7,6 +7,14 @@ class Event(object):
   def __init__(self):
     pass
 
+  def __eq__(self, other):
+    if isinstance(other, Event):
+      return True
+    return False
+
+  def __hash__(self):
+    return hash(Event)
+
   def __getitem__(self, attr):
     return EventOp(self, getattr, attr)
 
@@ -118,6 +126,9 @@ class Constraint(object):
   def __add__(self, other):
     return Constraint(self.constraints + other.constraints)
 
+  def __hash__(self):
+    return hash(self.constraints)
+
   def __eq__(self, other):
     return hash(self) == hash(other)
 
@@ -146,6 +157,9 @@ class Move(Action):
 
   def __hash__(self):
     return hash((self.obj, self.dest, self.manner))
+
+  def __eq__(self, other):
+    return hash(self) == hash(other)
 
   def __str__(self):
     return "%s(%s -> %s, %s)" % (self.__class__.__name__, self.obj, self.dest, self.manner)

@@ -714,7 +714,8 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
       # Parse succeeded -- check the candidate results.
       for result in parse_results:
         semantics = result.label()[0].semantics()
-        semantics = semantics.replace(dummy_var, expr)
+        # TODO can we pre-compute the simplification?
+        semantics = semantics.replace(dummy_var, expr).simplify()
 
         # Check cached result first.
         success = semantics_results.get(semantics, None)

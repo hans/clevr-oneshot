@@ -78,6 +78,7 @@ functions = [
   types.new_function("object", (types.ANY_TYPE, "boolean"), fn_object),
   types.new_function("agent", ("obj", "boolean"), lambda x: x["agent"]),
 
+  # TODO types don't make sense here
   types.new_function("move", ("obj", ("obj", "boolean"), "manner", "action"), lambda obj, dest, manner: Move(obj, dest, manner)),
   types.new_function("cause_possession", ("obj", "obj", "action"), lambda agent, obj: CausePossession(agent, obj)),
   types.new_function("transfer", ("obj", "obj", "manner", "action"), lambda obj, agent, dist: Transfer(obj, agent, dist)),
