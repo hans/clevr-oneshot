@@ -129,6 +129,7 @@ lex_voo = Lexicon.fromstring(r"""
 
   letter => N {\x.letter(x)}
   ball => N {\x.sphere(x)}
+  package => N {\x.package(x)}
 
   the => N/N {\x.unique(x)}
 

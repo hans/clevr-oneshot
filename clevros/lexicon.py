@@ -177,15 +177,18 @@ class Lexicon(ccg_lexicon.CCGLexicon):
 
   def propagate_derived_category(self, name):
     categ, involved_entries = self._derived_categories[name]
+    new_entries = defaultdict(list)
 
     # Replace all lexical entries directly involved with the derived category.
-    for entry_list in self._entries.values():
+    for word, entry_list in self._entries.items():
       for entry in entry_list:
         if entry in involved_entries:
           # Replace the yield of the syntactic category with our new derived
           # category. (For primitive categories, setting the yield is
           # equivalent to just changing the category.)
-          entry._categ = set_yield(entry.categ(), categ)
+          new_entry = entry.clone()
+          new_entry._categ = set_yield(entry.categ(), categ)
+          new_entries[word].append(new_entry)
 
     # Create duplicates of all entries with functional categories involving the
     # base of the derived category.
@@ -196,8 +199,6 @@ class Lexicon(ccg_lexicon.CCGLexicon):
 
     replacements = {}
     for word, entries in self._entries.items():
-      new_entries = []
-
       for entry in entries:
         if not isinstance(entry.categ(), FunctionalCategory):
           # TODO will break with DerivedCategory cases
@@ -215,9 +216,10 @@ class Lexicon(ccg_lexicon.CCGLexicon):
           # We already know a replacement is necessary -- go ahead.
           new_entry = entry.clone()
           new_entry._categ = replacement_category
-          new_entries.append(new_entry)
+          new_entries[word].append(new_entry)
 
-      self._entries[word] = entries + new_entries
+    for word, w_entries in new_entries.items():
+      self._entries[word].extend(w_entries)
 
 
   def lf_ngrams(self, order=1, condition_on_syntax=True, smooth=True):
