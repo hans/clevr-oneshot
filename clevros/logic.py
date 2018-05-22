@@ -553,9 +553,9 @@ class Ontology(object):
         and expr.variable.name in self.functions_dict:
       return self.functions_dict[expr.variable.name].arity
     elif callable(expr):
-      return len(inspect.getargspec(expr).args)
+      return len(inspect.signature(expr).parameters)
     else:
-      raise ValueError()
+      raise ValueError("non-callable object: %r" % expr)
 
   def _valid_application_expr(self, application_expr):
     """
