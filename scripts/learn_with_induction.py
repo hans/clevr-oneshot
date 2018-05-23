@@ -98,7 +98,52 @@ ontology = Ontology(types, functions, constants, variable_weight=0.1)
 
 #####################
 
-types_levin = TypeSystem(["obj", "boolean", "action"])
+types_levin = TypeSystem(["obj", "boolean", "manner", "action", "set", "str"])
+
+functions_levin = [
+  # Logical operation
+  types_levin.new_function("unique", (("obj", "boolean"), "obj"), fn_unique),
+  types_levin.new_function("and_", ("boolean", "boolean", "boolean"), lambda a, b: a and b),
+  types_levin.new_function("eq", ("?", "?", "boolean"), lambda a, b: a == b),
+
+  # Ops on objects
+  types_levin.new_function("book", ("obj", "boolean"), lambda x: x["type"] == "book"),
+  # types_levin.new_function("apple", ("obj", "boolean"), lambda x: x["type"] == "apple"),
+  # types_levin.new_function("cookie", ("obj", "boolean"), lambda x: x["type"] == "cookie"),
+  types_levin.new_function("water", ("obj", "boolean"), lambda x: x["substance"] == "water"),
+  types_levin.new_function("paint", ("obj", "boolean"), lambda x: x["substance"] == "paint"),
+  types_levin.new_function("orientation", ("obj", "manner"), lambda x: x["orientation"]),
+  types_levin.new_function("liquid", ("obj", "boolean"), lambda x: x["state"] == "liquid"),
+  types_levin.new_function("full", ("obj", "boolean"), lambda x: x["full"]),
+
+  # Ops on sets
+  types_levin.new_function("characteristic", ("set", "str", "boolean"),
+                           lambda s, fn: s.characteristic == fn),
+
+  # Ops on events
+  types_levin.new_function("e", ("v",), Event()),
+  types_levin.new_function("direction", ("v", "manner"), lambda e: e.direction),
+  types_levin.new_function("result", ("v", "obj"), lambda e: e.result),
+
+  # Actions
+  types_levin.new_function("put", ("v", "obj", "manner", "action"), Put),
+  types_levin.new_function("constraint", ("boolean", "manner"), Constraint), # TODO funky type
+  types_levin.new_function("addc", ("manner", "manner", "manner"), lambda c1, c2: Constraint(c1, c2)),
+  types_levin.new_function("join", ("action", "boolean", "action"), ActAndEntail),
+]
+
+
+constants_levin = [
+  types_levin.new_constant("vertical", "manner"),
+  types_levin.new_constant("horizontal", "manner"),
+  types_levin.new_constant("up", "manner"),
+  types_levin.new_constant("down", "manner"),
+
+  types_levin.new_constant("apple", "str"),
+  types_levin.new_constant("cookie", "str"),
+]
+
+ontology_levin = Ontology(types_levin, functions_levin, constants_levin)
 
 #####################
 
@@ -152,27 +197,30 @@ lex_levin = Lexicon.fromstring(r"""
   water => N {\x.water(x)}
   paint => N {\x.paint(x)}
 
-  apples => N {\x.and_(set(x),eq(characteristic(x),apple))}
-  cookies => N {\x.and_(set(x),eq(characteristic(x),cookie))}
+  apples => N {\x.characteristic(x,apple)}
+  cookies => N {\x.characteristic(x,cookie)}
 
   put => S/N/PP {\d o.put(e,o,d)}
   set => S/N/PP {\d o.put(e,o,d)}
 
-  hang => S/N/PP {\d o.put(e,o,constraint(d,vertical(o)))}
-  lay => S/N/PP {\d o.put(e,o,constraint(d,horizontal(o)))}
+  # "hang the picture on the wall"
+  hang => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(orientation(result(e)),vertical))))}
+  lay => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(orientation(result(e)),horizontal))))}
 
-  drop => S/N/PP {\d o.put(e,o,constraint(d,direction(e,down)))}
-  hoist => S/N/PP {\d o.put(e,o,constraint(d,direction(e,up)))}
+  drop => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(direction(e),down))))}
+  hoist => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(direction(e),up))))}
 
-  pour => S/N/PP {\d o.and_(put(e,o,d),liquid(o))}
-  spill => S/N/PP {\d o.and_(put(e,o,d),liquid(o))}
+  pour => S/N/PP {\d o.join(put(e,o,d),liquid(result(e)))}
+  spill => S/N/PP {\d o.join(put(e,o,d),liquid(result(e)))}
 
-  # spray => S/N/PP {\d o.and_(put(e,o,constraint(d,not(full(d)))))}
-  # load => S/N/PP {\d o.put(e,o,constraint(d,not(full(d))))}
+  # "spray the wall with paint"
+  # spray => S/N/PP {\d o.and_(put(e,o,addc(d,constraint(not(full(result(e)))))))}
+  # load => S/N/PP {\d o.put(e,o,addc(d,constraint(not(full(result(e))))))}
 
-  fill => S/N/PP {\o d.put(e,o,constraint(d,full(o)))}
-  stuff => S/N/PP {\o d.put(e,o,constraint(d,full(o)))}
-  """, include_semantics=True)
+  # "fill the jar with cookies"
+  fill => S/N/PP {\o d.put(e,o,addc(d,constraint(full(result(e)))))}
+  stuff => S/N/PP {\o d.put(e,o,addc(d,constraint(full(result(e)))))}
+  """, ontology_levin, include_semantics=True)
 
 
 scene = {
@@ -253,10 +301,11 @@ examples_voo = [
      ComposedAction(CausePossession(scene["objects"][0], scene["objects"][1]),
                     Transfer(scene["objects"][1], scene["objects"][0], "far"))),
 ]
+examples_levin = [
 
-compressor = Compressor(ontology, **EC_kwargs)
+]
 
-def compress_lexicon(lex):
+def compress_lexicon(lex, compressor):
   # Run EC compression on the entries of the induced lexicon. This may create
   # new inventions, updating both the `ontology` and the provided `lex`.
   lex, affected_entries = compressor.make_inventions(lex)
@@ -281,10 +330,11 @@ def compress_lexicon(lex):
 
 #############
 
-def main(args, lex, examples):
+def main(args, lex, ontology, examples):
   if not args.no_compress:
     # Run compression on the initial lexicon.
-    lex = compress_lexicon(lex)
+    compressor = Compressor(ontology)
+    lex = compress_lexicon(lex, compressor)
 
   for sentence, scene, answer in examples:
     print("\n\n")
@@ -312,7 +362,7 @@ def main(args, lex, examples):
 
       if not args.no_compress:
         # Run compression on the augmented lexicon.
-        lex = compress_lexicon(lex)
+        lex = compress_lexicon(lex, compressor)
 
       # Attempt a new parameter update.
       weighted_results, _ = update_perceptron_distant(lex, sentence, model, answer)
@@ -330,5 +380,6 @@ if __name__ == "__main__":
   p.add_argument("--no-compress", action="store_true")
   p.add_argument("--no-bootstrap", action="store_true")
 
-  # main(p.parse_args(), lex_voo, examples_voo)
-  main(p.parse_args(), lex_vol, examples_vol)
+  # main(p.parse_args(), lex_voo, ontology, examples_voo)
+  # main(p.parse_args(), lex_vol, ontology, examples_vol)
+  main(p.parse_args(), lex_levin, ontology_levin, examples_levin)

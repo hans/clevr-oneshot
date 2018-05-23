@@ -86,6 +86,12 @@ class EventOp(object):
     return self.__str__(verbose=True)
 
 
+class Collection(object):
+
+  def __init__(self, characteristic):
+    self.characteristic = characteristic
+
+
 def fn_unique(xs):
   true_xs = [x for x, matches in xs.items() if matches]
   assert len(true_xs) == 1
@@ -98,19 +104,33 @@ def fn_cmp_pos(ax, manner, a, b):
 def fn_ltzero(x): return x < 0
 def fn_and(a, b): return a and b
 
+## Ops on collections
+def fn_set(a): return isinstance(a, Collection)
+def fn_characteristic(a): return a.characteristic
+
 def fn_ax_x(): return 0
 def fn_ax_y(): return 1
 def fn_ax_z(): return 2
 
+## Ops on objects
 def fn_cube(x): return x["shape"] == "cube"
 def fn_sphere(x): return x["shape"] == "sphere"
 def fn_donut(x): return x["shape"] == "donut"
 def fn_pyramid(x): return x["shape"] == "pyramid"
 def fn_hose(x): return x["shape"] == "hose"
 def fn_cylinder(x): return x["shape"] == "cylinder"
+def fn_apple(x): return x["type"] == "apple"
+def fn_cookie(x): return x["type"] == "cookie"
+def fn_book(x): return x["type"] == "book"
+def fn_water(x): return x["type"] == "water"
 
 def fn_object(x): return isinstance(x, (frozendict, dict))
+def fn_vertical(x): return x["orientation"] == "vertical"
+def fn_horizontal(x): return x["orientation"] == "horizontal"
+def fn_liquid(x): return x["state"] == "liquid"
+def fn_full(x): return x["full"]
 
+## Ops on events
 
 class Action(object):
   def __add__(self, other):
@@ -168,6 +188,29 @@ class Move(Action):
 
 class Transfer(Move):
   pass
+
+
+class Put(Action):
+  def __init__(self, event, obj, manner):
+    self.event = event
+    self.obj = obj
+    self.manner = manner
+
+  def __hash__(self):
+    return hash((self.event, self.obj, self.manner))
+
+
+class ActAndEntail(Action):
+  """
+  Joins an action with entailments about the event.
+  """
+  def __init__(self, action, entail):
+    self.action = action
+    self.entail = entail
+
+  def __hash__(self):
+    return hash((self.action, self.entail))
+
 
 class StateChange(Action): pass
 class CausePossession(StateChange):

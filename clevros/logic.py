@@ -25,6 +25,7 @@ class TypeSystem(object):
     assert "v" not in primitive_types, "Cannot override EVENT_TYPE name"
     self._types = {primitive_type_name: l.BasicType(l.ENTITY_TYPE)
                    for primitive_type_name in primitive_types}
+    self._types["?"] = self.ANY_TYPE
     self._types["v"] = self.EVENT_TYPE
 
   def __getitem__(self, type_expr):
@@ -304,7 +305,7 @@ class Ontology(object):
     for function in functions:
       # We can't statically verify the type of the definition, but we can at
       # least verify the arity.
-      assert function.arity == self.get_expr_arity(function.defn)
+      assert function.arity == self.get_expr_arity(function.defn), function.name
 
   def _prepare(self):
     self._nltk_type_signature = self._make_nltk_type_signature()

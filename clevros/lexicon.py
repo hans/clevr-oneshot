@@ -145,7 +145,8 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     syntactic category.
     """
     # If possible, lean on the type system to help determine expression arity.
-    get_arity = (self.ontology and self.ontology.get_expr_arity) or get_arity
+    get_arity = (self.ontology and self.ontology.get_expr_arity) \
+        or get_semantic_arity
 
     entries_by_categ = {
       category: set(entry for entry in itertools.chain.from_iterable(self._entries.values())
