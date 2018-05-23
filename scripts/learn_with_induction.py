@@ -98,6 +98,10 @@ ontology = Ontology(types, functions, constants, variable_weight=0.1)
 
 #####################
 
+types_levin = TypeSystem(["obj", "boolean", "action"])
+
+#####################
+
 
 semantics = True
 
@@ -137,6 +141,38 @@ lex_voo = Lexicon.fromstring(r"""
   send => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,far))}
   hand => S/N/N {\a x.do_(cause_possession(a,x),transfer(x,a,near))}
   """, ontology, include_semantics=True)
+
+
+lex_levin = Lexicon.fromstring(r"""
+  :- S, N, PP
+
+  the => N/N {\x.unique(x)}
+
+  book => N {\x.book(x)}
+  water => N {\x.water(x)}
+  paint => N {\x.paint(x)}
+
+  apples => N {\x.and_(set(x),eq(characteristic(x),apple))}
+  cookies => N {\x.and_(set(x),eq(characteristic(x),cookie))}
+
+  put => S/N/PP {\d o.put(e,o,d)}
+  set => S/N/PP {\d o.put(e,o,d)}
+
+  hang => S/N/PP {\d o.put(e,o,constraint(d,vertical(o)))}
+  lay => S/N/PP {\d o.put(e,o,constraint(d,horizontal(o)))}
+
+  drop => S/N/PP {\d o.put(e,o,constraint(d,direction(e,down)))}
+  hoist => S/N/PP {\d o.put(e,o,constraint(d,direction(e,up)))}
+
+  pour => S/N/PP {\d o.and_(put(e,o,d),liquid(o))}
+  spill => S/N/PP {\d o.and_(put(e,o,d),liquid(o))}
+
+  # spray => S/N/PP {\d o.and_(put(e,o,constraint(d,not(full(d)))))}
+  # load => S/N/PP {\d o.put(e,o,constraint(d,not(full(d))))}
+
+  fill => S/N/PP {\o d.put(e,o,constraint(d,full(o)))}
+  stuff => S/N/PP {\o d.put(e,o,constraint(d,full(o)))}
+  """, include_semantics=True)
 
 
 scene = {
