@@ -31,8 +31,8 @@ EC_kwargs = {
 #############
 
 def main(args, lexicon, ontology, examples):
-  learner = WordLearner(lexicon, ontology,
-      compress=not args.no_compress, bootstrap=not args.no_bootstrap)
+  compressor = Compressor(ontology, **EC_kwargs) if not args.no_compress else None
+  learner = WordLearner(lexicon, compressor, bootstrap=not args.no_bootstrap)
 
   # No-op if `--no-compress`
   learner.compress_lexicon()

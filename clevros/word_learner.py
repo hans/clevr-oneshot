@@ -10,18 +10,16 @@ L = logging.getLogger(__name__)
 
 class WordLearner(object):
 
-  def __init__(self, lexicon, ontology, compress=True, bootstrap=True):
+  def __init__(self, lexicon, compressor, bootstrap=True):
     """
     Args:
       lexicon:
-      ontology
-      compress: If `True`, regularly run lexicon compression.
+      compressor:
       bootstrap: If `True`, enable syntactic bootstrapping.
     """
-    # TODO support more specifics about compression: how often; with what hparams
     self.lexicon = lexicon
+    self.compressor = compressor
 
-    self.compressor = Compressor(ontology) if compress else None
     self.bootstrap = bootstrap
 
   @property
