@@ -190,6 +190,13 @@ def read_ec_sexpr(sexpr):
   bound_vars = set()
   bound_var_stack = []
 
+  # When these tokens appear as heads of s-expressions, they should cue a
+  # custom NLTK expression.
+  special_expressions = {
+    "and": l.AndExpression,
+    "not": l.NegatedExpression,
+  }
+
   is_call = False
   stack = [(None, None, [])]
   for token in tokens:
@@ -227,7 +234,10 @@ def read_ec_sexpr(sexpr):
 
         head = l.FunctionVariableExpression(new_var)
 
-      stack.append((l.ApplicationExpression, head, []))
+      if head in special_expressions:
+        stack.append((special_expressions[head], None, []))
+      else:
+        stack.append((l.ApplicationExpression, head, []))
       is_call = False
     elif token == ")":
       stack_top = stack.pop()
@@ -238,6 +248,11 @@ def read_ec_sexpr(sexpr):
         _, _, term = stack_top
         variable = bound_var_stack.pop()
         result = l.LambdaExpression(variable, term[0])
+      elif issubclass(stack_top[0], l.Expression):
+        # Try just initializing the expression with *args.
+        # Supports `and`, `not`, etc.
+        _, _, args = stack_top
+        result = stack_top[0](*args)
       else:
         raise RuntimeError("unknown element on stack", stack_top)
 
