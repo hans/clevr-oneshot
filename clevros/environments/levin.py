@@ -77,8 +77,8 @@ lexicon = Lexicon.fromstring(r"""
   spill => S/N/PP {\d o.join(put(e,o,d),liquid(result(e)))}
 
   # "spray the wall with paint"
-  # spray => S/N/PP {\d o.and_(put(e,o,addc(d,constraint(not(full(result(e)))))))}
-  # load => S/N/PP {\d o.put(e,o,addc(d,constraint(not(full(result(e))))))}
+  spray => S/N/PP {\d o.put(e,o,addc(d,constraint(-full(result(e)))))}
+  load => S/N/PP {\d o.put(e,o,addc(d,constraint(-full(result(e)))))}
 
   # "fill the jar with cookies"
   fill => S/N/PP {\o d.put(e,o,addc(d,constraint(full(result(e)))))}
