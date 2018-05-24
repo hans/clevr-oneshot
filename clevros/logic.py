@@ -265,13 +265,19 @@ class Ontology(object):
   Defines an ontology for expressing and evaluating logical forms.
   """
 
-  def __init__(self, types, functions, constants, variable_weight=0.1):
+  def __init__(self, types, functions, constants, variable_weight=0.1,
+               add_default_functions=True):
     """
     Arguments:
       types: TypeSystem
       functions: List of `k` `Function` instances
       constants: List of constants as (optionally typed) `Variable` instances
       variable_weight: log-probability of observing any variable
+      add_default_functions: If `True`, automatically add definitions for the
+        set of functions available in the NLTK lambda calculus (e.g. `not`) but
+        not in EC. This allows us to do easy EC conversion without redefining
+        all the standard functions in each ontology. (NB: requires that a type
+        `boolean` be defined in the type system.)
     """
     self.types = types
 
@@ -282,9 +288,13 @@ class Ontology(object):
     self.add_functions(functions)
     self.constants = constants
 
+    if add_default_functions:
+      self._add_default_functions()
+
     self._prepare()
 
   EXPR_TYPES = [l.ApplicationExpression, l.ConstantExpression,
+                l.AndExpression, l.NegatedExpression,
                 l.IndividualVariableExpression, l.LambdaExpression,
                 l.FunctionVariableExpression]
 
@@ -306,6 +316,30 @@ class Ontology(object):
       # We can't statically verify the type of the definition, but we can at
       # least verify the arity.
       assert function.arity == self.get_expr_arity(function.defn), function.name
+
+  def _add_default_functions(self):
+    """
+    Add function definitions for the functions available by default in the NLTK
+    lambda calculus language, but not in EC.
+    """
+    try:
+      boolean_type = self.types["boolean"]
+    except KeyError:
+      try:
+        boolean_type = self.types["bool"]
+      except KeyError:
+        raise ValueError(
+            "Provided type system does not have a type `bool` or `boolean`. "
+            " Cannot define default functions.")
+
+    functions = [
+      self.types.new_function("not", (boolean_type, boolean_type),
+                              lambda x: not x),
+      self.types.new_function("and", (boolean_type, boolean_type, boolean_type),
+                              lambda x, y: x and y),
+    ]
+
+    self.add_functions(functions)
 
   def _prepare(self):
     self._nltk_type_signature = self._make_nltk_type_signature()
@@ -389,6 +423,12 @@ class Ontology(object):
               # print("\t" * (6 - max_depth + 1), "valid %s? %s" % (candidate, valid))
               if valid:
                 yield candidate
+      elif expr_type == l.AndExpression and max_depth > 1:
+        # TODO
+        continue
+      elif expr_type == l.NegatedExpression and max_depth > 1:
+        # TODO
+        continue
       elif expr_type == l.LambdaExpression and max_depth > 1:
         for bound_var_type in self.observed_argument_types:
           bound_var = next_bound_var(bound_vars, bound_var_type)
@@ -649,6 +689,16 @@ class Ontology(object):
         raise ValueError("unknown function %s" % expr)
       elif isinstance(expr, l.ConstantExpression):
         return expr.variable.name
+      elif isinstance(expr, l.NegatedExpression):
+        if "not" not in self.functions_dict:
+          raise ValueError(
+              "Unable to translate %r -- no negation function available in ontology" % expr)
+        return "(not %s)" % inner(expr.term, var_stack)
+      elif isinstance(expr, l.AndExpression):
+        if "and" not in self.functions_dict:
+          raise ValueError(
+              "Unable to translate %r -- no and-function available in ontology" % expr)
+        return "(and %s)" % inner(expr.term, var_stack)
       else:
         raise ValueError("un-handled expression component %r" % expr)
 
