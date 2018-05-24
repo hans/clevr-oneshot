@@ -28,10 +28,9 @@ class LevinTest(unittest.TestCase):
 
     for sentence, scene, answer in voo.examples:
       sentence = sentence.split()
-      model = Model(scene, self.ontology)
+      model = Model(scene, self.learner.ontology)
 
       weighted_results = self.learner.update_with_example(sentence, model, answer)
-      print(weighted_results)
 
       final_sem = weighted_results[0][0].label()[0].semantics()
 

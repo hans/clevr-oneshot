@@ -21,8 +21,8 @@ class LevinTest(unittest.TestCase):
                                compress=True, bootstrap=True)
 
   def test_functional(self):
-    # We should get five derived categories.
+    # We should get six derived categories -- one for each verb class.
     self.learner.compress_lexicon()
-    self.assertEquals(len(self.learner.lexicon._derived_categories), 5)
+    self.assertEquals(len(self.learner.lexicon._derived_categories), 6)
 
     # OK, now try to bootstrap with an example.

@@ -20,10 +20,13 @@ class WordLearner(object):
     """
     # TODO support more specifics about compression: how often; with what hparams
     self.lexicon = lexicon
-    self.ontology = self.lexicon.ontology
 
     self.compressor = Compressor(ontology) if compress else None
     self.bootstrap = bootstrap
+
+  @property
+  def ontology(self):
+    return self.lexicon.ontology
 
   def compress_lexicon(self):
     if self.compressor is None:
@@ -92,4 +95,4 @@ class WordLearner(object):
       weighted_results, _ = update_perceptron_distant(
           self.lexicon, sentence, model, answer)
 
-      return weighted_results
+    return weighted_results

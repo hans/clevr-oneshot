@@ -302,6 +302,7 @@ class Compressor(object):
     # plays nice with our client's setup.
     self.ontology, self.invented_name_dict = grammar_to_ontology(self.grammar, self.ontology)
 
+    lexicon.ontology = self.ontology
     lexicon, affected_entries = frontiers_to_lexicon(new_frontiers, lexicon, self.invented_name_dict)
 
     return lexicon, affected_entries
