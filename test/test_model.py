@@ -18,7 +18,7 @@ def test_model_constants():
   ]
   constants = [types.new_constant("1", "num"), types.new_constant("2", "num")]
 
-  ontology = Ontology(types, functions, constants)
+  ontology = Ontology(types, functions, constants, add_default_functions=False)
   model = Model(scene={"objects": []}, ontology=ontology)
 
   cases = [
@@ -48,7 +48,7 @@ def test_model_induced_functions():
       types.new_function("test", ("a", "a"), lambda x: True),
       types.new_function("test2", ("a", "a"), Expression.fromstring(r"\x.test(test(x))")),
   ]
-  ontology = Ontology(types, functions, [])
+  ontology = Ontology(types, functions, [], add_default_functions=False)
 
   model = Model(scene=fake_scene, ontology=ontology)
 
