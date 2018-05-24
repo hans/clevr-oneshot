@@ -184,12 +184,14 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     for word, entry_list in self._entries.items():
       for entry in entry_list:
         if entry in involved_entries:
-          # Replace the yield of the syntactic category with our new derived
-          # category. (For primitive categories, setting the yield is
-          # equivalent to just changing the category.)
-          new_entry = entry.clone()
+          # # Replace the yield of the syntactic category with our new derived
+          # # category. (For primitive categories, setting the yield is
+          # # equivalent to just changing the category.)
+          # new_entry = entry.clone()
+          # DEV: just replace the entry
+          new_entry = entry
           new_entry._categ = set_yield(entry.categ(), categ)
-          new_entries[word].append(new_entry)
+          # new_entries[word].append(new_entry)
 
     # Create duplicates of all entries with functional categories involving the
     # base of the derived category.
