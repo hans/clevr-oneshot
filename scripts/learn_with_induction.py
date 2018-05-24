@@ -14,12 +14,13 @@ from nltk.ccg import chart
 import numpy as np
 
 from clevros.chart import WeightedCCGChartParser, DefaultRuleSet
+from clevros.compression import Compressor
 from clevros.lexicon import Lexicon, Token, \
     augment_lexicon_distant, get_candidate_categories
 from clevros.logic import Ontology, Function, TypeSystem
 from clevros.model import Model
 from clevros.perceptron import update_perceptron_distant
-from clevros.compression import Compressor
+from clevros.word_learner import WordLearner
 
 import random
 random.seed(4)
@@ -40,67 +41,22 @@ EC_kwargs = {
 }
 
 
-def compress_lexicon(lex, compressor):
-  # Run EC compression on the entries of the induced lexicon. This may create
-  # new inventions, updating both the `ontology` and the provided `lex`.
-  lex, affected_entries = compressor.make_inventions(lex)
-
-  for invention_name, tokens in affected_entries.items():
-    if invention_name in lex._derived_categories_by_source:
-      continue
-
-    affected_syntaxes = set(t.categ() for t in tokens)
-    if len(affected_syntaxes) == 1:
-      # Just one syntax is involved. Create a new derived category.
-      L.debug("Creating new derived category for tokens %r", tokens)
-
-      derived_name = lex.add_derived_category(tokens, source_name=invention_name)
-      lex.propagate_derived_category(derived_name)
-
-      L.info("Created and propagated derived category %s == %s -- %r",
-             derived_name, lex._derived_categories[derived_name][0].base, tokens)
-
-  return lex
-
-
 #############
 
-def main(args, lex, ontology, examples):
-  if not args.no_compress:
-    # Run compression on the initial lexicon.
-    compressor = Compressor(ontology)
-    lex = compress_lexicon(lex, compressor)
+def main(args, lexicon, ontology, examples):
+  compressor = Compressor(ontology) if not args.no_compress else None
+  learner = WordLearner(lexicon, compressor, bootstrap=not args.no_bootstrap)
+
+  # No-op if `compressor` is `None`.
+  learner.compress_lexicon()
 
   for sentence, scene, answer in examples:
     print("\n\n")
 
     sentence = sentence.split()
-
     model = Model(scene, ontology)
 
-    try:
-      weighted_results, _ = update_perceptron_distant(lex, sentence, model, answer)
-    except ValueError:
-      # No parse succeeded -- attempt lexical induction.
-      L.warning("Parse failed for sentence '%s'", " ".join(sentence))
-
-      query_tokens = [word for word in sentence if not lex._entries.get(word, [])]
-      L.info("Novel words: %s", " ".join(query_tokens))
-      query_token_syntaxes = get_candidate_categories(lex, query_tokens, sentence)
-
-      # Augment the lexicon with all entries for novel words which yield the
-      # correct answer to the sentence under some parse. Restrict the search by
-      # the supported syntaxes for the novel words (`query_token_syntaxes`).
-      lex = augment_lexicon_distant(lex, query_tokens, query_token_syntaxes,
-                                    sentence, ontology, model, answer,
-                                    bootstrap=not args.no_bootstrap)
-
-      if not args.no_compress:
-        # Run compression on the augmented lexicon.
-        lex = compress_lexicon(lex, compressor)
-
-      # Attempt a new parameter update.
-      weighted_results, _ = update_perceptron_distant(lex, sentence, model, answer)
+    weighted_results = learner.update_with_example(sentence, model, answer)
 
     final_sem = weighted_results[0][0].label()[0].semantics()
 
