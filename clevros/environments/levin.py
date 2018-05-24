@@ -9,6 +9,7 @@ functions = [
   # Logical operation
   types.new_function("unique", (("obj", "boolean"), "obj"), fn_unique),
   types.new_function("and_", ("boolean", "boolean", "boolean"), lambda a, b: a and b),
+  types.new_function("not_", ("boolean", "boolean"), lambda a: not a),
   types.new_function("eq", ("?", "?", "boolean"), lambda a, b: a == b),
 
   # Ops on objects
@@ -77,8 +78,8 @@ lexicon = Lexicon.fromstring(r"""
   spill => S/N/PP {\d o.join(put(e,o,d),liquid(result(e)))}
 
   # "spray the wall with paint"
-  spray => S/N/PP {\d o.put(e,o,addc(d,constraint(-full(result(e)))))}
-  load => S/N/PP {\d o.put(e,o,addc(d,constraint(-full(result(e)))))}
+  spray => S/N/PP {\d o.put(e,o,addc(d,constraint(not_(full(result(e))))))}
+  load => S/N/PP {\d o.put(e,o,addc(d,constraint(not_(full(result(e))))))}
 
   # "fill the jar with cookies"
   fill => S/N/PP {\o d.put(e,o,addc(d,constraint(full(result(e)))))}

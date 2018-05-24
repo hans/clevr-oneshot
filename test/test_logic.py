@@ -133,24 +133,6 @@ def test_read_ec_sexpr_higher_order_param():
   eq_(expr, Expression.fromstring(r"\a P.P(a)"))
 
 
-def test_read_ec_sexpr_default_function():
-  """
-  Default functions should be parsed into their respective specialized
-  `Expression` types.
-  """
-  expr, bound_vars = read_ec_sexpr("(lambda (not $0))")
-  eq_(expr.term.__class__, NegatedExpression)
-
-
-def test_read_ec_sexpr_default_function2():
-  """
-  Default functions should be parsed into their respective specialized
-  `Expression` types.
-  """
-  expr, bound_vars = read_ec_sexpr("(lambda (lambda (and $0 $1)))")
-  eq_(expr.term.term.__class__, AndExpression)
-
-
 def test_valid_lambda_expr():
   """
   Regression test: valid_lambda_expr was rejecting this good sub-expression at c720b4
