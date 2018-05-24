@@ -8,8 +8,6 @@ from clevros.primitives import *
 types = TypeSystem(["obj", "num", "ax", "manner", "boolean", "action"])
 
 functions = [
-  types.new_function("cmp_pos", ("ax", "manner", "v", "obj", "num"), fn_cmp_pos),
-  types.new_function("ltzero", ("num", "boolean"), fn_ltzero),
   types.new_function("and_", ("boolean", "boolean", "boolean"), fn_and),
   types.new_function("constraint", ("boolean", "manner"), lambda fn: Constraint(fn)),
   types.new_function("e", ("v",), Event()),
@@ -20,15 +18,9 @@ functions = [
 
   types.new_function("unique", (("obj", "boolean"), "obj"), fn_unique),
 
-  types.new_function("cube", ("obj", "boolean"), fn_cube),
-  types.new_function("sphere", ("obj", "boolean"), fn_sphere),
-  types.new_function("donut", ("obj", "boolean"), fn_donut),
-  types.new_function("pyramid", ("obj", "boolean"), fn_pyramid),
-  types.new_function("hose", ("obj", "boolean"), fn_hose),
-  types.new_function("cylinder", ("obj", "boolean"), fn_cylinder),
-
   types.new_function("letter", ("obj", "boolean"), lambda x: x["shape"] == "letter"),
   types.new_function("package", ("obj", "boolean"), lambda x: x["shape"] == "package"),
+  types.new_function("sphere", ("obj", "boolean"), lambda x: x["shape"] == "sphere"),
 
   types.new_function("male", ("obj", "boolean"), lambda x: not x["female"]),
   types.new_function("female", ("obj", "boolean"), lambda x: x["female"]),
