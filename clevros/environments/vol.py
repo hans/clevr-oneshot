@@ -1,3 +1,5 @@
+from frozendict import frozendict
+
 from clevros.lexicon import lexicon
 from clevros.logic import Ontology, TypeSystem
 from clevros.primitives import *

@@ -4,22 +4,9 @@ basic CCG perceptron-style inference and update lexicon weights.
 """
 
 from argparse import ArgumentParser
-import inspect
 import logging
-import numbers
-from pprint import pprint
 
-from frozendict import frozendict
-from nltk.ccg import chart
-import numpy as np
-
-from clevros.chart import WeightedCCGChartParser, DefaultRuleSet
-from clevros.compression import Compressor
-from clevros.lexicon import Lexicon, Token, \
-    augment_lexicon_distant, get_candidate_categories
-from clevros.logic import Ontology, Function, TypeSystem
 from clevros.model import Model
-from clevros.perceptron import update_perceptron_distant
 from clevros.word_learner import WordLearner
 
 import random
@@ -44,10 +31,10 @@ EC_kwargs = {
 #############
 
 def main(args, lexicon, ontology, examples):
-  compressor = Compressor(ontology) if not args.no_compress else None
-  learner = WordLearner(lexicon, compressor, bootstrap=not args.no_bootstrap)
+  learner = WordLearner(lexicon, ontology,
+      compress=not args.no_compress, bootstrap=not args.no_bootstrap)
 
-  # No-op if `compressor` is `None`.
+  # No-op if `--no-compress`
   learner.compress_lexicon()
 
   for sentence, scene, answer in examples:

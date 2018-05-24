@@ -1,16 +1,28 @@
 import logging
 
+from clevros.compression import Compressor
+from clevros.lexicon import augment_lexicon_distant, get_candidate_categories
+from clevros.perceptron import update_perceptron_distant
+
 
 L = logging.getLogger(__name__)
 
 
 class WordLearner(object):
 
-  def __init__(self, lexicon, compressor, bootstrap=True):
+  def __init__(self, lexicon, ontology, compress=True, bootstrap=True):
+    """
+    Args:
+      lexicon:
+      ontology
+      compress: If `True`, regularly run lexicon compression.
+      bootstrap: If `True`, enable syntactic bootstrapping.
+    """
+    # TODO support more specifics about compression: how often; with what hparams
     self.lexicon = lexicon
     self.ontology = self.lexicon.ontology
-    self.compressor = compressor
 
+    self.compressor = Compressor(ontology) if compress else None
     self.bootstrap = bootstrap
 
   def compress_lexicon(self):
