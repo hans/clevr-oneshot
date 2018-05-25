@@ -23,7 +23,9 @@ functions = [
   types.new_function("orientation", ("obj", "manner"), lambda x: x["orientation"]),
   types.new_function("liquid", ("obj", "boolean"), lambda x: x["state"] == "liquid"),
   types.new_function("full", ("obj", "boolean"), lambda x: x["full"]),
-  types.new_function("contact", ("obj", "obj", "boolean"), lambda x, y: True), # TODO
+  # Two-place ops on objects
+  types.new_function("contact", ("obj", "obj", "boolean"), fn_contact),
+  types.new_function("contain", ("obj", "obj", "boolean"), fn_contain),
 
   # Ops on sets
   types.new_function("characteristic", ("set", "str", "boolean"),
@@ -33,6 +35,7 @@ functions = [
   types.new_function("e", ("v",), Event()),
   types.new_function("direction", ("v", "manner"), lambda e: e.direction),
   types.new_function("result", ("v", "obj"), lambda e: e.result),
+  types.new_function("patient", ("v", "obj"), lambda e: e.patient),
 
   # Actions
   types.new_function("put", ("v", "obj", "manner", "action"), Put),
@@ -89,18 +92,23 @@ lexicon = Lexicon.fromstring(r"""
   load => S/N/PP {\d o.put(e,o,addc(d,constraint(not_(full(result(e))))))}
 
   # "fill the jar with cookies"
-  fill => S/N/PP {\o d.put(e,o,addc(d,constraint(full(result(e)))))}
-  stuff => S/N/PP {\o d.put(e,o,addc(d,constraint(full(result(e)))))}
+  fill => S/N/PP {\o d.put(e,o,addc(contain(d,result(e)),constraint(full(result(e)))))}
+  stuff => S/N/PP {\o d.put(e,o,addc(contain(d,result(e)),constraint(full(result(e)))))}
   """, ontology, include_semantics=True)
 
 
 scene = {
-  "objects": [],
+  "objects": [
+    frozendict({"type": "jar"}),
+    frozendict({"type": "book"}),
+    frozendict({"type": "table"}),
+  ]
 }
 
+event = Event()
 
 examples = [
-  ("fill the jar", scene, True),
+  ("fill the jar", scene, Put(event, event["object"], Constraint())),
   ("put the book on the table", scene, True),
 ]
 

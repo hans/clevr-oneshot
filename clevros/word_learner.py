@@ -119,6 +119,7 @@ class WordLearner(object):
       # Find tokens for which we need to insert lexical entries.
       query_tokens, query_token_syntaxes = \
           self.prepare_lexical_induction(sentence)
+      L.info("Inducing new lexical entries for words: %s", ", ".join(query_tokens))
 
       # Augment the lexicon with all entries for novel words which yield the
       # correct answer to the sentence under some parse. Restrict the search by

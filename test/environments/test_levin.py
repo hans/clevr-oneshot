@@ -63,4 +63,3 @@ class LevinTest(unittest.TestCase):
 
       print(" ".join(sentence), len(weighted_results), final_sem)
       print("\t", model.evaluate(final_sem))
-

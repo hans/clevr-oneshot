@@ -18,6 +18,13 @@ class Event(object):
   def __getitem__(self, attr):
     return EventOp(self, getattr, attr)
 
+  def __getattr__(self, attr):
+    if attr.startswith("__"):
+      # Avoid returning EventOps when client is trying to access a dunder
+      # method!
+      raise AttributeError
+    return EventOp(self, getattr, attr)
+
   def __call__(self):
     # Dummy method which allows us to use an instance of this class as a
     # function in the ontology.
@@ -51,6 +58,13 @@ class EventOp(object):
   def __getitem__(self, attr):
     return EventOp(self, getattr, attr)
 
+  def __getattr__(self, attr):
+    if attr.startswith("__"):
+      # Avoid returning EventOps when client is trying to access a dunder
+      # method!
+      raise AttributeError
+    return EventOp(self, getattr, attr)
+
   def __add__(self, other):
     return EventOp(self, operator.add, other)
 
@@ -68,6 +82,12 @@ class EventOp(object):
 
   def __gt__(self, other):
     return EventOp(self, operator.gt, other)
+
+  def __contains__(self, el):
+    return EventOp(self, operator.contains, el)
+
+  def __call__(self, *args, **kwargs):
+    return EventOp(self, operator.methodcaller, (*args, frozendict(kwargs)))
 
   def __str__(self, verbose=False):
     if verbose:
@@ -130,6 +150,13 @@ def fn_horizontal(x): return x["orientation"] == "horizontal"
 def fn_liquid(x): return x["state"] == "liquid"
 def fn_full(x): return x["full"]
 
+# Two-place ops on objects
+def fn_contain(x, y):
+  if isinstance(x, (Event, EventOp)) or isinstance(y, (Event, EventOp)):
+    return x.contain(y)
+  return x in y
+def fn_contact(x, y): return True # TODO
+
 ## Ops on events
 
 class Action(object):
@@ -140,8 +167,16 @@ class Action(object):
     return hash(self) == hash(other)
 
 class Constraint(object):
+  # TODO semantics not right -- subclasses don't take multiple constraints. We
+  # should have a separate `ComposedConstraint` class
   def __init__(self, *constraints):
-    self.constraints = tuple(constraints)
+    constraints_flat = []
+    for constraint in constraints:
+      if isinstance(constraint, Constraint):
+        constraints_flat.extend(constraint.constraints)
+      else:
+        constraints_flat.append(constraint)
+    self.constraints = tuple(constraints_flat)
 
   def __add__(self, other):
     return Constraint(self.constraints + other.constraints)
@@ -156,6 +191,27 @@ class Constraint(object):
     return "Constraint(%s)" % (", ".join(map(str, self.constraints)))
 
   __repr__ = __str__
+
+class Contain(Constraint):
+  def __init__(self, container, obj):
+    self.container = container
+    self.obj = obj
+
+  def __hash__(self):
+    return hash((self.container, self.obj))
+
+  def __str__(self):
+    return "%s(%s in %s)" % (self.__class__.__name__, self.obj, self.container)
+
+class Contact(Constraint):
+  def __init__(self, *objects):
+    self.objects = frozenset(objects)
+
+  def __hash__(self):
+    return hash((self.objects))
+
+  def __str__(self):
+    return "%s(%s)" % (self.__class__.__name__, ",".join(map(str, self.objects)))
 
 class ComposedAction(Action):
   def __init__(self, *actions):
@@ -198,6 +254,11 @@ class Put(Action):
 
   def __hash__(self):
     return hash((self.event, self.obj, self.manner))
+
+  def __str__(self):
+    return "%s(%s,%s,%s)" % (self.__class__.__name__, self.event, self.obj, self.manner)
+
+  __repr__ = __str__
 
 
 class ActAndEntail(Action):
