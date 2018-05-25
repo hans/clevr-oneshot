@@ -79,21 +79,23 @@ lexicon = Lexicon.fromstring(r"""
 
   # "hang the picture on the wall"
   hang => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(orientation(result(e)),vertical))))}
+  # TODO: need to allow that a single wordform have multiple possible syntactic arities..
+  hangs => S/N {\o.put(e,o,constraint(eq(orientation(result(e)),vertical)))}
   lay => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(orientation(result(e)),horizontal))))}
 
   drop => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(direction(e),down))))}
   hoist => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(direction(e),up))))}
 
-  pour => S/N/PP {\d o.join(put(e,o,d),liquid(result(e)))}
-  spill => S/N/PP {\d o.join(put(e,o,d),liquid(result(e)))}
+  pour => S/N/PP {\d o.put(e,o,addc(d,constraint(liquid(result(e)))))}
+  spill => S/N/PP {\d o.put(e,o,addc(d,constraint(liquid(result(e)))))}
 
   # "spray the wall with paint"
   spray => S/N/PP {\d o.put(e,o,addc(d,constraint(not_(full(result(e))))))}
   load => S/N/PP {\d o.put(e,o,addc(d,constraint(not_(full(result(e))))))}
 
   # "fill the jar with cookies"
-  fill => S/N/PP {\o d.put(e,o,addc(contain(d,result(e)),constraint(full(result(e)))))}
-  stuff => S/N/PP {\o d.put(e,o,addc(contain(d,result(e)),constraint(full(result(e)))))}
+  fill => S/N/PP {\o d.put(e,o,addc(constraint(contain(d,result(e))),constraint(full(result(e)))))}
+  stuff => S/N/PP {\o d.put(e,o,addc(constraint(contain(d,result(e))),constraint(full(result(e)))))}
   """, ontology, include_semantics=True)
 
 
@@ -108,7 +110,11 @@ scene = {
 event = Event()
 
 examples = [
-  ("fill the jar", scene, Put(event, event["object"], Constraint())),
+  # target:
+  # \d.put(e,result(e),addc(constraint(contain(d,result(e))),constraint(full(result(e)))))
+  # ==> \d.invented_0(addc(...),d,result(e))
+  # where invented_0 = \a b c.put(e,c,addc(b,constraint(a)))
+  ("fill the jar", scene, Put(event, event.result, Constraint(event.patient.contains(event.result),event.patient.full))),
   ("put the book on the table", scene, True),
 ]
 
