@@ -52,6 +52,49 @@ class WordLearner(object):
 
     self.lexicon = new_lex
 
+  def prepare_lexical_induction(self, sentence):
+    """
+    Find the tokens in a sentence which need to be updated such that the
+    sentence will parse.
+
+    Args:
+      sentence: Sequence of tokens
+
+    Returns:
+      query_tokens: List of tokens which need to be updated
+      query_token_syntaxes: Dict mapping tokens to weighted list of candidate
+        syntaxes (as returned by `get_candidate_categoies`)
+    """
+    query_tokens = [word for word in sentence
+                    if not self.lexicon._entries.get(word, [])]
+    if len(query_tokens) > 0:
+      # Missing lexical entries -- induce entries for words which clearly
+      # require an entry inserted
+      L.info("Novel words: %s", " ".join(query_tokens))
+      query_token_syntaxes = get_candidate_categories(
+          self.lexicon, query_tokens, sentence)
+
+      return query_tokens, query_token_syntaxes
+
+    # Lexical entries are present for all words, but parse still failed.
+    # That means we are missing entries for one or more wordforms.
+    # For now: blindly try updating each word's entries.
+    #
+    # TODO: Does not handle case where multiple words need an update.
+    query_tokens, query_token_syntaxes = [], []
+    for token in sentence:
+      query_tokens = [token]
+      query_token_syntaxes = get_candidate_categories(
+          self.lexicon, query_tokens, sentence)
+
+      if query_token_syntaxes:
+        # Found candidate parses! Let's try adding entries for this token,
+        # then.
+        return query_tokens, query_token_syntaxes
+
+    raise ValueError(
+        "unable to find new entries which will make the sentence parse: %s" % sentence)
+
   def update_with_example(self, sentence, model, answer):
     """
     Observe a new `sentence -> answer` pair in the context of some `model` and
@@ -73,11 +116,9 @@ class WordLearner(object):
       # No parse succeeded -- attempt lexical induction.
       L.warning("Parse failed for sentence '%s'", " ".join(sentence))
 
-      query_tokens = [word for word in sentence
-                      if not self.lexicon._entries.get(word, [])]
-      L.info("Novel words: %s", " ".join(query_tokens))
-      query_token_syntaxes = get_candidate_categories(
-          self.lexicon, query_tokens, sentence)
+      # Find tokens for which we need to insert lexical entries.
+      query_tokens, query_token_syntaxes = \
+          self.prepare_lexical_induction(sentence)
 
       # Augment the lexicon with all entries for novel words which yield the
       # correct answer to the sentence under some parse. Restrict the search by
