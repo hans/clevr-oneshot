@@ -9,6 +9,7 @@ from nose.plugins.attrib import attr
 
 from clevros.compression import Compressor
 from clevros.environments import levin
+from clevros.model import Model
 from clevros.word_learner import WordLearner
 
 EC_kwargs = {
@@ -30,8 +31,36 @@ class LevinTest(unittest.TestCase):
                                bootstrap=True)
 
   def test_functional(self):
-    # We should get six derived categories -- one for each verb class.
+    expected_derived = {
+      # Levin verb classes
+      "9.1": {"set", "put"},
+      "9.2": {"lay", "hang"},
+      "9.4": {"drop", "hoist"},
+      "9.5": {"pour", "spill"},
+      "9.7": {"spray", "load"},
+      "9.8": {"fill", "stuff"},
+
+      # PPs
+      "contact": {"on", "onto"},
+    }
+
+    #######
     self.learner.compress_lexicon()
-    self.assertEquals(len(self.learner.lexicon._derived_categories), 6)
+    #######
+
+    self.assertEquals(set(frozenset(token._token for token in tokens)
+                          for _, tokens in self.learner.lexicon._derived_categories.values()),
+                      set(frozenset(xs) for xs in expected_derived.values()))
 
     # OK, now try to bootstrap with an example.
+    for sentence, scene, answer in levin.examples:
+      sentence = sentence.split()
+      model = Model(scene, self.lexicon.ontology)
+
+      weighted_results = self.learner.update_with_example(sentence, model, answer)
+
+      final_sem = weighted_results[0][0].label()[0].semantics()
+
+      print(" ".join(sentence), len(weighted_results), final_sem)
+      print("\t", model.evaluate(final_sem))
+

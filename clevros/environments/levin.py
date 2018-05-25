@@ -18,9 +18,12 @@ functions = [
   # types.new_function("cookie", ("obj", "boolean"), lambda x: x["type"] == "cookie"),
   types.new_function("water", ("obj", "boolean"), lambda x: x["substance"] == "water"),
   types.new_function("paint", ("obj", "boolean"), lambda x: x["substance"] == "paint"),
+  types.new_function("wall", ("obj", "boolean"), lambda x: x["type"] == "wall"),
+  types.new_function("jar", ("obj", "boolean"), lambda x: x["type"] == "jar"),
   types.new_function("orientation", ("obj", "manner"), lambda x: x["orientation"]),
   types.new_function("liquid", ("obj", "boolean"), lambda x: x["state"] == "liquid"),
   types.new_function("full", ("obj", "boolean"), lambda x: x["full"]),
+  types.new_function("contact", ("obj", "obj", "boolean"), lambda x, y: True), # TODO
 
   # Ops on sets
   types.new_function("characteristic", ("set", "str", "boolean"),
@@ -60,9 +63,13 @@ lexicon = Lexicon.fromstring(r"""
   book => N {\x.book(x)}
   water => N {\x.water(x)}
   paint => N {\x.paint(x)}
-
+  wall => N {\x.wall(x)}
+  jar => N {\x.jar(x)}
   apples => N {\x.characteristic(x,apple)}
   cookies => N {\x.characteristic(x,cookie)}
+
+  on => PP/N {\a.constraint(contact(a,result(e)))}
+  onto => PP/N {\a.constraint(contact(a,result(e)))}
 
   put => S/N/PP {\d o.put(e,o,d)}
   set => S/N/PP {\d o.put(e,o,d)}
@@ -87,7 +94,13 @@ lexicon = Lexicon.fromstring(r"""
   """, ontology, include_semantics=True)
 
 
-examples = [
+scene = {
+  "objects": [],
+}
 
+
+examples = [
+  ("fill the jar", scene, True),
+  ("put the book on the table", scene, True),
 ]
 

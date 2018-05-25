@@ -201,25 +201,27 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     # sure there is now a corresponding candidate entry of type `S/D0/PP`.
 
     replacements = {}
-    for word, entries in self._entries.items():
-      for entry in entries:
-        if not isinstance(entry.categ(), FunctionalCategory):
-          # TODO will break with DerivedCategory cases
-          continue
+    # HACK: don't propagate S
+    if categ.base.categ() != "S":
+      for word, entries in self._entries.items():
+        for entry in entries:
+          if not isinstance(entry.categ(), FunctionalCategory):
+            # TODO will break with DerivedCategory cases
+            continue
 
-        try:
-          categ_replacements = replacements[entry.categ()]
-        except KeyError:
-          replacements[entry.categ()] = category_search_replace(
-              entry.categ(), categ.base, categ)
+          try:
+            categ_replacements = replacements[entry.categ()]
+          except KeyError:
+            replacements[entry.categ()] = category_search_replace(
+                entry.categ(), categ.base, categ)
 
-          categ_replacements = replacements[entry.categ()]
+            categ_replacements = replacements[entry.categ()]
 
-        for replacement_category in categ_replacements:
-          # We already know a replacement is necessary -- go ahead.
-          new_entry = entry.clone()
-          new_entry._categ = replacement_category
-          new_entries[word].append(new_entry)
+          for replacement_category in categ_replacements:
+            # We already know a replacement is necessary -- go ahead.
+            new_entry = entry.clone()
+            new_entry._categ = replacement_category
+            new_entries[word].append(new_entry)
 
     for word, w_entries in new_entries.items():
       self._entries[word].extend(w_entries)
