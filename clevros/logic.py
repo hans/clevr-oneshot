@@ -305,6 +305,9 @@ class Ontology(object):
     for function in functions:
       # We can't statically verify the type of the definition, but we can at
       # least verify the arity.
+      L.debug("verifying arity: %s stated %i actual %i (%s)",
+              function.name, function.arity, self.get_expr_arity(function.defn),
+              function.defn)
       assert function.arity == self.get_expr_arity(function.defn), function.name
 
   def _prepare(self):

@@ -128,10 +128,12 @@ def grammar_to_ontology(grammar, ontology):
           print("Variable did not appear in invention: ", bound_var, inv_defn)
           del bound_signatures[bound_var.name]
 
-    ontology.typecheck(inv_defn, bound_signatures)
+    ontology.typecheck(inv_defn, extra_types)
 
     invention_types[inv_name] = inv_defn.type
 
+    L.info("Invention %s: %s", invention.name, inv_defn)
+    L.debug("\tType of %s: %s", invention.name, inv_defn.type)
     ret_invs.append(ontology.types.new_function(
       invention.name, inv_defn.type, inv_defn, weight=invention.weight))
 
