@@ -103,6 +103,32 @@ def test_as_ec_sexpr_function():
   eq_(ont.as_ec_sexpr(expr), "(lambda (lambda (and_ $1 $0)))")
 
 
+def test_as_ec_sexpr_event():
+  types = TypeSystem(["obj"])
+  functions = [
+    types.new_function("e", ("v",), lambda: ()),
+    types.new_function("result", ("v", "obj"), lambda e: e),
+  ]
+  constants = []
+
+  ontology = Ontology(types, functions, constants)
+
+  cases = [
+    (r"result(e)", "(result e)"),
+    (r"\x.foo(x,e)", "(lambda (foo $0 e))"),
+    (r"\x.foo(e,x)", "(lambda (foo e $0))"),
+    (r"\x.foo(x,e,x)", "(lambda (foo $0 e $0))"),
+    (r"\a.constraint(ltzero(cmp_pos(ax_z,pos,e,a)))", "(lambda (constraint (ltzero (cmp_pos ax_z pos e $0))))"),
+  ]
+
+  def do_case(expr, expected):
+    expr = Expression.fromstring(expr)
+    eq_(ontology.as_ec_sexpr(expr), expected)
+
+  for expr, expected in cases:
+    yield do_case, expr, expected
+
+
 def test_read_ec_sexpr():
   expr, bound_vars = read_ec_sexpr("(lambda (lambda (lambda (foo (bar $0 $1) (baz $1 $2) blah))))")
   eq_(expr, Expression.fromstring(r"\a b c.foo(bar(c,b),baz(b,a),blah)"))

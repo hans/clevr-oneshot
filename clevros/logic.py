@@ -638,10 +638,13 @@ class Ontology(object):
         # to get anything done.
         arity = self.functions_dict[expr.variable.name].arity
 
-        return ("(lambda " * arity) + \
-            ("(%s %s)" % (expr.variable.name,
-                          " ".join("$%i" % (idx - 1) for idx in range(arity, 0, -1)))) + \
-            (")" * arity)
+        if arity > 0:
+          return ("(lambda " * arity) + \
+              ("(%s %s)" % (expr.variable.name,
+                            " ".join("$%i" % (idx - 1) for idx in range(arity, 0, -1)))) + \
+              (")" * arity)
+        else:
+          return expr.variable.name
       elif isinstance(expr, l.IndividualVariableExpression):
         bruijn_index = len(var_stack) - var_stack.index(expr.variable.name) - 1
         return "$%i" % bruijn_index
