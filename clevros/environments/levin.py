@@ -78,7 +78,7 @@ lexicon = Lexicon.fromstring(r"""
   with => PP/N {\x.x}
 
   put => S/N/PP {\d o.put(e,o,d)}
-  put => S/N/PP {\d o.put(e,d,o)}
+  put => S/N/PP {\d o.put(e,o,vertical)}
   set => S/N/PP {\d o.put(e,o,d)}
 
   # # "hang the picture on the wall"
@@ -99,6 +99,7 @@ lexicon = Lexicon.fromstring(r"""
 
   # "fill the jar with cookies"
   fill => S/N/PP {\o d.put(e,o,addc(constraint(contain(d,result(e))),constraint(full(patient(e)))))}
+  fill => S/N/PP {\d o.put(e,o,addc(constraint(contain(d,result(e))),constraint(full(patient(e)))))}
   stuff => S/N/PP {\o d.put(e,o,addc(constraint(contain(d,result(e))),constraint(full(patient(e)))))}
   """, ontology, include_semantics=True)
 
