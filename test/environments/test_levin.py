@@ -26,8 +26,8 @@ EC_kwargs = {
 class LevinTest(unittest.TestCase):
 
   def setUp(self):
-    self.lexicon = levin.lexicon.clone()
-    self.learner = WordLearner(self.lexicon, Compressor(self.lexicon.ontology, **EC_kwargs),
+    lexicon = levin.lexicon.clone()
+    self.learner = WordLearner(lexicon, Compressor(lexicon.ontology, **EC_kwargs),
                                bootstrap=True)
 
   def test_functional(self):
@@ -55,7 +55,7 @@ class LevinTest(unittest.TestCase):
     # OK, now try to bootstrap with an example.
     for sentence, scene, answer in levin.examples:
       sentence = sentence.split()
-      model = Model(scene, self.lexicon.ontology)
+      model = Model(scene, self.learner.ontology)
 
       weighted_results = self.learner.update_with_example(sentence, model, answer)
 
