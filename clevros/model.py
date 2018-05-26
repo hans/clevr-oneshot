@@ -40,16 +40,37 @@ class Model(object):
 
         if isinstance(funval, LambdaExpression):
           # Function is defined in terms of other functions. Do beta reduction
-          # to get a proper program defined in terms of low-level functions.
+          # to get a proper program defined in terms of low-level ontology
+          # members (i.e. functions whose definitions are in Python code).
           program = funval(*arguments).simplify()
 
           # The program can be arbitrarily complex, so we can't evaluate it
           # here as normal -- need to recurse.
           return self.satisfy(program, assignments)
+        elif isinstance(funval, ApplicationExpression):
+          # Function is a partially applied expression.
+          # Partially apply with existing arguments first, then with arguments
+          # at this level.
+          funval = self.satisfy(funval, assignments)
 
         # OK, if we're still here we just have a basic low-level function.
         # Evaluate the arguments and apply.
         argvals = tuple(self.satisfy(arg, assignments) for arg in arguments)
+
+        # Check if the function is being partially applied.
+        if isinstance(function, ConstantExpression) \
+            and function.variable.name in self.ontology.functions_dict:
+          fn_arity = self.ontology.functions_dict[function.variable.name].arity
+          if fn_arity > len(argvals):
+            # Create a partially applied thunk and return.
+            n_args_missing = fn_arity - len(argvals)
+            def thunk(*rest_args):
+              # TODO doesn't support repeated partial application
+              assert len(rest_args) == n_args_missing, \
+                  "Partially applied function given too many / too few args."
+              return funval(*(argvals + tuple(rest_args)))
+
+            return thunk
 
         if callable(funval):
           return funval(*argvals)

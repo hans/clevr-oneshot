@@ -132,3 +132,21 @@ def test_model_partial_application():
   model = Model(scene, ontology)
 
   eq_(model.evaluate(Expression.fromstring(r"(lotsofargs(obj1))(obj2)")), "obj2")
+
+
+def test_model_stored_partial_application():
+  types = TypeSystem(["obj"])
+  functions = [
+    types.new_function("lotsofargs", ("obj", "obj", "obj"), lambda a, b: b),
+  ]
+  constants = [
+      types.new_constant("obj1", "obj"),
+      types.new_constant("obj2", "obj"),
+  ]
+  ontology = Ontology(types, functions, constants)
+  ontology.add_functions([types.new_function("partial", ("obj", "obj"), Expression.fromstring(r"lotsofargs(obj2)"))])
+
+  scene = {"objects": []}
+  model = Model(scene, ontology)
+
+  eq_(model.evaluate(Expression.fromstring(r"partial(obj1)")), "obj1")
