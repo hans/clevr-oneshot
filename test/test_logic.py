@@ -55,6 +55,22 @@ def _make_simple_mock_ontology():
   return ontology
 
 
+def test_get_expr_arity():
+  ont = _make_simple_mock_ontology()
+
+  cases = [
+      (r"\x.x", 1),
+      (r"x", 0),
+  ]
+
+  def do_case(expr, expected):
+    expr = Expression.fromstring(expr)
+    eq_(ont.get_expr_arity(expr), expected)
+
+  for expr, expected in cases:
+    yield do_case, expr, expected
+
+
 def test_extract_lambda():
   """
   `extract_lambda` should support all possible orderings of the variables it

@@ -560,6 +560,8 @@ class Ontology(object):
     elif isinstance(expr, (l.FunctionVariableExpression, l.ConstantExpression)) \
         and expr.variable.name in self.functions_dict:
       return self.functions_dict[expr.variable.name].arity
+    elif isinstance(expr, l.IndividualVariableExpression):
+      return 0
     elif callable(expr):
       return len(inspect.signature(expr).parameters)
     else:
