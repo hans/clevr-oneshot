@@ -68,6 +68,7 @@ lexicon = Lexicon.fromstring(r"""
   water => N {\x.water(x)}
   paint => N {\x.paint(x)}
   wall => N {\x.wall(x)}
+  table => N {\x.table(x)}
   jar => N {\x.jar(x)}
   apples => N {\x.characteristic(x,apple)}
   cookies => N {\x.characteristic(x,cookie)}
@@ -76,27 +77,28 @@ lexicon = Lexicon.fromstring(r"""
   onto => PP/N {\a.constraint(contact(a,result(e)))}
 
   put => S/N/PP {\d o.put(e,o,d)}
+  put => S/N/PP {\d o.put(e,d,o)}
   set => S/N/PP {\d o.put(e,o,d)}
 
-  # "hang the picture on the wall"
-  hang => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(orientation(result(e)),vertical))))}
-  # TODO: need to allow that a single wordform have multiple possible syntactic arities..
-  hangs => S/N {\o.put(e,o,constraint(eq(orientation(result(e)),vertical)))}
-  lay => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(orientation(result(e)),horizontal))))}
+  # # "hang the picture on the wall"
+  # hang => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(orientation(result(e)),vertical))))}
+  # # TODO: need to allow that a single wordform have multiple possible syntactic arities..
+  # hangs => S/N {\o.put(e,o,constraint(eq(orientation(result(e)),vertical)))}
+  # lay => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(orientation(result(e)),horizontal))))}
 
-  drop => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(direction(e),down))))}
-  hoist => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(direction(e),up))))}
+  # drop => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(direction(e),down))))}
+  # hoist => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(direction(e),up))))}
 
-  pour => S/N/PP {\d o.put(e,o,addc(d,constraint(liquid(result(e)))))}
-  spill => S/N/PP {\d o.put(e,o,addc(d,constraint(liquid(result(e)))))}
+  # pour => S/N/PP {\d o.put(e,o,addc(d,constraint(liquid(result(e)))))}
+  # spill => S/N/PP {\d o.put(e,o,addc(d,constraint(liquid(result(e)))))}
 
-  # "spray the wall with paint"
-  spray => S/N/PP {\d o.put(e,o,addc(d,constraint(not_(full(result(e))))))}
-  load => S/N/PP {\d o.put(e,o,addc(d,constraint(not_(full(result(e))))))}
+  # # "spray the wall with paint"
+  # spray => S/N/PP {\d o.put(e,o,addc(d,constraint(not_(full(result(e))))))}
+  # load => S/N/PP {\d o.put(e,o,addc(d,constraint(not_(full(result(e))))))}
 
-  # "fill the jar with cookies"
-  fill => S/N/PP {\o d.put(e,o,addc(constraint(contain(d,result(e))),constraint(full(result(e)))))}
-  stuff => S/N/PP {\o d.put(e,o,addc(constraint(contain(d,result(e))),constraint(full(result(e)))))}
+  # # "fill the jar with cookies"
+  # fill => S/N/PP {\o d.put(e,o,addc(constraint(contain(d,result(e))),constraint(full(result(e)))))}
+  # stuff => S/N/PP {\o d.put(e,o,addc(constraint(contain(d,result(e))),constraint(full(result(e)))))}
   """, ontology, include_semantics=True)
 
 
@@ -117,6 +119,6 @@ examples = [
   # # where invented_0 = \a b c.put(e,c,addc(b,constraint(a)))
   # ("fill the jar", scene, Put(event, event.result, Constraint(event.patient.contains(event.result),event.patient.full))),
 
-  ("put the book on the table", scene, True),
+  ("put the book on the table", scene, Put(event, scene["objects"][1], Constraint(event.result.contact(scene["objects"][2])))),
 ]
 

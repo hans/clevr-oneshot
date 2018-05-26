@@ -155,7 +155,13 @@ def fn_contain(x, y):
   if isinstance(x, (Event, EventOp)) or isinstance(y, (Event, EventOp)):
     return x.contain(y)
   return x in y
-def fn_contact(x, y): return True # TODO
+def fn_contact(x, y):
+  if isinstance(x, (Event, EventOp)):
+    return x.contact(y)
+  elif isinstance(y, (Event, EventOp)):
+    return y.contact(x)
+  # TODO implement the actual op rather than the lazy comp representation :)
+  return True
 
 ## Ops on events
 
