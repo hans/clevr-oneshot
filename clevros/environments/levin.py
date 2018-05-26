@@ -120,5 +120,6 @@ examples = [
   # ("fill the jar", scene, Put(event, event.result, Constraint(event.patient.contains(event.result),event.patient.full))),
 
   ("put the book on the table", scene, Put(event, scene["objects"][1], Constraint(event.result.contact(scene["objects"][2])))),
+  ("place the book on the table", scene, Put(event, scene["objects"][1], Constraint(event.result.contact(scene["objects"][2])))),
 ]
 

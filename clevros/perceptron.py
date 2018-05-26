@@ -79,7 +79,7 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
       raise ValueError("No parses derived have the correct answer.")
     elif not incorrect_results:
       L.warning("No incorrect parses. Skipping update.")
-      return
+      return weighted_results, 0.0
 
   # TODO margin?
 
