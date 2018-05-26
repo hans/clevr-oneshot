@@ -50,8 +50,8 @@ def test_cyclic_derived_categories():
   lexicon2 = Lexicon.fromstring(r"""
   :- S, N
 
-  the => S/N {\x.unique(id(id(obj1)),x)}
-  that => S/N {\x.unique(id(id(obj1)),x)}
+  the => S/N {\x.unique(id(id((id(id(obj1))))),x)}
+  that => S/N {\x.unique(id(id((id(id(obj1))))),x)}
 
   book => N {\x.and_(book(x),book(x))}
   books => N {\x.and_(book(x),book(x))}
