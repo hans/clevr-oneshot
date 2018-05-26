@@ -111,6 +111,13 @@ class Collection(object):
   def __init__(self, characteristic):
     self.characteristic = characteristic
 
+  def __eq__(self, other):
+    return hash(self) == hash(other)
+
+  def __hash__(self):
+    # TODO not sure about the semantics!
+    return hash(self.characteristic)
+
 
 def fn_unique(xs):
   true_xs = [x for x, matches in xs.items() if matches]
@@ -178,7 +185,9 @@ class Constraint(object):
   def __init__(self, *constraints):
     constraints_flat = []
     for constraint in constraints:
-      if isinstance(constraint, Constraint):
+      if constraint.__class__ == Constraint:
+        # This is a composite constraint instance -- merge its containing
+        # constraints.
         constraints_flat.extend(constraint.constraints)
       else:
         constraints_flat.append(constraint)

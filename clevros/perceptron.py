@@ -65,6 +65,7 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
 
   correct_results, incorrect_results = [], []
 
+  L.debug("Desired answer: %s", answer)
   for result, score, _ in weighted_results:
     root_token, _ = result.label()
     try:

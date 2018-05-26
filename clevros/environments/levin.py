@@ -26,7 +26,7 @@ functions = [
   types.new_function("full", ("obj", "boolean"), lambda x: x["full"]),
   # Two-place ops on objects
   types.new_function("contact", ("obj", "obj", "boolean"), fn_contact),
-  types.new_function("contain", ("obj", "obj", "boolean"), fn_contain),
+  types.new_function("contain", ("obj", "obj", "boolean"), Contain),
 
   # Ops on sets
   types.new_function("characteristic", ("set", "str", "boolean"),
@@ -75,6 +75,7 @@ lexicon = Lexicon.fromstring(r"""
 
   on => PP/N {\a.constraint(contact(a,result(e)))}
   onto => PP/N {\a.constraint(contact(a,result(e)))}
+  with => PP/N {\x.x}
 
   put => S/N/PP {\d o.put(e,o,d)}
   put => S/N/PP {\d o.put(e,d,o)}
@@ -96,9 +97,9 @@ lexicon = Lexicon.fromstring(r"""
   # spray => S/N/PP {\d o.put(e,o,addc(d,constraint(not_(full(result(e))))))}
   # load => S/N/PP {\d o.put(e,o,addc(d,constraint(not_(full(result(e))))))}
 
-  # # "fill the jar with cookies"
-  # fill => S/N/PP {\o d.put(e,o,addc(constraint(contain(d,result(e))),constraint(full(result(e)))))}
-  # stuff => S/N/PP {\o d.put(e,o,addc(constraint(contain(d,result(e))),constraint(full(result(e)))))}
+  # "fill the jar with cookies"
+  fill => S/N/PP {\o d.put(e,o,addc(constraint(contain(d,result(e))),constraint(full(patient(e)))))}
+  stuff => S/N/PP {\o d.put(e,o,addc(constraint(contain(d,result(e))),constraint(full(patient(e)))))}
   """, ontology, include_semantics=True)
 
 
@@ -107,8 +108,10 @@ scene = {
     frozendict({"type": "jar"}),
     frozendict({"type": "book"}),
     frozendict({"type": "table"}),
+    Collection("cookie"),
   ]
 }
+objs = scene["objects"]
 
 event = Event()
 
@@ -119,7 +122,9 @@ examples = [
   # # where invented_0 = \a b c.put(e,c,addc(b,constraint(a)))
   # ("fill the jar", scene, Put(event, event.result, Constraint(event.patient.contains(event.result),event.patient.full))),
 
-  ("put the book on the table", scene, Put(event, scene["objects"][1], Constraint(event.result.contact(scene["objects"][2])))),
-  ("place the book on the table", scene, Put(event, scene["objects"][1], Constraint(event.result.contact(scene["objects"][2])))),
+  # ("put the book on the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2])))),
+  # ("place the book on the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2])))),
+
+  ("fill the jar with the cookies", scene, Put(event, objs[3], Constraint(Contain(objs[0], event.result), event.patient.full))),
 ]
 

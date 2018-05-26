@@ -130,9 +130,10 @@ class WordLearner(object):
     try:
       weighted_results, _ = update_perceptron_distant(self.lexicon, sentence,
                                                       model, answer)
-    except ValueError:
+    except ValueError as e:
       # No parse succeeded -- attempt lexical induction.
       L.warning("Parse failed for sentence '%s'", " ".join(sentence))
+      L.warning(e)
 
       # Find tokens for which we need to insert lexical entries.
       query_tokens, query_token_syntaxes = \

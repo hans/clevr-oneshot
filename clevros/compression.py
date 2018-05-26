@@ -152,6 +152,8 @@ def grammar_to_ontology(grammar, ontology):
 def extract_frontiers_from_lexicon(lex, ontology, g, invented_name_dict=None, arity_overrides=None):
   frontiers = []
 
+  L.debug("extract_frontiers with arity_overrides: %r", arity_overrides)
+
   for key, entries in lex._entries.items():
     # TODO assumes that all lexical entries for a word have the same
     # syntactic arity.
@@ -172,15 +174,14 @@ def extract_frontiers_from_lexicon(lex, ontology, g, invented_name_dict=None, ar
       p = Program.parse(x)
       return p
 
-    # DEBUG
+    frontier_entry_list = []
     for entry in entries:
       L.debug("%.3f %60s %20s %60s" % (entry.weight(), entry, request, program(entry.semantics())))
-
-    #logLikelihood is 0.0 because we assume that it has parsed correctly already - may want to modify
-    frontier_entry_list = [FrontierEntry(program(entry.semantics()),
-                                         logPrior=g.logLikelihood(request, program(entry.semantics())),
-                                         logLikelihood=0.0)
-                           for entry in entries]
+      frontier_entry_list.append(
+          FrontierEntry(program(entry.semantics()),
+                        logPrior=g.logLikelihood(request, program(entry.semantics())),
+                        logLikelihood=0.0))
+      #logLikelihood is 0.0 because we assume that it has parsed correctly already - may want to modify
 
     frontier = Frontier(frontier_entry_list, task)
     frontiers.append(frontier)
