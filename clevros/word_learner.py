@@ -64,7 +64,8 @@ class WordLearner(object):
         reverse=True)
     for derived_cat, base in to_propagate:
       new_lex.propagate_derived_category(derived_cat)
-      L.info("Propagated derived category %s <= %s", derived_cat, base)
+      cat_obj, _ = new_lex._derived_categories[derived_cat]
+      L.info("Propagated derived category %s (source %s)", cat_obj, cat_obj.source_name)
 
     self.lexicon = new_lex
 

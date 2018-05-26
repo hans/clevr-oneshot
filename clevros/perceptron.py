@@ -83,6 +83,10 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
       return weighted_results, 0.0
 
   # TODO margin?
+  # DEV -- just take top correct + incorrect. This is standard structured
+  # perceptron
+  correct_results = correct_results[:1]
+  incorrect_results = incorrect_results[:1]
 
   # Update to separate max-scoring parse from max-scoring correct parse if
   # necessary.
@@ -90,11 +94,15 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
   negative_mass = 1 / len(incorrect_results)
 
   token_deltas = Counter()
+  observed_leaf_sequences = set()
   for results, delta in zip([correct_results, incorrect_results],
                              [positive_mass, -negative_mass]):
     for result in results:
-      for _, leaf_token in result.pos():
-        token_deltas[leaf_token] += delta
+      leaf_seq = tuple(leaf_token for _, leaf_token in result.pos())
+      if leaf_seq not in observed_leaf_sequences:
+        observed_leaf_sequences.add(leaf_seq)
+        for leaf_token in leaf_seq:
+          token_deltas[leaf_token] += delta
 
   for token, delta in token_deltas.items():
     delta *= learning_rate

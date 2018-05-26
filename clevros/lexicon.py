@@ -128,6 +128,29 @@ class Lexicon(ccg_lexicon.CCGLexicon):
                 for token_list in self._entries.values()
                 for token in token_list])
 
+  def total_category_masses(self, exclude_tokens=frozenset()):
+    """
+    Return the total weight mass assigned to each syntactic category.
+    """
+    ret = Counter()
+    for token, entries in self._entries.items():
+      if token in exclude_tokens:
+        continue
+      for entry in entries:
+        ret[entry.categ()] += entry.weight()
+    return ret
+
+  def observed_category_distribution(self, exclude_tokens=frozenset()):
+    """
+    Return a distribution over categories calculated using the lexicon weights.
+    """
+    ret = self.total_category_masses(exclude_tokens=exclude_tokens)
+    Z = sum(ret.values())
+    if Z > 0:
+      ret = {category: weight / Z for category, weight in ret.items()}
+
+    return ret
+
   @property
   def start_categories(self):
     """
@@ -416,49 +439,54 @@ def get_candidate_categories(lex, tokens, sentence, smooth=True):
   for token in tokens:
     lex._entries[token] = []
 
-  candidate_categories = lex.observed_categories
+  category_prior = lex.observed_category_distribution(exclude_tokens=set(tokens))
+  L.debug(category_prior)
 
-  def evaluate_cat_assignment(cat_assignment):
+  def score_cat_assignment(cat_assignment):
+    """
+    Assign a log-probability to a joint assignment of categories to tokens.
+    """
+
     for token, category in zip(tokens, cat_assignment):
       lex._entries[token] = [Token(token, category)]
 
     # Attempt a parse.
     results = chart.WeightedCCGChartParser(lex, chart.DefaultRuleSet) \
-        .parse(sentence)
+        .parse(sentence, return_aux=True)
     if results:
       # Prior weight for category comes from lexicon.
       #
       # Might also downweight categories which require type-lifting parses by
       # default?
-      score = 0.0
+      score = 0
       for token, category in zip(tokens, cat_assignment):
-        category_score = sum(entry.weight() for entries in lex._entries.values()
-                             for entry in entries if entry.categ() == category)
-        score += category_score
+        # score += np.log(category_prior[category])
+        pass
 
-      # Likelihood weight comes from parse score?
-      # return sum(weight for _, weight, _ in results)
+      # Likelihood weight comes from parse score
+      # TODO: figure out how to do this in a principled way
+      score += max(weight for _, weight, _ in results)
 
       return score
 
-    return 0.0
+    return -np.inf
 
   # NB does not cover the case where a single token needs multiple syntactic
   # interpretations for the sentence to parse
   cat_assignment_weights = {
-    cat_assignment: evaluate_cat_assignment(cat_assignment)
-    for cat_assignment in itertools.product(candidate_categories, repeat=len(tokens))
+    cat_assignment: score_cat_assignment(cat_assignment)
+    for cat_assignment in itertools.product(category_prior.keys(), repeat=len(tokens))
   }
 
   token_cat_weights = defaultdict(Counter)
   if smooth:
     for token in tokens:
-      for cat in candidate_categories:
-        token_cat_weights[token][cat] += 1
+      for cat in category_prior.keys():
+        token_cat_weights[token][cat] += 1e-4 # TODO do this in a principled way
 
-  for cat_assignment, weight in cat_assignment_weights.items():
+  for cat_assignment, logp in cat_assignment_weights.items():
     for token, token_cat_assignment in zip(tokens, cat_assignment):
-      token_cat_weights[token][token_cat_assignment] += weight
+      token_cat_weights[token][token_cat_assignment] += np.exp(logp)
 
   # Normalize.
   sorted_token_cat_weights = {}

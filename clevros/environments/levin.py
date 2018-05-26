@@ -124,8 +124,9 @@ examples = [
   # ("fill the jar", scene, Put(event, event.result, Constraint(event.patient.contains(event.result),event.patient.full))),
 
   ("put the book on the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2])))),
-  ("place the book on the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2])))),
-
   ("fill the jar with the cookies", scene, Put(event, objs[3], Constraint(Contain(objs[0], event.result), event.patient.full))),
+
+  # BOOTSTRAP
+  ("place the book on the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2])))),
 ]
 
