@@ -178,6 +178,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
 
   def propagate_derived_category(self, name):
     categ, involved_entries = self._derived_categories[name]
+    originating_category = next(iter(involved_entries)).categ()
     new_entries = defaultdict(list)
 
     # Replace all lexical entries directly involved with the derived category.
@@ -206,7 +207,18 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       for word, entries in self._entries.items():
         for entry in entries:
           if not isinstance(entry.categ(), FunctionalCategory):
-            # TODO will break with DerivedCategory cases
+            # This step only applies to functional categories.
+            continue
+          elif entry.categ() == originating_category:
+            # We've found an entry which has a category with the same category
+            # as that of the tokens involved in this derived category's
+            # creation. Don't propagate -- this is exactly what allows us to
+            # separate the involved tokens from other members of the same
+            # category.
+            #
+            # e.g. if we've just derived a category from some PP/NP entries,
+            # don't propagate the PP yield onto other PP/NP entries which were
+            # not involved in the derived category creation.
             continue
 
           try:

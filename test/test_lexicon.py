@@ -104,6 +104,38 @@ def test_propagate_derived_category():
       set(["(NP/NP)", "(D0{NP}/D0{NP})", "(NP/D0{NP})", "(D0{NP}/NP)"]))
 
 
+def test_propagate_derived_category_distinctively():
+  """
+  Derived categories with functional originating categories should not be
+  propagated onto other entries with the same functional category type!
+  """
+  lex = Lexicon.fromstring(r"""
+  :- S, PP, NP
+
+  the => S/NP {\x.unique(x)}
+
+  derp => PP/NP {\a.derp(a)}
+  dorp => PP/NP {\a.dorp(a)}
+  darp => PP/NP {\a.darp(a)}
+  durp => PP/NP {\a.durp(a)}
+  """, include_semantics=True)
+
+  # Induce a derived category involving `foo` and `bar`.
+  involved_tokens = [lex._entries["derp"][0], lex._entries["dorp"][0]]
+  derived_categ = lex.add_derived_category(involved_tokens)
+  lex.propagate_derived_category(derived_categ)
+
+  # Sanity checks
+  eq_(len(lex._entries["derp"]), 1)
+  eq_(len(lex._entries["dorp"]), 1)
+
+  # Critical checks: these tokens not participating in the derived category
+  # should not receive hard-propagation, since their category is the same as
+  # the originating category of the derived category.
+  eq_(len(lex._entries["darp"]), 1)
+  eq_(len(lex._entries["durp"]), 1)
+
+
 def test_get_lf_unigrams():
   lex = Lexicon.fromstring(r"""
     :- NN
