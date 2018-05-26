@@ -66,8 +66,6 @@ class WordLearner(object):
       new_lex.propagate_derived_category(derived_cat)
       L.info("Propagated derived category %s <= %s", derived_cat, base)
 
-    print(new_lex)
-
     self.lexicon = new_lex
 
   def prepare_lexical_induction(self, sentence):
