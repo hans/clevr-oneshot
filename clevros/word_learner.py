@@ -1,7 +1,8 @@
 import logging
 
 from clevros.compression import Compressor
-from clevros.lexicon import augment_lexicon_distant, get_candidate_categories
+from clevros.lexicon import augment_lexicon_distant, get_candidate_categories, \
+    get_semantic_arity
 from clevros.perceptron import update_perceptron_distant
 
 
@@ -34,6 +35,8 @@ class WordLearner(object):
     # new inventions, updating both the `ontology` and the provided `lex`.
     new_lex, affected_entries = self.compressor.make_inventions(self.lexicon)
 
+    # Create derived categories following new inventions.
+    to_propagate = []
     for invention_name, tokens in affected_entries.items():
       if invention_name in new_lex._derived_categories_by_source:
         # TODO merge possibly new tokens with existing invention token groups
@@ -45,10 +48,25 @@ class WordLearner(object):
         L.debug("Creating new derived category for tokens %r", tokens)
 
         derived_name = new_lex.add_derived_category(tokens, source_name=invention_name)
-        new_lex.propagate_derived_category(derived_name)
+        to_propagate.append((derived_name, next(iter(affected_syntaxes))))
 
-        L.info("Created and propagated derived category %s == %s -- %r",
-              derived_name, new_lex._derived_categories[derived_name][0].base, tokens)
+
+    # Propagate derived categories, beginning with the largest functional
+    # categories. The ordering allows us to support hard-propagating both e.g.
+    # a new root category and a new argument category at the same time.
+    #
+    # (We may have derived new categories for entries with types `PP/NP` and
+    # `S/NP/PP` -- in this case, we want to first make available a new category
+    # `D0{S}/NP/PP` such that we can propagate the derived `D1{PP}` onto it,
+    # yielding `D0{S}/NP/D1{PP}`.)
+    to_propagate = sorted(
+        to_propagate, key=lambda proposal: get_semantic_arity(proposal[1]),
+        reverse=True)
+    for derived_cat, base in to_propagate:
+      new_lex.propagate_derived_category(derived_cat)
+      L.info("Propagated derived category %s <= %s", derived_cat, base)
+
+    print(new_lex)
 
     self.lexicon = new_lex
 
