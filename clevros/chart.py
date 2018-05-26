@@ -97,8 +97,13 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
         used_edges.extend([edge_sequence] * len(partial_results))
 
     # Sort by weights derived from lexicon.
+    total_cat_masses = self._lexicon.total_category_masses()
     def score_parse(parse):
-      return sum(np.log(max(token.weight(), 1e-6)) for _, token in parse.pos())
+      score = 0.0
+      for _, token in parse.pos():
+        logp = np.log(max(token.weight(), 1e-6) / total_cat_masses[token.categ()])
+        score += logp
+      return score
 
     results = sorted(results, key=score_parse, reverse=True)
     if not return_aux:
