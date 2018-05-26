@@ -38,6 +38,27 @@ def test_parse_with_derived_category():
   eq_(results[0].label()[0].semantics(), old_results[0].label()[0].semantics())
 
 
+def test_parse_with_derived_root_category():
+  """
+  Ensure that we can parse with a derived category whose base is the root
+  category.
+  """
+  lex = Lexicon.fromstring(r"""
+      :- S, N
+      the => S/N {\x.unique(x)}
+      foo => N {\x.foo(x)}
+      """, include_semantics=True)
+
+  involved_tokens = [lex._entries["the"][0]]
+  derived_categ = lex.add_derived_category(involved_tokens)
+  lex.propagate_derived_category(derived_categ)
+  derived_categ_obj, _ = lex._derived_categories[derived_categ]
+
+  results = WeightedCCGChartParser(lex).parse("the foo".split())
+  eq_(set(str(result.label()[0].categ()) for result in results),
+      {str(derived_categ_obj)})
+
+
 def test_parse_oblique():
   """
   Test parsing a verb with an oblique PP -- this shouldn't require type raising?
