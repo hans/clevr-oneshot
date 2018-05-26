@@ -115,3 +115,20 @@ def test_model_complex():
   eq_(model.evaluate(Expression.fromstring(r"do_(cause_possession(unique(\a.female(a)),unique(\b.and_(object(b),cube(b)))),transfer(unique(\c.and_(object(c),cube(c))),unique(\d.female(d)),any))")),
       p.ComposedAction(p.CausePossession(scene["objects"][0], scene["objects"][2]),
                        p.Transfer(scene["objects"][2], scene["objects"][0], "any")))
+
+
+def test_model_partial_application():
+  types = TypeSystem(["obj"])
+  functions = [
+    types.new_function("lotsofargs", ("obj", "obj", "obj"), lambda a, b: b),
+  ]
+  constants = [
+      types.new_constant("obj1", "obj"),
+      types.new_constant("obj2", "obj"),
+  ]
+  ontology = Ontology(types, functions, constants)
+
+  scene = {"objects": []}
+  model = Model(scene, ontology)
+
+  eq_(model.evaluate(Expression.fromstring(r"(lotsofargs(obj1))(obj2)")), "obj2")

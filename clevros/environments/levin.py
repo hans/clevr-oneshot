@@ -19,6 +19,7 @@ functions = [
   types.new_function("water", ("obj", "boolean"), lambda x: x["substance"] == "water"),
   types.new_function("paint", ("obj", "boolean"), lambda x: x["substance"] == "paint"),
   types.new_function("wall", ("obj", "boolean"), lambda x: x["type"] == "wall"),
+  types.new_function("table", ("obj", "boolean"), lambda x: x["type"] == "table"),
   types.new_function("jar", ("obj", "boolean"), lambda x: x["type"] == "jar"),
   types.new_function("orientation", ("obj", "manner"), lambda x: x["orientation"]),
   types.new_function("liquid", ("obj", "boolean"), lambda x: x["state"] == "liquid"),
@@ -110,11 +111,12 @@ scene = {
 event = Event()
 
 examples = [
-  # target:
-  # \d.put(e,result(e),addc(constraint(contain(d,result(e))),constraint(full(result(e)))))
-  # ==> \d.invented_0(addc(...),d,result(e))
-  # where invented_0 = \a b c.put(e,c,addc(b,constraint(a)))
-  ("fill the jar", scene, Put(event, event.result, Constraint(event.patient.contains(event.result),event.patient.full))),
+  # # target:
+  # # \d.put(e,result(e),addc(constraint(contain(d,result(e))),constraint(full(result(e)))))
+  # # ==> \d.invented_0(addc(...),d,result(e))
+  # # where invented_0 = \a b c.put(e,c,addc(b,constraint(a)))
+  # ("fill the jar", scene, Put(event, event.result, Constraint(event.patient.contains(event.result),event.patient.full))),
+
   ("put the book on the table", scene, True),
 ]
 
