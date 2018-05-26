@@ -242,14 +242,21 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     if order > 1:
       raise NotImplementedError()
 
-    ret = defaultdict(Counter)
+    ret = {}
     for entry_list in self._entries.values():
       for entry in entry_list:
+        key = entry.categ() if condition_on_syntax else None
+        # Initialize the distribution, whether or not we will find any
+        # predicates to count.
+        if key not in ret:
+          ret[key] = Counter()
+
         for predicate in entry.semantics().predicates():
-          key = entry.categ() if condition_on_syntax else None
           # TODO weight based on entry weight?
           ret[key][predicate.name] += 1
 
+    # TODO this isn't add-1 smoothing -- should collect the predicate support
+    # *across* distributions and smooth using that.
     if smooth:
       for key in ret:
         for predicate in ret[key]:
@@ -677,8 +684,9 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
       cat_lf_ngrams.update({pred: unk_lf_prob / len(unobserved_preds)
                            for pred in unobserved_preds})
 
-      print(category, ", ".join("%.03f %s" % (prob, pred) for pred, prob
-                                in sorted(cat_lf_ngrams.items(), key=lambda x: x[1], reverse=True)))
+      L.debug("% 20s %s", category,
+              ", ".join("%.03f %s" % (prob, pred) for pred, prob
+                        in sorted(cat_lf_ngrams.items(), key=lambda x: x[1], reverse=True)))
 
       # Attempt to parse with this parse category, and return the resulting
       # syntactic parses + sentence-level semantic forms, with a dummy variable
