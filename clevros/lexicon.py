@@ -364,7 +364,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
             lf_syntax_ngrams[new_yield] = Distribution.uniform(lf_support)
 
     # Second distribution: P(pred | root)
-    lf_root_ngrams = self.lf_ngrams(
+    lf_yield_ngrams = self.lf_ngrams(
         conditioning_fn=lambda entry: [get_yield(entry.categ())], **kwargs)
     # Mix full-category and primitive-category predictions.
     lf_mixed_ngrams = ConditionalDistribution()
@@ -375,8 +375,8 @@ class Lexicon(ccg_lexicon.CCGLexicon):
 
       # Mix root-conditioned distribution and the full syntax-conditioned
       # distribution.
-      root_dist = lf_root_ngrams[get_yield(syntax)]
-      lf_mixed_ngrams[syntax] = lf_syntax_ngrams[syntax].mix(root_dist) # TODO alpha
+      yield_dist = lf_yield_ngrams[get_yield(syntax)]
+      lf_mixed_ngrams[syntax] = lf_syntax_ngrams[syntax].mix(yield_dist) # TODO alpha
 
     return lf_mixed_ngrams
 
