@@ -373,7 +373,6 @@ class Ontology(object):
 
             # Special case: yield fast event queries without recursion.
             if fn.arity == 1 and fn.arg_types[0] == self.types.EVENT_TYPE:
-              print("here", fn)
               yield make_application(fn.name, (l.ConstantExpression(l.Variable("e")),))
             elif fn.arity == 0:
               # 0-arity functions are represented in the logic as
