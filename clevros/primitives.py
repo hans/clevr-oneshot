@@ -276,6 +276,18 @@ class Put(Action):
   __repr__ = __str__
 
 
+class Eat(Action):
+  def __init__(self, event, food):
+    self.event = event
+    self.food = food
+
+  def __hash__(self):
+    return hash((self.event, self.food))
+
+  def __str__(self):
+    return "%s(%s)" % (self.__class__.__name__, self.food)
+
+
 class ActAndEntail(Action):
   """
   Joins an action with entailments about the event.

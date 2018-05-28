@@ -40,6 +40,7 @@ functions = [
 
   # Actions
   types.new_function("put", ("v", "obj", "manner", "action"), Put),
+  types.new_function("eat", ("v", "obj", "action"), Eat),
   types.new_function("constraint", ("boolean", "manner"), Constraint), # TODO funky type
   types.new_function("addc", ("manner", "manner", "manner"), lambda c1, c2: Constraint(c1, c2)),
   types.new_function("join", ("action", "boolean", "action"), ActAndEntail),
@@ -76,6 +77,8 @@ lexicon = Lexicon.fromstring(r"""
   on => PP/N {\a.constraint(contact(a,result(e)))}
   onto => PP/N {\a.constraint(contact(a,result(e)))}
   with => PP/N {\x.x}
+
+  eat => S/N {\x.eat(e,x)}
 
   put => S/N/PP {\d o.put(e,o,d)}
   put => S/N/PP {\d o.put(e,o,vertical)}
@@ -119,15 +122,18 @@ event = Event()
 examples = [
   # # target:
   # # \d.put(e,result(e),addc(constraint(contain(d,result(e))),constraint(full(result(e)))))
-  # # ==> \d.invented_0(addc(...),d,result(e))
-  # # where invented_0 = \a b c.put(e,c,addc(b,constraint(a)))
+  # # ==> \d.invented_0(d,result(e))
+  # # where invented_0 = \a b.put(e,b,addc(constraint(contain(a,result(e)),constraint(full(result(e))))
   # ("fill the jar", scene, Put(event, event.result, Constraint(event.patient.contains(event.result),event.patient.full))),
 
   ("put the book on the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2])))),
   ("fill the jar with the cookies", scene, Put(event, objs[3], Constraint(Contain(objs[0], event.result), event.patient.full))),
 
   # BOOTSTRAP
-  ("place the book on the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2])))),
-  ("cover the table with the cookies", scene, Put(event, objs[3], Constraint(Contain(objs[2], event.result), event.patient.full))),
+  # ("place the book on the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2])))),
+  # ("cover the table with the cookies", scene, Put(event, objs[3], Constraint(Contain(objs[2], event.result), event.patient.full))),
+
+  # NOVEL FRAME
+  ("fill the jar", scene, Put(event, event.result, Constraint(Contain(objs[0], event.result), event.patient.full))),
 ]
 
