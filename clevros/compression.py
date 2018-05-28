@@ -287,7 +287,7 @@ class Compressor(object):
     # to extract exceptional syntax/semantics arity relations.
     arity_overrides = {
       category: next(iter(sem_arities))
-      for category, sem_arities in lexicon.category_semantic_arities.items()
+      for category, sem_arities in lexicon.category_semantic_arities().items()
       # Only impose an arity override rule if it is always observed in the
       # current lexicon.
       if len(sem_arities) == 1

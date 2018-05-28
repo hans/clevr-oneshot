@@ -19,6 +19,7 @@ from clevros.combinator import category_search_replace, \
     type_raised_category_search_replace
 from clevros.clevr import scene_candidate_referents
 from clevros.logic import get_arity
+from clevros.util import ConditionalDistribution, Distribution
 
 
 L = logging.getLogger(__name__)
@@ -163,11 +164,12 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     return ret
 
   def observed_category_distribution(self, exclude_tokens=frozenset(),
-                                     soft_propagate_rootes=False):
+                                     soft_propagate_roots=False):
     """
     Return a distribution over categories calculated using the lexicon weights.
     """
-    ret = self.total_category_masses(exclude_tokens=exclude_tokens)
+    ret = self.total_category_masses(exclude_tokens=exclude_tokens,
+                                     soft_propagate_roots=soft_propagate_roots)
     Z = sum(ret.values())
     if Z > 0:
       ret = {category: weight / Z for category, weight in ret.items()}
@@ -184,8 +186,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
   def start(self):
     raise NotImplementedError("use #start_categories instead.")
 
-  @property
-  def category_semantic_arities(self):
+  def category_semantic_arities(self, soft_propagate_roots=False):
     """
     Get the arities of semantic expressions associated with each observed
     syntactic category.
@@ -200,10 +201,21 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       for category in self.observed_categories
     }
 
-    return {
-      category: set(get_arity(entry.semantics()) for entry in entries)
-      for category, entries in entries_by_categ.items()
-    }
+    ret = {}
+    rooted_cats = set()
+    for category, entries in entries_by_categ.items():
+      if get_yield(category) == self._start:
+        rooted_cats.add(category)
+      ret[category] = set(get_arity(entry.semantics()) for entry in entries)
+
+    if soft_propagate_roots:
+      derived_root_cats = self._derived_categories_by_base[self._start]
+      for rooted_cat in rooted_cats:
+        for derived_root_cat in derived_root_cats:
+          new_syn = set_yield(rooted_cat, derived_root_cat)
+          ret.setdefault(new_syn, ret[rooted_cat])
+
+    return ret
 
   def add_derived_category(self, involved_tokens, source_name=None):
     name = "D%i" % len(self._derived_categories)
@@ -283,33 +295,34 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       self._entries[word].extend(w_entries)
 
 
-  def lf_ngrams(self, order=1, condition_on_syntax=True, smooth=True):
+  def lf_ngrams(self, order=1, conditioning_fn=None, smooth=True):
     """
     Calculate n-gram statistics about the predicates present in the semantic
     forms in the lexicon.
 
     Args:
-      order:
-      condition_on_syntax: If `True`, returns a dict mapping each syntactic
-        type to a different distribution over semantic predicates. If `False`,
-        returns a single distribution.
+      order: n-gram order
+      conditioning_fn: If non-`None`, returns conditional distributions mapping
+        from the range of `conditioning_fn` to distributions over semantic
+        predicates. This can be used to e.g. build distributions over
+        predicates conditioned on syntactic category.
       smooth: If `True`, add-1 smooth the returned distributions.
     """
     if order > 1:
       raise NotImplementedError()
 
-    ret = {}
+    ret = ConditionalDistribution()
     for entry_list in self._entries.values():
       for entry in entry_list:
-        key = entry.categ() if condition_on_syntax else None
-        # Initialize the distribution, whether or not we will find any
-        # predicates to count.
-        if key not in ret:
-          ret[key] = Counter()
+        keys = conditioning_fn(entry) if conditioning_fn is not None else [None]
+        for key in keys:
+          # Initialize the distribution, whether or not we will find any
+          # predicates to count.
+          ret.ensure_cond_support(key)
 
-        for predicate in entry.semantics().predicates():
-          # TODO weight based on entry weight?
-          ret[key][predicate.name] += 1
+          for predicate in entry.semantics().predicates():
+            # TODO weight based on entry weight?
+            ret[key][predicate.name] += 1
 
     # TODO this isn't add-1 smoothing -- should collect the predicate support
     # *across* distributions and smooth using that.
@@ -319,16 +332,53 @@ class Lexicon(ccg_lexicon.CCGLexicon):
           ret[key][predicate] += 1
         ret[key][None] += 1
 
-    # Normalize.
-    ret_normalized = {}
-    for categ in ret:
-      Z = sum(ret[categ].values())
-      ret_normalized[categ] = {word: count / Z
-                               for word, count in ret[categ].items()}
+    ret.normalize_all()
 
-    if not condition_on_syntax:
-      return ret_normalized[None]
-    return ret_normalized
+    if conditioning_fn is None:
+      return ret[None]
+    return ret
+
+  def lf_ngrams_given_syntax(self, **kwargs):
+    conditioning_fn = lambda entry: [entry.categ()]
+    kwargs["conditioning_fn"] = conditioning_fn
+    return self.lf_ngrams(**kwargs)
+
+  def lf_ngrams_mixed(self, **kwargs):
+    """
+    Return conditional distributions over logical form n-grams conditioned on
+    syntactic category, calculated by mixing two distribution classes: a
+    distribution conditioned on the full syntactic category and a distribution
+    conditioned on the yield of the category.
+    """
+    lf_syntax_ngrams = self.lf_ngrams_given_syntax(**kwargs)
+    lf_support = lf_syntax_ngrams.support
+
+    # Soft-propagate derived root categories.
+    derived_root_cats = self._derived_categories_by_base[self._start]
+    for syntax in list(lf_syntax_ngrams.dists.keys()):
+      syn_yield = get_yield(syntax)
+      if syn_yield == self._start:
+        for derived_root_cat in derived_root_cats:
+          new_yield = set_yield(syntax, derived_root_cat)
+          if new_yield not in lf_syntax_ngrams:
+            lf_syntax_ngrams[new_yield] = Distribution.uniform(lf_support)
+
+    # Second distribution: P(pred | root)
+    lf_root_ngrams = self.lf_ngrams(
+        conditioning_fn=lambda entry: [get_yield(entry.categ())], **kwargs)
+    # Mix full-category and primitive-category predictions.
+    lf_mixed_ngrams = ConditionalDistribution()
+    for syntax in lf_syntax_ngrams:
+      # # Mix distributions conditioned on the constituent primitives.
+      # primitives = get_category_primitives(syntax)
+      # prim_alpha = 1 / len(primitives)
+
+      # Mix root-conditioned distribution and the full syntax-conditioned
+      # distribution.
+      root_dist = lf_root_ngrams[get_yield(syntax)]
+      lf_mixed_ngrams[syntax] = lf_syntax_ngrams[syntax].mix(root_dist) # TODO alpha
+
+    return lf_mixed_ngrams
 
 
 class DerivedCategory(PrimitiveCategory):
@@ -466,8 +516,9 @@ def get_candidate_categories(lex, tokens, sentence, smooth=True):
   for token in tokens:
     lex._entries[token] = []
 
-  category_prior = lex.observed_category_distribution(exclude_tokens=set(tokens))
-  L.debug(category_prior)
+  category_prior = lex.observed_category_distribution(
+      exclude_tokens=set(tokens), soft_propagate_roots=True)
+  L.debug("Category prior with soft root propagation: %s", category_prior)
 
   def score_cat_assignment(cat_assignment):
     """
@@ -509,7 +560,7 @@ def get_candidate_categories(lex, tokens, sentence, smooth=True):
   if smooth:
     for token in tokens:
       for cat in category_prior.keys():
-        token_cat_weights[token][cat] += 1e-4 # TODO do this in a principled way
+        token_cat_weights[token][cat] += 1e-3 # TODO do this in a principled way
 
   for cat_assignment, logp in cat_assignment_weights.items():
     for token, token_cat_assignment in zip(tokens, cat_assignment):
@@ -717,11 +768,11 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
   # Prepare for syntactic bootstrap: pre-calculate distributions over semantic
   # form elements conditioned on syntactic category.
-  lf_ngrams = lex.lf_ngrams(order=1, condition_on_syntax=True, smooth=True)
+  lf_ngrams = lex.lf_ngrams_mixed(order=1, smooth=True)
 
   # We will restrict semantic arities based on the observed arities available
   # for each category. Pre-calculate the necessary associations.
-  category_sem_arities = lex.category_semantic_arities
+  category_sem_arities = lex.category_semantic_arities(soft_propagate_roots=True)
 
   # Enumerate expressions just once! We'll bias the search over the enumerated
   # forms later.
@@ -735,7 +786,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   successes = defaultdict(set)
   semantics_results = {}
   for token in query_tokens:
-    candidate_queue = queue.PriorityQueue(maxsize=500)
+    candidate_queue = queue.PriorityQueue(maxsize=1000)
     category_parse_results = {}
 
     cand_syntaxes = query_token_syntaxes[token]
