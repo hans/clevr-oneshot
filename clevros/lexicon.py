@@ -458,12 +458,12 @@ def get_candidate_categories(lex, tokens, sentence, smooth=True):
       # default?
       score = 0
       for token, category in zip(tokens, cat_assignment):
-        # score += np.log(category_prior[category])
+        score += np.log(category_prior[category])
         pass
 
       # Likelihood weight comes from parse score
-      # TODO: figure out how to do this in a principled way
-      score += max(weight for _, weight, _ in results)
+      score += np.log(sum(np.exp(weight)
+                          for _, weight, _ in results))
 
       return score
 
