@@ -388,9 +388,7 @@ def get_semantic_arity(category, arity_overrides=None):
   if category in arity_overrides:
     return arity_overrides[category]
 
-  if isinstance(category, DerivedCategory):
-    return get_semantic_arity(category.base, arity_overrides)
-  elif isinstance(category, PrimitiveCategory):
+  if isinstance(category, PrimitiveCategory):
     return 0
   elif isinstance(category, FunctionalCategory):
     return 1 + get_semantic_arity(category.arg(), arity_overrides) \
@@ -399,16 +397,24 @@ def get_semantic_arity(category, arity_overrides=None):
     raise ValueError("unknown category type %r" % category)
 
 
+def get_category_primitives(category):
+  """
+  Get the primitives involved in the given syntactic category.
+  """
+  if isinstance(category, PrimitiveCategory):
+    return [category]
+  elif isinstance(category, FunctionalCategory):
+    return get_category_primitives(category.arg()) + \
+        get_category_primitives(category.res())
+  else:
+    raise ValueError("unknown category type %r" % category)
+
+
 def get_yield(category):
   """
   Get the primitive yield node of a syntactic category.
   """
-  if isinstance(category, DerivedCategory):
-    if isinstance(category.base, PrimitiveCategory):
-      return category.base
-    else:
-      return get_yield(category.base)
-  elif isinstance(category, PrimitiveCategory):
+  if isinstance(category, PrimitiveCategory):
     return category
   elif isinstance(category, FunctionalCategory):
     if category.dir().is_forward():
