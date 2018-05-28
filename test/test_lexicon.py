@@ -104,6 +104,33 @@ def test_propagate_derived_category():
       set(["(NP/NP)", "(D0{NP}/D0{NP})", "(NP/D0{NP})", "(D0{NP}/NP)"]))
 
 
+def test_propagate_functional_category():
+  """
+  Validate that functional categories are correctly propagated.
+  """
+
+  # This is very tricky! Suppose have a derived functional category `X/Y` and
+  # there are other entries `S/X`. After propagation, we want there to be some
+  # explicit type lifted form `S/(D0/Y)` where `D0 = (X/Y)`.
+  lex = Lexicon.fromstring(r"""
+  :- S, NN, PP
+
+  put => S/NN/PP
+  it => NN
+  on => PP/NN
+  the_table => NN
+  """)
+
+  involved_tokens = [lex._entries["on"][0]]
+  derived_categ = lex.add_derived_category(involved_tokens)
+  lex.propagate_derived_category(derived_categ)
+
+  eq_(set(str(entry.categ()) for entry in lex._entries["on"]),
+      set(["(D0{PP}/NN)", "(PP/NN)"]))
+  eq_(set(str(entry.categ()) for entry in lex._entries["put"]),
+      set(["((S/NN)/PP)", "((S/NN)/%s)" % lex._derived_categories[derived_categ][0]]))
+
+
 def test_propagate_derived_category_distinctively():
   """
   Derived categories with functional originating categories should not be
@@ -179,33 +206,6 @@ def test_get_yield():
 
   for cat, cat_yield in cases:
     yield test_case, cat, cat_yield
-
-
-def test_propagate_functional_category():
-  """
-  Validate that functional categories are correctly propagated.
-  """
-
-  # This is very tricky! Suppose have a derived functional category `X/Y` and
-  # there are other entries `S/X`. After propagation, we want there to be some
-  # explicit type lifted form `S/(D0/Y)` where `D0 = (X/Y)`.
-  lex = Lexicon.fromstring(r"""
-  :- S, NN, PP
-
-  put => S/NN/PP
-  it => NN
-  on => PP/NN
-  the_table => NN
-  """)
-
-  involved_tokens = [lex._entries["on"][0]]
-  derived_categ = lex.add_derived_category(involved_tokens)
-  lex.propagate_derived_category(derived_categ)
-
-  eq_(set(str(entry.categ()) for entry in lex._entries["on"]),
-      set(["(D0{PP}/NN)", "(PP/NN)"]))
-  eq_(set(str(entry.categ()) for entry in lex._entries["put"]),
-      set(["((S/NN)/PP)", "((S/NN)/%s)" % lex._derived_categories[derived_categ][0]]))
 
 
 def test_attempt_candidate_parse():
