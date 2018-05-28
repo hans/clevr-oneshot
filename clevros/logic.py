@@ -354,7 +354,7 @@ class Ontology(object):
       return
 
     for expr_type in self.EXPR_TYPES:
-      if expr_type == l.ApplicationExpression and max_depth > 1:
+      if expr_type == l.ApplicationExpression:
         # Loop over functions according to their weights.
         # from pprint import pprint
         # pprint(sorted([(fn.weight, fn.name) for fn in self.functions], key=lambda x: x[0]))
@@ -363,35 +363,40 @@ class Ontology(object):
         fns_sorted = sorted(self.functions_dict.values(), key=fn_weight_key,
                             reverse=True)
 
-        for fn in fns_sorted:
-          # If there is a present type request, only consider functions with
-          # the correct return type.
-          # print("\t" * (6 - max_depth), fn.name, fn.return_type, " // request: ", type_request, bound_vars)
-          if type_request is not None and fn.return_type != type_request:
-            continue
+        if max_depth > 1:
+          for fn in fns_sorted:
+            # If there is a present type request, only consider functions with
+            # the correct return type.
+            # print("\t" * (6 - max_depth), fn.name, fn.return_type, " // request: ", type_request, bound_vars)
+            if type_request is not None and fn.return_type != type_request:
+              continue
 
-          if fn.arity == 0:
-            # 0-arity functions are represented in the logic as
-            # `ConstantExpression`s.
-            # print("\t" * (6 - max_depth + 1), "yielding const ", fn.name)
-            yield l.ConstantExpression(l.Variable(fn.name))
-          else:
-            # print("\t" * (6 - max_depth), fn, fn.arg_types)
-            sub_args = []
-            for i, arg_type_request in enumerate(fn.arg_types):
-              # print("\t" * (6 - max_depth + 1), "ARGUMENT %i %s (max_depth %i)" % (i, arg_type_request, max_depth - 1))
-              sub_args.append(
-                  self._iter_expressions_inner(max_depth=max_depth - 1,
-                                               bound_vars=bound_vars,
-                                               type_request=arg_type_request,
-                                               function_weights=function_weights))
+            # Special case: yield fast event queries without recursion.
+            if fn.arity == 1 and fn.arg_types[0] == self.types.EVENT_TYPE:
+              print("here", fn)
+              yield make_application(fn.name, (l.ConstantExpression(l.Variable("e")),))
+            elif fn.arity == 0:
+              # 0-arity functions are represented in the logic as
+              # `ConstantExpression`s.
+              # print("\t" * (6 - max_depth + 1), "yielding const ", fn.name)
+              yield l.ConstantExpression(l.Variable(fn.name))
+            else:
+              # print("\t" * (6 - max_depth), fn, fn.arg_types)
+              sub_args = []
+              for i, arg_type_request in enumerate(fn.arg_types):
+                # print("\t" * (6 - max_depth + 1), "ARGUMENT %i %s (max_depth %i)" % (i, arg_type_request, max_depth - 1))
+                sub_args.append(
+                    self._iter_expressions_inner(max_depth=max_depth - 1,
+                                                bound_vars=bound_vars,
+                                                type_request=arg_type_request,
+                                                function_weights=function_weights))
 
-            for arg_combs in itertools.product(*sub_args):
-              candidate = make_application(fn.name, arg_combs)
-              valid = self._valid_application_expr(candidate)
-              # print("\t" * (6 - max_depth + 1), "valid %s? %s" % (candidate, valid))
-              if valid:
-                yield candidate
+              for arg_combs in itertools.product(*sub_args):
+                candidate = make_application(fn.name, arg_combs)
+                valid = self._valid_application_expr(candidate)
+                # print("\t" * (6 - max_depth + 1), "valid %s? %s" % (candidate, valid))
+                if valid:
+                  yield candidate
       elif expr_type == l.LambdaExpression and max_depth > 1:
         for bound_var_type in self.observed_argument_types:
           bound_var = next_bound_var(bound_vars, bound_var_type)
