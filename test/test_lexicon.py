@@ -86,9 +86,9 @@ def test_propagate_derived_category():
 
   lex.propagate_derived_category(name)
 
-  eq_(lex._entries["foo"][0].categ(), categ)
-  eq_(lex._entries["bar"][0].categ(), categ)
-  eq_(lex._entries["baz"][0].categ(), old_baz_categ,
+  eq_(set(str(entry.categ()) for entry in lex._entries["foo"]), {"NP", str(categ)})
+  eq_(set(str(entry.categ()) for entry in lex._entries["bar"]), {"NP", str(categ)})
+  eq_(set(str(entry.categ()) for entry in lex._entries["baz"]), {str(old_baz_categ)},
       msg="Propagation of derived category should not affect `baz`, which has a "
           "category which is the same as the base of the derived category")
 
@@ -126,8 +126,8 @@ def test_propagate_derived_category_distinctively():
   lex.propagate_derived_category(derived_categ)
 
   # Sanity checks
-  eq_(len(lex._entries["derp"]), 1)
-  eq_(len(lex._entries["dorp"]), 1)
+  eq_(len(lex._entries["derp"]), 2)
+  eq_(len(lex._entries["dorp"]), 2)
 
   # Critical checks: these tokens not participating in the derived category
   # should not receive hard-propagation, since their category is the same as
@@ -203,7 +203,7 @@ def test_propagate_functional_category():
   lex.propagate_derived_category(derived_categ)
 
   eq_(set(str(entry.categ()) for entry in lex._entries["on"]),
-      set(["(D0{PP}/NN)"]))
+      set(["(D0{PP}/NN)", "(PP/NN)"]))
   eq_(set(str(entry.categ()) for entry in lex._entries["put"]),
       set(["((S/NN)/PP)", "((S/NN)/%s)" % lex._derived_categories[derived_categ][0]]))
 

@@ -56,7 +56,7 @@ def test_parse_with_derived_root_category():
 
   results = WeightedCCGChartParser(lex).parse("the foo".split())
   eq_(set(str(result.label()[0].categ()) for result in results),
-      {str(derived_categ_obj)})
+      {"S", str(derived_categ_obj)})
 
 
 def test_parse_oblique():

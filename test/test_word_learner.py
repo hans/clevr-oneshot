@@ -68,7 +68,8 @@ def test_cyclic_derived_categories():
         next(iter(learner.lexicon._derived_categories_by_base[learner.lexicon.parse_category("N")]))
 
     eq_(set(str(entry.categ()) for entry in learner.lexicon._entries["the"]),
-        {"(%s/N)" % derived_S, "(%s/%s)" % (derived_S, derived_N)})
+        {"(%s/N)" % derived_S, "(S/%s)" % derived_N,
+         "(%s/%s)" % (derived_S, derived_N), "(S/N)"})
 
 
   for i, lexicon in enumerate([lexicon1, lexicon2]):
