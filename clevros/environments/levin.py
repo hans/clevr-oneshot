@@ -128,5 +128,6 @@ examples = [
 
   # BOOTSTRAP
   ("place the book on the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2])))),
+  ("cover the table with the cookies", scene, Put(event, objs[3], Constraint(Contain(objs[2], event.result), event.patient.full))),
 ]
 
