@@ -163,6 +163,40 @@ def test_propagate_derived_category_distinctively():
   eq_(len(lex._entries["durp"]), 1)
 
 
+def test_soft_propagate_root_categories():
+  """
+  Derived categories with the root category as a base should only
+  soft-propagate. We shouldn't see lexical entries hard-propagated -- it should
+  only show up in `total_category_masses` and downstream methods.
+  """
+  lex = Lexicon.fromstring(r"""
+  :- S, PP, NP
+
+  the => S/NP {\x.unique(x)}
+  that => S/NP/PP {\x y.unique(x)}
+
+  derp => PP/NP {\a.derp(a)}
+  dorp => PP/NP {\a.dorp(a)}
+  darp => PP/NP {\a.darp(a)}
+  durp => PP/NP {\a.durp(a)}
+  """, include_semantics=True)
+
+  # Induce a derived category involving `the`.
+  involved_tokens = [lex._entries["the"][0]]
+  derived_categ = lex.add_derived_category(involved_tokens)
+  cat_obj, _ = lex._derived_categories[derived_categ]
+  lex.propagate_derived_category(derived_categ)
+
+  # Sanity checks
+  eq_(len(lex._entries["the"]), 2)
+  eq_(len(lex._entries["that"]), 1,
+      "Derived category with root base should not hard-propagate.")
+
+  expected = set_yield(lex.parse_category("S/NP/PP"), cat_obj)
+  ok_(expected not in lex.total_category_masses(soft_propagate_roots=False))
+  ok_(expected in lex.total_category_masses(soft_propagate_roots=True))
+
+
 def test_get_lf_unigrams():
   lex = Lexicon.fromstring(r"""
     :- NN

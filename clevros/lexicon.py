@@ -128,19 +128,42 @@ class Lexicon(ccg_lexicon.CCGLexicon):
                 for token_list in self._entries.values()
                 for token in token_list])
 
-  def total_category_masses(self, exclude_tokens=frozenset()):
+  def total_category_masses(self, exclude_tokens=frozenset(),
+                            soft_propagate_roots=False):
     """
     Return the total weight mass assigned to each syntactic category.
+
+    Args:
+      exclude_tokens: Exclude entries with this token from the count.
+      soft_propagate_roots: Soft-propagate derived root categories. If there is
+        a derived root category `D0{S}` and some lexical entry `S/N`, even if
+        no entry has the category `D0{S}`, we will add a key to the returned
+        counter with category `D0{S}/N` (and zero weight).
     """
     ret = Counter()
+    # Track categories with root yield.
+    rooted_cats = set()
+
     for token, entries in self._entries.items():
       if token in exclude_tokens:
         continue
       for entry in entries:
+        if get_yield(entry.categ()) == self._start:
+          rooted_cats.add(entry.categ())
+
         ret[entry.categ()] += entry.weight()
+
+    if soft_propagate_roots:
+      derived_root_cats = self._derived_categories_by_base[self._start]
+      for rooted_cat in rooted_cats:
+        for derived_root_cat in derived_root_cats:
+          soft_prop_cat = set_yield(rooted_cat, derived_root_cat)
+          ret.setdefault(soft_prop_cat, 0.0)
+
     return ret
 
-  def observed_category_distribution(self, exclude_tokens=frozenset()):
+  def observed_category_distribution(self, exclude_tokens=frozenset(),
+                                     soft_propagate_rootes=False):
     """
     Return a distribution over categories calculated using the lexicon weights.
     """
