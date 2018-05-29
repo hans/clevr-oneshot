@@ -1,6 +1,8 @@
 from collections import Counter, defaultdict
 from copy import copy
+import heapq
 import itertools
+from queue import PriorityQueue
 
 
 class Distribution(Counter):
@@ -104,3 +106,19 @@ class ConditionalDistribution(object):
   def normalize_all(self):
     for key in self.dists.keys():
       self.dists[key] = self.dists[key].normalize()
+
+
+class UniquePriorityQueue(PriorityQueue):
+  def _init(self, maxsize):
+    PriorityQueue._init(self, maxsize)
+    self.values = set()
+
+  def _put(self, item, heappush=heapq.heappush):
+    if item[1] not in self.values:
+      self.values.add(item[1])
+      heappush(self.queue, item)
+
+  def _get(self, heappop=heapq.heappop):
+    item = heappop(self.queue)
+    self.values.remove(item[1])
+    return item

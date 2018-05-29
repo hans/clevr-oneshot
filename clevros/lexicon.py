@@ -19,7 +19,7 @@ from clevros.combinator import category_search_replace, \
     type_raised_category_search_replace
 from clevros.clevr import scene_candidate_referents
 from clevros.logic import get_arity
-from clevros.util import ConditionalDistribution, Distribution
+from clevros.util import ConditionalDistribution, Distribution, UniquePriorityQueue
 
 
 L = logging.getLogger(__name__)
@@ -786,7 +786,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   successes = defaultdict(set)
   semantics_results = {}
   for token in query_tokens:
-    candidate_queue = queue.PriorityQueue(maxsize=5000)
+    candidate_queue = UniquePriorityQueue(maxsize=5000)
     category_parse_results = {}
 
     cand_syntaxes = query_token_syntaxes[token]
