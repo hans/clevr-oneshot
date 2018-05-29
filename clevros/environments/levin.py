@@ -130,8 +130,8 @@ examples = [
   ("fill the jar with the cookies", scene, Put(event, objs[3], Constraint(Contain(objs[0], event.result), event.patient.full))),
 
   # BOOTSTRAP
-  # ("place the book on the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2])))),
-  # ("cover the table with the cookies", scene, Put(event, objs[3], Constraint(Contain(objs[2], event.result), event.patient.full))),
+  ("place the book on the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2])))),
+  ("cover the table with the cookies", scene, Put(event, objs[3], Constraint(Contain(objs[2], event.result), event.patient.full))),
 
   # NOVEL FRAME
   ("fill the jar", scene, Put(event, event.result, Constraint(Contain(objs[0], event.result), event.patient.full))),
