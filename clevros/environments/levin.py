@@ -90,11 +90,11 @@ lexicon = Lexicon.fromstring(r"""
   # hangs => S/N {\o.put(e,o,constraint(eq(orientation(result(e)),vertical)))}
   # lay => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(orientation(result(e)),horizontal))))}
 
-  # drop => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(direction(e),down))))}
-  # hoist => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(direction(e),up))))}
+  drop => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(direction(e),down))))}
+  hoist => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(direction(e),up))))}
 
-  # pour => S/N/PP {\d o.put(e,o,addc(d,constraint(liquid(result(e)))))}
-  # spill => S/N/PP {\d o.put(e,o,addc(d,constraint(liquid(result(e)))))}
+  pour => S/N/PP {\d o.put(e,o,addc(d,constraint(liquid(result(e)))))}
+  spill => S/N/PP {\d o.put(e,o,addc(d,constraint(liquid(result(e)))))}
 
   # # "spray the wall with paint"
   # spray => S/N/PP {\d o.put(e,o,addc(d,constraint(not_(full(result(e))))))}

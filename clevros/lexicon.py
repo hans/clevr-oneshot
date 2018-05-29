@@ -786,7 +786,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   successes = defaultdict(set)
   semantics_results = {}
   for token in query_tokens:
-    candidate_queue = queue.PriorityQueue(maxsize=1000)
+    candidate_queue = queue.PriorityQueue(maxsize=5000)
     category_parse_results = {}
 
     cand_syntaxes = query_token_syntaxes[token]
