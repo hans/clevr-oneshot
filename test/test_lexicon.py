@@ -211,9 +211,9 @@ def test_get_lf_unigrams():
     "(NN/NN)": Counter({"unique": 1})
   }
 
-  ngrams = lex.lf_ngrams(order=1, condition_on_syntax=True, smooth=False)
-  for categ, counter in ngrams.items():
-    eq_(counter, expected[str(categ)])
+  ngrams = lex.lf_ngrams_given_syntax(order=1, smooth=False)
+  for categ, dist in ngrams.dists.items():
+    eq_(dist, expected[str(categ)])
 
 
 def test_get_yield():
