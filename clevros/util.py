@@ -4,6 +4,8 @@ import heapq
 import itertools
 from queue import PriorityQueue
 
+import numpy as np
+
 
 class Distribution(Counter):
   """
@@ -43,6 +45,9 @@ class Distribution(Counter):
   def mix(self, other, alpha=0.5):
     assert alpha >= 0 and alpha <= 1
     return self * alpha + other * (1 - alpha)
+
+  def argmax(self):
+    return max(self, key=lambda k: self[k])
 
 
 class ConditionalDistribution(object):
@@ -122,3 +127,14 @@ class UniquePriorityQueue(PriorityQueue):
     item = heappop(self.queue)
     self.values.remove(item[1])
     return item
+
+  def as_distribution(self):
+    # NB critical region
+    # NB assumes priorities are log-probabilities
+    ret = Distribution()
+    for priority, item in self.queue:
+      val = np.exp(priority)
+      ret[item] = val
+
+    ret = ret.normalize()
+    return ret
