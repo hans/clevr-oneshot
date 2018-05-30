@@ -501,9 +501,8 @@ def get_candidate_categories(lex, tokens, sentence, smooth=True):
     smooth: If `True`, add-1 smooth the returned distributions.
 
   Returns:
-    sorted_token_cat_weights: Dictionary mapping each token to a ranking over
-      candidate categories. The dictionary values are a weighted list with
-      elements of form `(category, weight)`, sorted by descending weight.
+    cat_dists: Dictionary mapping each token to a `Distribution` over
+      categories.
   """
   assert set(tokens).issubset(set(sentence))
 
@@ -554,28 +553,19 @@ def get_candidate_categories(lex, tokens, sentence, smooth=True):
     for cat_assignment in itertools.product(category_prior.keys(), repeat=len(tokens))
   }
 
-  token_cat_weights = defaultdict(Counter)
+  cat_dists = defaultdict(Distribution)
   if smooth:
     for token in tokens:
       for cat in category_prior.keys():
-        token_cat_weights[token][cat] += 1e-3 # TODO do this in a principled way
+        cat_dists[token][cat] += 1e-3 # TODO do this in a principled way
 
   for cat_assignment, logp in cat_assignment_weights.items():
     for token, token_cat_assignment in zip(tokens, cat_assignment):
-      token_cat_weights[token][token_cat_assignment] += np.exp(logp)
+      cat_dists[token][token_cat_assignment] += np.exp(logp)
 
   # Normalize.
-  sorted_token_cat_weights = {}
-  for token, weighted_list in token_cat_weights.items():
-    if len(weighted_list) == 0:
-      raise RuntimeError("No valid syntactic categories available for token %s" % token)
-    Z = max(sum(weighted_list.values()), 1e-5)
-
-    weighted_list = [(cat, weight / Z) for cat, weight in weighted_list.items()]
-    weighted_list = sorted(weighted_list, reverse=True, key=lambda x: x[1])
-    sorted_token_cat_weights[token] = weighted_list
-
-  return sorted_token_cat_weights
+  cat_dists = {token: dist.normalize() for token, dist in cat_dists.items()}
+  return cat_dists
 
 
 def augment_lexicon(old_lex, sentence, lf):
@@ -752,7 +742,7 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
   for token, candidate_queue in queues.items():
     token_syntaxes = candidate_syntaxes[token]
     L.info("Candidate syntaxes for %s: %r", token, token_syntaxes)
-    for category, category_weight in token_syntaxes:
+    for category, category_weight in token_syntaxes.items():
       # Retrieve relevant bootstrap distribution p(meaning | syntax).
       cat_lf_ngrams = lf_ngrams[category]
       # Redistribute UNK probability uniformly across predicates not observed
@@ -831,7 +821,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
     query_words: Set of tokens for which we need to search for novel lexical
       entries.
     query_word_syntaxes: Possible syntactic categories for each of the query
-      words. A dict mapping from token to set of CCG category instances.
+      words, as returned by `get_candidate_categories`.
     sentence: Token list sentence.
     ontology: Available logical ontology -- used to enumerate possible logical
       forms.
@@ -860,9 +850,6 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
                         key=lambda item: -item[0])
     for joint_score, (category, expr) in candidates:
       parse_results = category_parse_results[token][category]
-
-      # DEV: Show zero-shot predictions.
-      # print(joint_score, category, expr)
 
       # Parse succeeded -- check the candidate results.
       for result in parse_results:
