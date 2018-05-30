@@ -842,6 +842,9 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
     for joint_score, (category, expr) in candidates:
       parse_results = category_parse_results[category]
 
+      # DEV: Show zero-shot predictions.
+      # print(joint_score, category, expr)
+
       # Parse succeeded -- check the candidate results.
       for result in parse_results:
         semantics = result.label()[0].semantics()
