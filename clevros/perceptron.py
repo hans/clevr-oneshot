@@ -83,10 +83,10 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
       return weighted_results, 0.0
 
   # TODO margin?
-  # DEV -- just take top correct + incorrect. This is standard structured
-  # perceptron
+  # Structured perceptron update: compare top-scoring correct result with
+  # top-scoring incorrect results.
   correct_results = correct_results[:1]
-  incorrect_results = incorrect_results[:1]
+  incorrect_results = incorrect_results[:5]
 
   # Update to separate max-scoring parse from max-scoring correct parse if
   # necessary.
