@@ -718,6 +718,90 @@ def attempt_candidate_parse(lexicon, token, candidate_category,
   return results, sub_target
 
 
+def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
+                      bootstrap=True):
+  """
+  Make zero-shot predictions of the posterior `p(syntax, meaning | sentence)`
+  for each of `tokens`.
+
+  Returns:
+    queues:
+    category_parse_results: TODO
+    dummy_var: TODO
+  """
+  # Prepare for syntactic bootstrap: pre-calculate distributions over semantic
+  # form elements conditioned on syntactic category.
+  lf_ngrams = lex.lf_ngrams_mixed(order=1, smooth=True)
+
+  # We will restrict semantic arities based on the observed arities available
+  # for each category. Pre-calculate the necessary associations.
+  category_sem_arities = lex.category_semantic_arities(soft_propagate_roots=True)
+
+  # Enumerate expressions just once! We'll bias the search over the enumerated
+  # forms later.
+  candidate_exprs = set(ontology.iter_expressions(max_depth=3))
+
+  # Shared dummy variable which is included in candidate semantic forms, to be
+  # replaced by all candidate lexical expressions and evaluated.
+  dummy_var = None
+
+  # TODO need to work on *product space* for multiple query words
+  queues = {token: UniquePriorityQueue(maxsize=2500)
+            for token in tokens}
+  category_parse_results = defaultdict(dict)
+  for token, candidate_queue in queues.items():
+    token_syntaxes = candidate_syntaxes[token]
+    L.info("Candidate syntaxes for %s: %r", token, token_syntaxes)
+    for category, category_weight in token_syntaxes:
+      # Retrieve relevant bootstrap distribution p(meaning | syntax).
+      cat_lf_ngrams = lf_ngrams[category]
+      # Redistribute UNK probability uniformly across predicates not observed
+      # for this category.
+      # TODO do this outside of the loop
+      unk_lf_prob = cat_lf_ngrams.pop(None)
+      unobserved_preds = set(f.name for f in ontology.functions) - set(cat_lf_ngrams.keys())
+      cat_lf_ngrams.update({pred: unk_lf_prob / len(unobserved_preds)
+                           for pred in unobserved_preds})
+
+      L.debug("% 20s %s", category,
+              ", ".join("%.03f %s" % (prob, pred) for pred, prob
+                        in sorted(cat_lf_ngrams.items(), key=lambda x: x[1], reverse=True)))
+
+      # Attempt to parse with this parse category, and return the resulting
+      # syntactic parses + sentence-level semantic forms, with a dummy variable
+      # in place of where the candidate expressions will go.
+      results, dummy_var = attempt_candidate_parse(lex, token, category, candidate_exprs,
+                                                   sentence, dummy_var=dummy_var)
+      category_parse_results[token][category] = results
+
+      for expr in candidate_exprs:
+        if get_arity(expr) not in category_sem_arities[category]:
+          # TODO rather than arity-checking post-hoc, form a type request
+          continue
+
+        likelihood = 0.0
+        if bootstrap:
+          for predicate in expr.predicates():
+            if predicate.name in cat_lf_ngrams:
+              likelihood += np.log(cat_lf_ngrams[predicate.name])
+
+        joint_score = np.log(category_weight) + likelihood
+        new_item = (joint_score, (category, expr))
+        try:
+          candidate_queue.put_nowait(new_item)
+        except queue.Full:
+          # See if this candidate is better than the worst item.
+          worst = candidate_queue.get()
+          if worst[0] < joint_score:
+            replacement = new_item
+          else:
+            replacement = worst
+
+          candidate_queue.put_nowait(replacement)
+
+  return queues, category_parse_results, dummy_var
+
+
 def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
                             sentence, ontology, model, answer,
                             bootstrap=True):
@@ -764,83 +848,18 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   for token in query_tokens:
     lex._entries[token] = []
 
-  # Prepare for syntactic bootstrap: pre-calculate distributions over semantic
-  # form elements conditioned on syntactic category.
-  lf_ngrams = lex.lf_ngrams_mixed(order=1, smooth=True)
+  ranked_candidates, category_parse_results, dummy_var = \
+      predict_zero_shot(lex, query_tokens, query_token_syntaxes, sentence, ontology,
+                        bootstrap=bootstrap)
 
-  # We will restrict semantic arities based on the observed arities available
-  # for each category. Pre-calculate the necessary associations.
-  category_sem_arities = lex.category_semantic_arities(soft_propagate_roots=True)
-
-  # Enumerate expressions just once! We'll bias the search over the enumerated
-  # forms later.
-  candidate_exprs = set(ontology.iter_expressions(max_depth=3))
-
-  # Shared dummy variable which is included in candidate semantic forms, to be
-  # replaced by all candidate lexical expressions and evaluated.
-  dummy_var = None
-
-  # TODO need to work on *product space* for multiple query words
   successes = defaultdict(set)
   semantics_results = {}
-  for token in query_tokens:
-    candidate_queue = UniquePriorityQueue(maxsize=5000)
-    category_parse_results = {}
-
-    cand_syntaxes = query_token_syntaxes[token]
-    L.info("Candidate syntaxes for %s: %r", token, cand_syntaxes)
-    for category, category_weight in cand_syntaxes:
-      # Prepare to BOOTSTRAP: Bias expression iteration based on the syntactic
-      # category.
-      cat_lf_ngrams = lf_ngrams[category]
-      # Redistribute UNK probability uniformly across predicates not observed
-      # for this category.
-      unk_lf_prob = cat_lf_ngrams.pop(None)
-      unobserved_preds = set(f.name for f in ontology.functions) - set(cat_lf_ngrams.keys())
-      cat_lf_ngrams.update({pred: unk_lf_prob / len(unobserved_preds)
-                           for pred in unobserved_preds})
-
-      L.debug("% 20s %s", category,
-              ", ".join("%.03f %s" % (prob, pred) for pred, prob
-                        in sorted(cat_lf_ngrams.items(), key=lambda x: x[1], reverse=True)))
-
-      # Attempt to parse with this parse category, and return the resulting
-      # syntactic parses + sentence-level semantic forms, with a dummy variable
-      # in place of where the candidate expressions will go.
-      results, dummy_var = attempt_candidate_parse(lex, token, category, candidate_exprs,
-                                                   sentence, dummy_var=dummy_var)
-      category_parse_results[category] = results
-
-      for expr in candidate_exprs:
-        if get_arity(expr) not in category_sem_arities[category]:
-          # TODO rather than arity-checking post-hoc, form a type request
-          continue
-
-        likelihood = 0.0
-        if bootstrap:
-          for predicate in expr.predicates():
-            if predicate.name in cat_lf_ngrams:
-              likelihood += np.log(cat_lf_ngrams[predicate.name])
-
-        joint_score = np.log(category_weight) + likelihood
-        new_item = (joint_score, (category, expr))
-        try:
-          candidate_queue.put_nowait(new_item)
-        except queue.Full:
-          # See if this candidate is better than the worst item.
-          worst = candidate_queue.get()
-          if worst[0] < joint_score:
-            replacement = new_item
-          else:
-            replacement = worst
-
-          candidate_queue.put_nowait(replacement)
-
+  for token, candidate_queue in ranked_candidates.items():
     # NB not parallelizing anything below
     candidates = sorted(candidate_queue.queue,
                         key=lambda item: -item[0])
     for joint_score, (category, expr) in candidates:
-      parse_results = category_parse_results[category]
+      parse_results = category_parse_results[token][category]
 
       # DEV: Show zero-shot predictions.
       # print(joint_score, category, expr)
@@ -852,7 +871,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
         semantics = semantics.replace(dummy_var, expr).simplify()
 
         # Check cached result first.
-        success = semantics_results.get(semantics, None)
+        success = semantics_results.get(semantics)
         if success is None:
           # Evaluate the expression and cache result.
           try:
