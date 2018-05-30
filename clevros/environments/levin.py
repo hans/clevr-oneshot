@@ -120,12 +120,8 @@ objs = scene["objects"]
 event = Event()
 
 examples = [
-  # # target:
-  # # \d.put(e,result(e),addc(constraint(contain(d,result(e))),constraint(full(result(e)))))
-  # # ==> \d.invented_0(d,result(e))
-  # # where invented_0 = \a b.put(e,b,addc(constraint(contain(a,result(e)),constraint(full(result(e))))
-  # ("fill the jar", scene, Put(event, event.result, Constraint(event.patient.contains(event.result),event.patient.full))),
 
+  # Weight updates
   ("put the book on the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2])))),
   ("fill the jar with the cookies", scene, Put(event, objs[3], Constraint(Contain(objs[0], event.result), event.patient.full))),
 
@@ -136,7 +132,7 @@ examples = [
   # NOVEL FRAME -- learn that "fill" class alternates
   ("fill the jar", scene, Put(event, event.result, Constraint(Contain(objs[0], event.result), event.patient.full))),
 
-  # Bootstrap on that frame
+  # Bootstrap on that novel frame
   ("stuff the jar", scene, Put(event, event.result, Constraint(Contain(objs[0], event.result), event.patient.full))),
 ]
 
