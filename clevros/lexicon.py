@@ -321,8 +321,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
           ret.ensure_cond_support(key)
 
           for predicate in entry.semantics().predicates():
-            # TODO weight based on entry weight?
-            ret[key][predicate.name] += 1
+            ret[key][predicate.name] += entry.weight()
 
     # TODO this isn't add-1 smoothing -- should collect the predicate support
     # *across* distributions and smooth using that.
