@@ -68,7 +68,7 @@ examples = [
 ######
 # Evaluation
 
-def _assert(expr, msg, raise_on_fail=True):
+def _assert(expr, msg, raise_on_fail=False):
   try:
     assert expr
   except AssertionError:
@@ -84,6 +84,12 @@ def plot_distribution(distribution, name, k=5, xlabel=None, title=None):
   Save a bar plot of the given distribution.
   """
   support = sorted(distribution.keys(), key=lambda k: distribution[k], reverse=True)
+
+  with (args.out_dir / "%s.csv").open("w") as csv_f:
+    for key in support:
+      csv_f.write("%s,%f\n" % key, distribution[key])
+
+  # Trim support for plot.
   if k is not None:
     support = support[:k]
 
@@ -135,7 +141,7 @@ def eval_bootstrap_example(learner, example, token, expected_category,
   plot_distribution(p_syn_meaning, "zeroshot.joint.%s" % token)
 
   top_cat, top_expr = p_syn_meaning.argmax()
-  if asserts:
+  if asserts and expected_category is not None:
     cat_yield = get_yield(top_cat)
     _assert(cat_yield == expected_category,
             "'%s' top candidate has yield %s: %s"
@@ -167,13 +173,19 @@ def eval_model(bootstrap=True, compress=True):
   # Run compression.
   learner.compress_lexicon()
 
-  PP_CONTACT_CATEGORY, _ = learner.lexicon._derived_categories["D0"]
-  PUT_CATEGORY, _ = learner.lexicon._derived_categories["D1"]
-  FILL_CATEGORY, _ = learner.lexicon._derived_categories["D4"]
-  # sanity check
-  _assert(str(PP_CONTACT_CATEGORY.base) == "PP", "PP contact derived cat has correct base")
-  _assert(str(PUT_CATEGORY.base) == "S", "Put verb derived cat has correct base")
-  _assert(str(FILL_CATEGORY.base) == "S", "Fill verb derived cat has correct base")
+  try:
+    PP_CONTACT_CATEGORY, _ = learner.lexicon._derived_categories["D0"]
+    PUT_CATEGORY, _ = learner.lexicon._derived_categories["D1"]
+    FILL_CATEGORY, _ = learner.lexicon._derived_categories["D4"]
+    # sanity check
+    _assert(str(PP_CONTACT_CATEGORY.base) == "PP", "PP contact derived cat has correct base")
+    _assert(str(PUT_CATEGORY.base) == "S", "Put verb derived cat has correct base")
+    _assert(str(FILL_CATEGORY.base) == "S", "Fill verb derived cat has correct base")
+  except KeyError:
+    _assert(False, "Derived categories not available", False)
+    PP_CONTACT_CATEGORY = None
+    PUT_CATEGORY = None
+    FILL_CATEGORY = None
 
   # Run initial weight updates.
   for example in examples[:2]:
@@ -207,5 +219,5 @@ if __name__ == "__main__":
   p.add_argument("--out_dir", default=".", type=Path)
 
   args = p.parse_args()
+  # eval_model(bootstrap=False, compress=False)
   eval_model()
-  # TODO also run baseline model
