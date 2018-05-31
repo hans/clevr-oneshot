@@ -154,6 +154,12 @@ class Lexicon(ccg_lexicon.CCGLexicon):
 
         ret[entry.categ()] += entry.weight()
 
+    # Shift all weights s.t. all entries are positive.
+    min_val = min(ret.values())
+    if min_val < 0.0:
+      for key in ret:
+        ret[key] -= min_val
+
     if soft_propagate_roots:
       derived_root_cats = self._derived_categories_by_base[self._start]
       for rooted_cat in rooted_cats:
