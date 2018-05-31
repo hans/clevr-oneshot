@@ -101,6 +101,8 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
     def score_parse(parse):
       score = 0.0
       for _, token in parse.pos():
+        if total_cat_masses[token.categ()] == 0:
+          break
         logp = np.log(max(token.weight(), 1e-6) / total_cat_masses[token.categ()])
         score += logp
       return score
