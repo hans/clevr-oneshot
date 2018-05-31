@@ -141,7 +141,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
         no entry has the category `D0{S}`, we will add a key to the returned
         counter with category `D0{S}/N` (and zero weight).
     """
-    ret = Counter()
+    ret = Distribution()
     # Track categories with root yield.
     rooted_cats = set()
 
@@ -157,14 +157,14 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     # Shift all weights s.t. all entries are positive.
     min_val = min(ret.values())
     if min_val < 0.0:
-      for key in ret:
-        ret[key] -= min_val
+      ret += -min_val
 
     if soft_propagate_roots:
       derived_root_cats = self._derived_categories_by_base[self._start]
       for rooted_cat in rooted_cats:
         for derived_root_cat in derived_root_cats:
           soft_prop_cat = set_yield(rooted_cat, derived_root_cat)
+          # Ensure key exists.
           ret.setdefault(soft_prop_cat, 0.0)
 
     return ret
@@ -176,11 +176,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     """
     ret = self.total_category_masses(exclude_tokens=exclude_tokens,
                                      soft_propagate_roots=soft_propagate_roots)
-    Z = sum(ret.values())
-    if Z > 0:
-      ret = {category: weight / Z for category, weight in ret.items()}
-
-    return ret
+    return ret.normalize()
 
   @property
   def start_categories(self):
