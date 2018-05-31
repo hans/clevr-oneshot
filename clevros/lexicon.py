@@ -380,7 +380,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       # Mix root-conditioned distribution and the full syntax-conditioned
       # distribution.
       yield_dist = lf_yield_ngrams[get_yield(syntax)]
-      lf_mixed_ngrams[syntax] = lf_syntax_ngrams[syntax].mix(yield_dist) # TODO alpha
+      lf_mixed_ngrams[syntax] = lf_syntax_ngrams[syntax].mix(yield_dist, alpha=0.25) # TODO magic
 
     return lf_mixed_ngrams
 
