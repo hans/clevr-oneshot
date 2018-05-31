@@ -8,10 +8,11 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
+import pandas as pd
 
 from clevros.compression import Compressor
 from clevros.environments import levin
-from clevros.lexicon import get_candidate_categories, predict_zero_shot, get_yield
+from clevros.lexicon import get_candidate_categories, predict_zero_shot, get_yield, set_yield
 from clevros.model import Model
 from clevros.primitives import *
 from clevros.util import Distribution
@@ -207,11 +208,32 @@ def eval_model(bootstrap=True, compress=True):
                          bootstrap=bootstrap, extra=make_extra(learner.lexicon.parse_category("PP")))
 
   # Learn a novel frame for the fill class.
-  sentence, model, answer = prep_example(learner, examples[4])
-  learner.update_with_example(sentence, model, answer)
+  eval_bootstrap_example(learner, examples[4], "fill", FILL_CATEGORY, bootstrap=bootstrap, asserts=False)
 
   # Zero-shot predictions for the newly learned frame.
   eval_bootstrap_example(learner, examples[5], "stuff", FILL_CATEGORY, bootstrap=bootstrap, asserts=False)
+
+  # Produce alternation table.
+  locative_construction = learner.lexicon.parse_category("S/N/PP")
+  locative_construction._arg = PP_CONTACT_CATEGORY
+  constructions = [
+    locative_construction,
+    learner.lexicon.parse_category("S/N/PP"),
+    learner.lexicon.parse_category("S/N"),
+  ]
+  cat_masses = learner.lexicon.total_category_masses()
+  der_verb_cats = [der_cat for der_cat, _ in learner.lexicon._derived_categories.values()
+                   if der_cat.base == learner.lexicon._start]
+  table = pd.DataFrame(index=list(map(str, constructions)), columns=list(map(str, der_verb_cats)))
+  for der_cat in der_verb_cats:
+    for construction in constructions:
+      query_cat = set_yield(construction, der_cat)
+      table.loc[str(construction), str(der_cat)] = cat_masses[query_cat]
+  # TODO normalize
+
+  print(table)
+  table.to_csv(args.out_dir / "alternations.csv")
+
 
 
 if __name__ == "__main__":
