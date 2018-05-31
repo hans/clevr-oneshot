@@ -794,7 +794,7 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
 
 def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
                             sentence, ontology, model, answer,
-                            bootstrap=True):
+                            bootstrap=True, negative_samples=5, total_negative_mass=0.1):
   """
   Augment a lexicon with candidate meanings for a given word using distant
   supervision. (The induced meanings for the queried words must yield parses
@@ -829,6 +829,13 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
     answer: Ground-truth answer to `sentence`.
     bootstrap: If `True`, incorporate priors over LF predicates conditioned on
       syntactic category when scoring candidate lexical entries.
+    negative_samples: Add this many unique negative sample lexical
+      entries to the lexicon for each token. (A negative sample is a
+      high-scoring lexical entry which does not yield the correct
+      parse/answer.)
+    total_negative_mass: Distribute this much weight mass across
+      negative samples. (Each negative sample will have an entry weight of
+      `total_negative_mass / negative_samples.`)
   """
 
   # Target lexicon to be returned.
@@ -843,6 +850,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
                         bootstrap=bootstrap)
 
   successes = defaultdict(set)
+  failures = defaultdict(set)
   semantics_results = {}
   for token, candidate_queue in ranked_candidates.items():
     # NB not parallelizing anything below
@@ -875,9 +883,13 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
           # Cache evaluation result.
           semantics_results[semantics] = success
 
+        description = (joint_score, (category, expr))
         if success:
           # Parse succeeded with correct meaning. Add candidate lexical entry.
-          successes[token].add((joint_score, (category, expr)))
+          successes[token].add(description)
+        else:
+          if len(failures[token]) < negative_samples:
+            failures[token].add(description)
 
   for token in query_tokens:
     try:
@@ -897,10 +909,21 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
                            for (_, (category, expr)), softmax_weight
                            in zip(successes_t, weights_t)]
 
-    # DEBUG
+    # Negative-sample some top zero-shot candidates which failed
+    # parsing.
+    failures_t = failures[token]
+    negative_mass = total_negative_mass / len(failures_t)
+    lex._entries[token].extend(
+        [Token(token, category, expr, weight=negative_mass)
+         for _, (category, expr) in failures_t])
+
     L.debug("Inferred %i novel entries for token %s:", len(successes_t), token)
     for (_, entry_info), weight in zip(successes_t, weights_t):
       L.debug("%.4f %s", weight, entry_info)
+    L.debug("Negatively sampled %i more novel entries for token %s:", len(failures_t), token)
+    for (_, entry_info) in failures_t:
+      L.debug("%.4f %s", negative_mass, entry_info)
+
 
   return lex
 
