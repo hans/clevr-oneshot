@@ -9,6 +9,7 @@ import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 import pandas as pd
+import seaborn as sns
 
 from clevros.compression import Compressor
 from clevros.environments import levin
@@ -224,15 +225,19 @@ def eval_model(bootstrap=True, compress=True):
   cat_masses = learner.lexicon.total_category_masses()
   der_verb_cats = [der_cat for der_cat, _ in learner.lexicon._derived_categories.values()
                    if der_cat.base == learner.lexicon._start]
-  table = pd.DataFrame(index=list(map(str, constructions)), columns=list(map(str, der_verb_cats)))
+  table = pd.DataFrame(dtype=np.float, index=list(map(str, constructions)), columns=list(map(str, der_verb_cats)))
   for der_cat in der_verb_cats:
     for construction in constructions:
       query_cat = set_yield(construction, der_cat)
       table.loc[str(construction), str(der_cat)] = cat_masses[query_cat]
-  # TODO normalize
+  table -= table.min(axis=1)
+  table = table.div(table.max(axis=1), axis=0)
 
   print(table)
   table.to_csv(args.out_dir / "alternations.csv")
+  plt.clf()
+  sns.heatmap(table)
+  plt.savefig(args.out_dir / "alternations.png")
 
 
 
