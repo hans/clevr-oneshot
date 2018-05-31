@@ -28,13 +28,19 @@ class Distribution(Counter):
     return ret
 
   def __add__(self, other):
-    assert isinstance(other, Distribution)
-
     ret = copy(self)
-    for key, val in other.items():
-      ret[key] += val
+
+    if isinstance(other, dict):
+      for key, val in other.items():
+        ret[key] += val
+    else:
+      for key in self:
+        ret[key] += other
 
     return ret
+
+  def __iadd__(self, other):
+    return self + other
 
   def normalize(self):
     Z = sum(self.values())
