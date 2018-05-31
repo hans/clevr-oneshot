@@ -87,7 +87,7 @@ def plot_distribution(distribution, name, k=5, xlabel=None, title=None):
 
   with (args.out_dir / "%s.csv").open("w") as csv_f:
     for key in support:
-      csv_f.write("%s,%f\n" % key, distribution[key])
+      csv_f.write("%s,%f\n" % (key, distribution[key]))
 
   # Trim support for plot.
   if k is not None:
