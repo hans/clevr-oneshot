@@ -230,7 +230,7 @@ def eval_model(bootstrap=True, compress=True):
     for construction in constructions:
       query_cat = set_yield(construction, der_cat)
       table.loc[str(construction), str(der_cat)] = cat_masses[query_cat]
-  table -= table.min(axis=1)
+  table = table.subtract(table.min(axis=1), axis=0)
   table = table.div(table.max(axis=1), axis=0)
 
   print(table)
