@@ -517,7 +517,12 @@ def get_candidate_categories(lex, tokens, sentence, smooth=True):
 
   category_prior = lex.observed_category_distribution(
       exclude_tokens=set(tokens), soft_propagate_roots=True)
-  L.debug("Category prior with soft root propagation: %s", category_prior)
+  if smooth:
+    L.debug("Smoothing category prior.")
+    for key in category_prior.keys():
+      category_prior[key] += 1e-3 # TODO do this in a principled way
+    category_prior = category_prior.normalize()
+  L.debug("Smoothed category prior with soft root propagation: %s", category_prior)
 
   def score_cat_assignment(cat_assignment):
     """
@@ -556,11 +561,6 @@ def get_candidate_categories(lex, tokens, sentence, smooth=True):
   }
 
   cat_dists = defaultdict(Distribution)
-  if smooth:
-    for token in tokens:
-      for cat in category_prior.keys():
-        cat_dists[token][cat] += 1e-3 # TODO do this in a principled way
-
   for cat_assignment, logp in cat_assignment_weights.items():
     for token, token_cat_assignment in zip(tokens, cat_assignment):
       cat_dists[token][token_cat_assignment] += np.exp(logp)
