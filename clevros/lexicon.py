@@ -800,7 +800,8 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
 
 def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
                             sentence, ontology, model, answer,
-                            bootstrap=True, negative_samples=5, total_negative_mass=0.1):
+                            bootstrap=True, negative_samples=5, total_negative_mass=0.1,
+                            beta=10.0):
   """
   Augment a lexicon with candidate meanings for a given word using distant
   supervision. (The induced meanings for the queried words must yield parses
@@ -910,6 +911,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
     weights_t -= weights_t.max()
     weights_t = np.exp(weights_t)
     weights_t /= weights_t.sum()
+    weights_t *= beta
 
     lex._entries[token] = [Token(token, category, expr, weight=softmax_weight)
                            for (_, (category, expr)), softmax_weight
