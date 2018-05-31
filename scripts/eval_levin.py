@@ -70,7 +70,7 @@ examples = [
 ######
 # Evaluation
 
-def _assert(expr, msg, raise_on_fail=False):
+def _assert(expr, msg, raise_on_fail=True):
   try:
     assert expr
   except AssertionError:
