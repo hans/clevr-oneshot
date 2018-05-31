@@ -17,7 +17,7 @@ from clevros.primitives import *
 from clevros.util import Distribution
 from clevros.word_learner import WordLearner
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 L = logging.getLogger(__name__)
 
 # EC hyperparameters.
@@ -85,7 +85,7 @@ def plot_distribution(distribution, name, k=5, xlabel=None, title=None):
   """
   support = sorted(distribution.keys(), key=lambda k: distribution[k], reverse=True)
 
-  with (args.out_dir / "%s.csv").open("w") as csv_f:
+  with (args.out_dir / ("%s.csv" % name)).open("w") as csv_f:
     for key in support:
       csv_f.write("%s,%f\n" % (key, distribution[key]))
 
