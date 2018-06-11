@@ -10,7 +10,7 @@ functions = [
   types.new_function("unique", (("obj", "boolean"), "obj"), fn_unique),
   types.new_function("and_", ("boolean", "boolean", "boolean"), lambda a, b: a and b),
   types.new_function("not_", ("boolean", "boolean"), lambda a: not a),
-  types.new_function("eq", ("?", "?", "boolean"), lambda a, b: a == b),
+  types.new_function("eq", ("?", "?", "boolean"), fn_eq),
 
   # Ops on objects
   types.new_function("book", ("obj", "boolean"), lambda x: x["type"] == "book"),

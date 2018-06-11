@@ -64,6 +64,10 @@ examples = [
 
   # Bootstrap on that novel frame
   ("stuff the jar", scene, Put(event, event.result, Constraint(Contain(objs[0], event.result), event.patient.full))),
+
+  # Weight updates -- new frame
+  ("drop the jar on the table", scene, Put(event, objs[0], Constraint(event.result.contact(objs[2]), event.direction.equals("down")))),
+  ("raise the book onto the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2]), event.direction.equals("up")))),
 ]
 
 
@@ -213,6 +217,10 @@ def eval_model(bootstrap=True, compress=True):
 
   # Zero-shot predictions for the newly learned frame.
   eval_bootstrap_example(learner, examples[5], "stuff", FILL_CATEGORY, bootstrap=bootstrap, asserts=False)
+
+  for example in examples[6:]:
+    sentence, model, answer = prep_example(learner, example)
+    learner.update_with_example(sentence, model, answer)
 
   # Produce alternation table.
   locative_construction = learner.lexicon.parse_category("S/N/PP")
