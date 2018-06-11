@@ -43,6 +43,7 @@ scene = {
     Object(type="book"),
     Object(type="table"),
     Collection("cookie"),
+    Object(type="water"),
   ]
 }
 objs = scene["objects"]
@@ -65,24 +66,35 @@ examples = [
   # Bootstrap on that novel frame
   ("stuff the jar", scene, Put(event, event.result, Constraint(Contain(objs[0], event.result), event.patient.full))),
 
-  # Weight updates -- new frame
+  # Weight updates -- new frames
   ("drop the jar on the table", scene, Put(event, objs[0], Constraint(event.result.contact(objs[2]), event.direction.equals("down")))),
   ("raise the book onto the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2]), event.direction.equals("up")))),
+  ("spill the water on the table", scene, Put(event, objs[4], Constraint(event.result.contact(objs[2]), event.result.state.equals("liquid")))),
 ]
 
 
 ######
 # Evaluation
 
-def _assert(expr, msg, raise_on_fail=True):
-  try:
-    assert expr
-  except AssertionError:
-    print("%sFAIL%s\t" % (Fore.RED, Style.RESET_ALL), msg)
-    if raise_on_fail:
-      raise
-  else:
-    print("%s OK %s\t" % (Fore.GREEN, Style.RESET_ALL), msg)
+ASSERTS = []
+def setup_asserts():
+  global ASSERTS
+  ASSERTS = []
+
+def _assert(expr, msg, raise_on_fail=False):
+  """Lazy assert."""
+  ASSERTS.append((expr, msg, raise_on_fail))
+
+def teardown_asserts():
+  for expr, msg, raise_on_fail in ASSERTS:
+    try:
+      assert expr
+    except AssertionError:
+      print("%sFAIL%s\t" % (Fore.RED, Style.RESET_ALL), msg)
+      if raise_on_fail:
+        raise
+    else:
+      print("%s OK %s\t" % (Fore.GREEN, Style.RESET_ALL), msg)
 
 
 def plot_distribution(distribution, name, k=5, xlabel=None, title=None):
@@ -135,6 +147,13 @@ def zero_shot(learner, example, token, bootstrap=True):
   return cand_categories[token], candidates[token].as_distribution()
 
 
+def get_lexicon_distribution(learner, token):
+  dist = Distribution()
+  for entry in learner.lexicon._entries[token]:
+    dist[entry.categ(), entry.semantics()] += entry.weight()
+  return dist.normalize()
+
+
 def eval_bootstrap_example(learner, example, token, expected_category,
                            bootstrap, asserts=True, extra=None):
   """
@@ -158,15 +177,27 @@ def eval_bootstrap_example(learner, example, token, expected_category,
   if extra is not None:
     extra(token, p_syn, p_syn_meaning)
 
+
+def eval_oneshot_example(learner, example, token, expected_category,
+                         asserts=True, extra=None):
   sentence, model, answer = prep_example(learner, example)
   learner.update_with_example(sentence, model, answer)
 
   # Fetch validated posterior from lexicon.
-  posterior = Distribution()
-  for entry in learner.lexicon._entries[token]:
-    posterior[entry.categ(), entry.semantics()] = entry.weight()
-  posterior = posterior.normalize()
+  posterior = get_lexicon_distribution(learner, token)
   plot_distribution(posterior, "oneshot.%s" % token)
+
+  if asserts and expected_category is not None:
+    top_cat, top_expr = posterior.argmax()
+    cat_yield = get_yield(top_cat)
+    _assert(cat_yield == expected_category,
+            "'%s' 1-shot top candidate has yield %s: %s"
+            % (token, expected_category, cat_yield))
+    _assert(expected_category.source_name in str(top_expr),
+            "Invention %s is in '%s' 1-shot top candidate expr: %s" %
+            (expected_category.source_name, token, str(top_expr)))
+  if extra is not None:
+    extra(token, None, posterior)
 
 
 def eval_model(bootstrap=True, compress=True):
@@ -182,16 +213,21 @@ def eval_model(bootstrap=True, compress=True):
   try:
     PP_CONTACT_CATEGORY, _ = learner.lexicon._derived_categories["D0"]
     PUT_CATEGORY, _ = learner.lexicon._derived_categories["D1"]
+    DROP_CATEGORY, _ = learner.lexicon._derived_categories["D2"]
     FILL_CATEGORY, _ = learner.lexicon._derived_categories["D4"]
     # sanity check
     _assert(str(PP_CONTACT_CATEGORY.base) == "PP", "PP contact derived cat has correct base")
     _assert(str(PUT_CATEGORY.base) == "S", "Put verb derived cat has correct base")
+    _assert(str(DROP_CATEGORY.base) == "S", "Drop verb derived cat has correct base")
     _assert(str(FILL_CATEGORY.base) == "S", "Fill verb derived cat has correct base")
   except KeyError:
     _assert(False, "Derived categories not available", False)
     PP_CONTACT_CATEGORY = None
     PUT_CATEGORY = None
+    DROP_CATEGORY = None
     FILL_CATEGORY = None
+
+  ###########
 
   # Run initial weight updates.
   for example in examples[:2]:
@@ -199,7 +235,6 @@ def eval_model(bootstrap=True, compress=True):
     learner.update_with_example(sentence, model, answer)
 
   # Zero-shot predictions with bootstrapping in known frames
-  # TODO also check der PP category
   def make_extra(target):
     def extra_check(token, cand_cats, cand_joint):
       top_cat, top_expr = cand_joint.argmax()
@@ -209,18 +244,26 @@ def eval_model(bootstrap=True, compress=True):
     return extra_check
   eval_bootstrap_example(learner, examples[2], "place", PUT_CATEGORY,
                          bootstrap=bootstrap, extra=make_extra(PP_CONTACT_CATEGORY))
+  eval_oneshot_example(learner, examples[2], "place", PUT_CATEGORY,
+                       extra=make_extra(PP_CONTACT_CATEGORY))
+
   eval_bootstrap_example(learner, examples[3], "cover", FILL_CATEGORY,
                          bootstrap=bootstrap, extra=make_extra(learner.lexicon.parse_category("PP")))
+  eval_oneshot_example(learner, examples[3], "cover", FILL_CATEGORY,
+                       extra=make_extra(learner.lexicon.parse_category("PP")))
 
   # Learn a novel frame for the fill class.
-  eval_bootstrap_example(learner, examples[4], "fill", FILL_CATEGORY, bootstrap=bootstrap, asserts=False)
+  eval_bootstrap_example(learner, examples[4], "fill", FILL_CATEGORY, bootstrap=bootstrap)
+  eval_oneshot_example(learner, examples[4], "fill", FILL_CATEGORY)
 
   # Zero-shot predictions for the newly learned frame.
-  eval_bootstrap_example(learner, examples[5], "stuff", FILL_CATEGORY, bootstrap=bootstrap, asserts=False)
+  eval_bootstrap_example(learner, examples[5], "stuff", FILL_CATEGORY, bootstrap=bootstrap)
+  eval_oneshot_example(learner, examples[5], "stuff", FILL_CATEGORY)
 
-  for example in examples[6:]:
-    sentence, model, answer = prep_example(learner, example)
-    learner.update_with_example(sentence, model, answer)
+  eval_oneshot_example(learner, examples[6], "drop", DROP_CATEGORY)
+  eval_oneshot_example(learner, examples[7], "raise", DROP_CATEGORY)
+
+  ###########
 
   # Produce alternation table.
   locative_construction = learner.lexicon.parse_category("S/N/PP")
@@ -248,11 +291,12 @@ def eval_model(bootstrap=True, compress=True):
   plt.savefig(args.out_dir / "alternations.png")
 
 
-
 if __name__ == "__main__":
   p = ArgumentParser()
   p.add_argument("--out_dir", default=".", type=Path)
 
   args = p.parse_args()
   # eval_model(bootstrap=False, compress=False)
+  setup_asserts()
   eval_model()
+  teardown_asserts()
