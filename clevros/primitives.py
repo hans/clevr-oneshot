@@ -49,11 +49,18 @@ class EventOp(object):
   def __hash__(self):
     return hash((self.base, self.op, self.args))
 
-  # TODO ambiguous API semantics -- should this yield a new EventOp, or should
-  # it be used to compare with another EventOp? Typing won't save us here,
-  # either...
   def __eq__(self, other):
+    """
+    Compares two `EventOp` instances. To do lazy equality checks, use
+    `EventOp.equals`.
+    """
     return hash(self) == hash(other)
+
+  def equals(self, other):
+    """
+    Builds a lazy equality check op. To compare `EventOp` instances, use `==`.
+    """
+    return EventOp(self, operator.eq, other)
 
   def __getitem__(self, attr):
     return EventOp(self, getattr, attr)
@@ -106,6 +113,34 @@ class EventOp(object):
     return self.__str__(verbose=True)
 
 
+class Object(object):
+
+  def __init__(self, name=None, **attrs):
+    self.attrs = frozendict(attrs)
+    self.name = name or self.attrs.get("type")
+
+  def __hash__(self):
+    return hash((self.name, self.attrs))
+
+  def __eq__(self, other):
+    return hash(self) == hash(other)
+
+  def __str__(self):
+    return self.name
+
+  def __repr__(self):
+    return "O(%s: %s)" % (self.name, self.attrs)
+
+  def __getattr__(self, attr):
+    if attr.startswith("__"):
+      # Don't muck with dunder methods
+      raise AttributeError
+    return self[attr]
+
+  def __getitem__(self, attr):
+    return self.attrs[attr]
+
+
 class Collection(object):
 
   def __init__(self, characteristic):
@@ -130,6 +165,13 @@ def fn_cmp_pos(ax, manner, a, b):
 
 def fn_ltzero(x): return x < 0
 def fn_and(a, b): return a and b
+def fn_eq(a, b):
+  if hasattr(a, "equals"):
+    return a.equals(b)
+  elif hasattr(b, "equals"):
+    return b.equals(a)
+  else:
+    return a == b
 
 ## Ops on collections
 def fn_set(a): return isinstance(a, Collection)
@@ -140,22 +182,22 @@ def fn_ax_y(): return 1
 def fn_ax_z(): return 2
 
 ## Ops on objects
-def fn_cube(x): return x["shape"] == "cube"
-def fn_sphere(x): return x["shape"] == "sphere"
-def fn_donut(x): return x["shape"] == "donut"
-def fn_pyramid(x): return x["shape"] == "pyramid"
-def fn_hose(x): return x["shape"] == "hose"
-def fn_cylinder(x): return x["shape"] == "cylinder"
-def fn_apple(x): return x["type"] == "apple"
-def fn_cookie(x): return x["type"] == "cookie"
-def fn_book(x): return x["type"] == "book"
-def fn_water(x): return x["type"] == "water"
+def fn_cube(x): return x.shape == "cube"
+def fn_sphere(x): return x.shape == "sphere"
+def fn_donut(x): return x.shape == "donut"
+def fn_pyramid(x): return x.shape == "pyramid"
+def fn_hose(x): return x.shape == "hose"
+def fn_cylinder(x): return x.shape == "cylinder"
+def fn_apple(x): return x.type == "apple"
+def fn_cookie(x): return x.type == "cookie"
+def fn_book(x): return x.type == "book"
+def fn_water(x): return x.type == "water"
 
 def fn_object(x): return isinstance(x, (frozendict, dict))
-def fn_vertical(x): return x["orientation"] == "vertical"
-def fn_horizontal(x): return x["orientation"] == "horizontal"
-def fn_liquid(x): return x["state"] == "liquid"
-def fn_full(x): return x["full"]
+def fn_vertical(x): return x.orientation == "vertical"
+def fn_horizontal(x): return x.orientation == "horizontal"
+def fn_liquid(x): return x.state == "liquid"
+def fn_full(x): return x.full
 
 # Two-place ops on objects
 def fn_contain(x, y):
@@ -191,10 +233,10 @@ class Constraint(object):
         constraints_flat.extend(constraint.constraints)
       else:
         constraints_flat.append(constraint)
-    self.constraints = tuple(constraints_flat)
+    self.constraints = frozenset(constraints_flat)
 
   def __add__(self, other):
-    return Constraint(self.constraints + other.constraints)
+    return Constraint(self.constraints | other.constraints)
 
   def __hash__(self):
     return hash(self.constraints)

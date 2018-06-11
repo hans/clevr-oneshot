@@ -39,9 +39,9 @@ L.info("Preparing evaluation data.")
 
 scene = {
   "objects": [
-    frozendict({"type": "jar"}),
-    frozendict({"type": "book"}),
-    frozendict({"type": "table"}),
+    Object(type="jar"),
+    Object(type="book"),
+    Object(type="table"),
     Collection("cookie"),
   ]
 }
