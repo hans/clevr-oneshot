@@ -169,10 +169,10 @@ def eval_bootstrap_example(learner, example, token, expected_category,
   if asserts and expected_category is not None:
     cat_yield = get_yield(top_cat)
     _assert(cat_yield == expected_category,
-            "'%s' top candidate has yield %s: %s"
+            "0-shot '%s' top candidate has yield %s: %s"
             % (token, expected_category, cat_yield))
     _assert(expected_category.source_name in str(top_expr),
-            "Invention %s is in '%s' top candidate expr: %s" %
+            "0-shot invention %s is in '%s' top candidate expr: %s" %
             (expected_category.source_name, token, str(top_expr)))
   if extra is not None:
     extra(token, p_syn, p_syn_meaning)
@@ -191,10 +191,11 @@ def eval_oneshot_example(learner, example, token, expected_category,
     top_cat, top_expr = posterior.argmax()
     cat_yield = get_yield(top_cat)
     _assert(cat_yield == expected_category,
-            "'%s' 1-shot top candidate has yield %s: %s"
+            "1-shot '%s' top candidate has yield %s: %s"
             % (token, expected_category, cat_yield))
     _assert(expected_category.source_name in str(top_expr),
-            "Invention %s is in '%s' 1-shot top candidate expr: %s" %
+
+            "1-shot invention %s is in '%s' 1-shot top candidate expr: %s" %
             (expected_category.source_name, token, str(top_expr)))
   if extra is not None:
     extra(token, None, posterior)
@@ -239,7 +240,7 @@ def eval_model(bootstrap=True, compress=True):
     def extra_check(token, cand_cats, cand_joint):
       top_cat, top_expr = cand_joint.argmax()
       _assert(top_cat.arg() == target,
-            "Top cat for %s should have first arg of type %s: %s" %
+              "Top cat for %s should have first arg of type %s: %s" %
               (token, target, top_cat))
     return extra_check
   eval_bootstrap_example(learner, examples[2], "place", PUT_CATEGORY,
