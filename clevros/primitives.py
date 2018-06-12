@@ -196,7 +196,7 @@ def fn_water(x): return x.type == "water"
 def fn_object(x): return isinstance(x, (frozendict, dict))
 def fn_vertical(x): return x.orientation == "vertical"
 def fn_horizontal(x): return x.orientation == "horizontal"
-def fn_liquid(x): return x.state == "liquid"
+def fn_liquid(x): return x.state.equals("liquid")
 def fn_full(x): return x.full
 
 # Two-place ops on objects

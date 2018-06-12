@@ -19,7 +19,7 @@ from clevros.primitives import *
 from clevros.util import Distribution
 from clevros.word_learner import WordLearner
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 L = logging.getLogger(__name__)
 
 # EC hyperparameters.
@@ -154,6 +154,20 @@ def get_lexicon_distribution(learner, token):
   return dist.normalize()
 
 
+def compute_alternations(learner, constructions):
+  cat_masses = learner.lexicon.total_category_masses()
+  der_verb_cats = [der_cat for der_cat, _ in learner.lexicon._derived_categories.values()
+                   if der_cat.base == learner.lexicon._start]
+  table = pd.DataFrame(dtype=np.float, index=list(map(str, constructions)), columns=list(map(str, der_verb_cats)))
+  for der_cat in der_verb_cats:
+    for construction in constructions:
+      query_cat = set_yield(construction, der_cat)
+      table.loc[str(construction), str(der_cat)] = cat_masses[query_cat]
+  table = table.subtract(table.min(axis=1), axis=0)
+  table = table.div(table.max(axis=1), axis=0)
+  return table
+
+
 def eval_bootstrap_example(learner, example, token, expected_category,
                            bootstrap, asserts=True, extra=None):
   """
@@ -215,18 +229,30 @@ def eval_model(bootstrap=True, compress=True):
     PP_CONTACT_CATEGORY, _ = learner.lexicon._derived_categories["D0"]
     PUT_CATEGORY, _ = learner.lexicon._derived_categories["D1"]
     DROP_CATEGORY, _ = learner.lexicon._derived_categories["D2"]
+    POUR_CATEGORY, _ = learner.lexicon._derived_categories["D3"]
     FILL_CATEGORY, _ = learner.lexicon._derived_categories["D4"]
     # sanity check
     _assert(str(PP_CONTACT_CATEGORY.base) == "PP", "PP contact derived cat has correct base")
     _assert(str(PUT_CATEGORY.base) == "S", "Put verb derived cat has correct base")
     _assert(str(DROP_CATEGORY.base) == "S", "Drop verb derived cat has correct base")
     _assert(str(FILL_CATEGORY.base) == "S", "Fill verb derived cat has correct base")
+    _assert(str(POUR_CATEGORY.base) == "S", "Pour verb derived cat has correct base")
   except KeyError:
     _assert(False, "Derived categories not available", False)
     PP_CONTACT_CATEGORY = None
     PUT_CATEGORY = None
     DROP_CATEGORY = None
     FILL_CATEGORY = None
+    POUR_CATEGORY = None
+
+  # Constructions in which different derived verb cats appear
+  locative_construction = learner.lexicon.parse_category("S/N/PP")
+  locative_construction._arg = PP_CONTACT_CATEGORY
+  constructions = [
+    locative_construction,
+    learner.lexicon.parse_category("S/N/PP"),
+    learner.lexicon.parse_category("S/N"),
+  ]
 
   ###########
 
@@ -264,27 +290,12 @@ def eval_model(bootstrap=True, compress=True):
   eval_oneshot_example(learner, examples[6], "drop", DROP_CATEGORY)
   eval_oneshot_example(learner, examples[7], "raise", DROP_CATEGORY)
 
+  eval_oneshot_example(learner, examples[8], "spill", POUR_CATEGORY)
+
   ###########
 
   # Produce alternation table.
-  locative_construction = learner.lexicon.parse_category("S/N/PP")
-  locative_construction._arg = PP_CONTACT_CATEGORY
-  constructions = [
-    locative_construction,
-    learner.lexicon.parse_category("S/N/PP"),
-    learner.lexicon.parse_category("S/N"),
-  ]
-  cat_masses = learner.lexicon.total_category_masses()
-  der_verb_cats = [der_cat for der_cat, _ in learner.lexicon._derived_categories.values()
-                   if der_cat.base == learner.lexicon._start]
-  table = pd.DataFrame(dtype=np.float, index=list(map(str, constructions)), columns=list(map(str, der_verb_cats)))
-  for der_cat in der_verb_cats:
-    for construction in constructions:
-      query_cat = set_yield(construction, der_cat)
-      table.loc[str(construction), str(der_cat)] = cat_masses[query_cat]
-  table = table.subtract(table.min(axis=1), axis=0)
-  table = table.div(table.max(axis=1), axis=0)
-
+  table = compute_alternations(learner, constructions)
   print(table)
   table.to_csv(args.out_dir / "alternations.csv")
   plt.clf()
