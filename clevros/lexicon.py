@@ -891,7 +891,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
           # Parse succeeded with correct meaning. Add candidate lexical entry.
           successes[token].add(description)
         else:
-          if len(failures[token]) < negative_samples:
+          if len(failures[token]) < negative_samples and description not in successes[token]:
             failures[token].add(description)
 
   for token in query_tokens:
@@ -921,12 +921,12 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
         [Token(token, category, expr, weight=negative_mass)
          for _, (category, expr) in failures_t])
 
-    L.debug("Inferred %i novel entries for token %s:", len(successes_t), token)
-    for (_, entry_info), weight in zip(successes_t, weights_t):
-      L.debug("%.4f %s", weight, entry_info)
-    L.debug("Negatively sampled %i more novel entries for token %s:", len(failures_t), token)
+    L.info("Inferred %i novel entries for token %s:", len(successes_t), token)
+    for (_, entry_info), weight in sorted(zip(successes_t, weights_t), key=lambda x: x[1], reverse=True):
+      L.info("%.4f %s", weight, entry_info)
+    L.info("Negatively sampled %i more novel entries for token %s:", len(failures_t), token)
     for (_, entry_info) in failures_t:
-      L.debug("%.4f %s", negative_mass, entry_info)
+      L.info("%.4f %s", negative_mass, entry_info)
 
 
   return lex
