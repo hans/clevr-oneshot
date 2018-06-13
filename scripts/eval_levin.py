@@ -86,6 +86,7 @@ def _assert(expr, msg, raise_on_fail=False):
   ASSERTS.append((expr, msg, raise_on_fail))
 
 def teardown_asserts():
+  n, successes = len(ASSERTS), 0
   for expr, msg, raise_on_fail in ASSERTS:
     try:
       assert expr
@@ -94,7 +95,10 @@ def teardown_asserts():
       if raise_on_fail:
         raise
     else:
+      successes += 1
       print("%s OK %s\t" % (Fore.GREEN, Style.RESET_ALL), msg)
+
+  return successes / n if n > 0 else 0
 
 
 def plot_distribution(distribution, name, k=5, xlabel=None, title=None):
@@ -315,6 +319,33 @@ if __name__ == "__main__":
 
   args = p.parse_args()
   # eval_model(bootstrap=False, compress=False)
-  setup_asserts()
-  eval_model()
-  teardown_asserts()
+
+  params = [
+    ("learning_rate", 1.0, 10.0),
+    ("bootstrap_alpha", 1e-6, 0.1),
+    ("beta", 0.5, 10.0),
+    ("negative_samples", 1, 10),
+    ("total_negative_mass", 0.1, 1.0),
+    ("syntax_prior_smooth", 1e-6, 0.1),
+  ]
+
+  with open("search.log", "a") as search_f:
+    search_f.write("success_ratio\t")
+    search_f.write("\t".join(param for param, _, _ in params))
+    search_f.write("\n")
+
+    while True:
+      sampled_params = {
+        param: np.random.uniform(low, high)
+        for param, low, high in params
+      }
+
+      setup_asserts()
+      eval_model(**sampled_params)
+      result = teardown_asserts()
+
+      search_f.write("%.3f\t" % result)
+      search_f.write("\t".join("%g" % sampled_params[param] for param, _, _ in params))
+      search_f.write("\n")
+
+      search_f.flush()
