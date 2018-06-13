@@ -273,22 +273,27 @@ def eval_model(bootstrap=True, compress=True):
                          bootstrap=bootstrap, extra=make_extra(PP_CONTACT_CATEGORY))
   eval_oneshot_example(learner, examples[2], "place", PUT_CATEGORY,
                        extra=make_extra(PP_CONTACT_CATEGORY))
+  print(compute_alternations(learner, constructions))
 
   eval_bootstrap_example(learner, examples[3], "cover", FILL_CATEGORY,
                          bootstrap=bootstrap, extra=make_extra(learner.lexicon.parse_category("PP")))
   eval_oneshot_example(learner, examples[3], "cover", FILL_CATEGORY,
                        extra=make_extra(learner.lexicon.parse_category("PP")))
+  print(compute_alternations(learner, constructions))
 
   # Learn a novel frame for the fill class.
   eval_bootstrap_example(learner, examples[4], "fill", FILL_CATEGORY, bootstrap=bootstrap)
   eval_oneshot_example(learner, examples[4], "fill", FILL_CATEGORY)
+  print(compute_alternations(learner, constructions))
 
   # Zero-shot predictions for the newly learned frame.
   eval_bootstrap_example(learner, examples[5], "stuff", FILL_CATEGORY, bootstrap=bootstrap)
   eval_oneshot_example(learner, examples[5], "stuff", FILL_CATEGORY)
+  print(compute_alternations(learner, constructions))
 
   eval_oneshot_example(learner, examples[6], "drop", DROP_CATEGORY)
   eval_oneshot_example(learner, examples[7], "raise", DROP_CATEGORY)
+  print(compute_alternations(learner, constructions))
 
   eval_oneshot_example(learner, examples[8], "spill", POUR_CATEGORY)
 
