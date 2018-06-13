@@ -215,12 +215,13 @@ def eval_oneshot_example(learner, example, token, expected_category,
     extra(token, None, posterior)
 
 
-def eval_model(bootstrap=True, compress=True):
+def eval_model(compress=True, bootstrap=True, **learner_kwargs):
   L.info("Building model.")
 
   lexicon = levin.lexicon.clone()
   compressor = Compressor(lexicon.ontology, **EC_kwargs) if compress else None
-  learner = WordLearner(lexicon, compressor, bootstrap=bootstrap)
+  learner = WordLearner(lexicon, compressor, bootstrap=bootstrap,
+                        **learner_kwargs)
 
   # Run compression.
   learner.compress_lexicon()

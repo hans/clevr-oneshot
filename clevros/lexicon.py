@@ -343,7 +343,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     kwargs["conditioning_fn"] = conditioning_fn
     return self.lf_ngrams(**kwargs)
 
-  def lf_ngrams_mixed(self, **kwargs):
+  def lf_ngrams_mixed(self, alpha=0.25, **kwargs):
     """
     Return conditional distributions over logical form n-grams conditioned on
     syntactic category, calculated by mixing two distribution classes: a
@@ -376,7 +376,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       # Mix root-conditioned distribution and the full syntax-conditioned
       # distribution.
       yield_dist = lf_yield_ngrams[get_yield(syntax)]
-      lf_mixed_ngrams[syntax] = lf_syntax_ngrams[syntax].mix(yield_dist, alpha=0.25) # TODO magic
+      lf_mixed_ngrams[syntax] = lf_syntax_ngrams[syntax].mix(yield_dist, alpha)
 
     return lf_mixed_ngrams
 
@@ -491,7 +491,7 @@ def set_yield(category, new_yield):
     raise ValueError("unknown category type of instance %r" % category)
 
 
-def get_candidate_categories(lex, tokens, sentence, smooth=True):
+def get_candidate_categories(lex, tokens, sentence, smooth=1e-3):
   """
   Find candidate categories for the given tokens which appear in `sentence` such
   that `sentence` yields a parse.
@@ -500,7 +500,8 @@ def get_candidate_categories(lex, tokens, sentence, smooth=True):
     lex:
     tokens:
     sentence:
-    smooth: If `True`, add-1 smooth the returned distributions.
+    smooth: If not `None`, add-k smooth the prior distribution over syntactic
+      categories (where the float value of `smooth` specifies `k`).
 
   Returns:
     cat_dists: Dictionary mapping each token to a `Distribution` over
@@ -517,10 +518,10 @@ def get_candidate_categories(lex, tokens, sentence, smooth=True):
 
   category_prior = lex.observed_category_distribution(
       exclude_tokens=set(tokens), soft_propagate_roots=True)
-  if smooth:
-    L.debug("Smoothing category prior.")
+  if smooth is not None:
+    L.debug("Smoothing category prior with k = %g", smooth)
     for key in category_prior.keys():
-      category_prior[key] += 1e-3 # TODO do this in a principled way
+      category_prior[key] += smooth
     category_prior = category_prior.normalize()
   L.debug("Smoothed category prior with soft root propagation: %s", category_prior)
 
@@ -543,7 +544,6 @@ def get_candidate_categories(lex, tokens, sentence, smooth=True):
       score = 0
       for token, category in zip(tokens, cat_assignment):
         score += np.log(category_prior[category])
-        pass
 
       # Likelihood weight comes from parse score
       score += np.log(sum(np.exp(weight)
@@ -679,7 +679,6 @@ def attempt_candidate_parse(lexicon, token, candidate_category,
   results = chart.WeightedCCGChartParser(lexicon, ruleset=chart.ApplicationRuleSet) \
       .parse(sentence)
   if results:
-    # TODO: also attempt parses with composition?
     return results, sub_target
 
   # Attempt to parse, allowing for function composition. In order to support
@@ -706,15 +705,25 @@ def attempt_candidate_parse(lexicon, token, candidate_category,
     results.extend(
         chart.WeightedCCGChartParser(lexicon, ruleset=chart.DefaultRuleSet).parse(sentence))
 
-  # TODO need to return more information if we've lifted the sub_target
   return results, sub_target
 
 
 def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
-                      bootstrap=True):
+                      bootstrap=True, alpha=0.25):
   """
   Make zero-shot predictions of the posterior `p(syntax, meaning | sentence)`
   for each of `tokens`.
+
+  Args:
+    lex:
+    tokens:
+    candidate_syntaxes:
+    sentence:
+    ontology:
+    bootstrap: If `True`, use syntactic category information to bootstrap
+      predictions about meanings.
+    alpha: Mixing parameter for bootstrapping distributions. See `alpha`
+      parameter of `Lexicon.lf_ngrams_mixed`.
 
   Returns:
     queues:
@@ -723,7 +732,7 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
   """
   # Prepare for syntactic bootstrap: pre-calculate distributions over semantic
   # form elements conditioned on syntactic category.
-  lf_ngrams = lex.lf_ngrams_mixed(order=1, smooth=True)
+  lf_ngrams = lex.lf_ngrams_mixed(order=1, smooth=True, alpha=alpha)
 
   # We will restrict semantic arities based on the observed arities available
   # for each category. Pre-calculate the necessary associations.
@@ -797,7 +806,7 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
 def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
                             sentence, ontology, model, answer,
                             bootstrap=True, negative_samples=5, total_negative_mass=0.1,
-                            beta=3.0):
+                            alpha=1e-3, beta=3.0):
   """
   Augment a lexicon with candidate meanings for a given word using distant
   supervision. (The induced meanings for the queried words must yield parses
@@ -839,6 +848,11 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
     total_negative_mass: Distribute this much weight mass across
       negative samples. (Each negative sample will have an entry weight of
       `total_negative_mass / negative_samples.`)
+    alpha: Smoothing parameter for syntactic category prior distribution (see
+      `get_candidate_categories`).
+    beta: Total mass to assign to novel candidate lexical entries. (Mass will
+      be divided according to the one-shot probability distribution induced from
+      the example.)
   """
 
   # Target lexicon to be returned.
@@ -850,7 +864,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
   ranked_candidates, category_parse_results, dummy_var = \
       predict_zero_shot(lex, query_tokens, query_token_syntaxes, sentence, ontology,
-                        bootstrap=bootstrap)
+                        bootstrap=bootstrap, alpha=alpha)
 
   successes = defaultdict(set)
   failures = defaultdict(set)
@@ -1029,19 +1043,3 @@ def lf_parts(lf_str):
         candidates.add(l.LambdaExpression(variable, app_expr))
 
   return candidates
-
-
-if __name__ == '__main__':
-  print(list(map(str, lf_parts("filter_shape(scene,'sphere')"))))
-  print(list(map(str, lf_parts("filter_shape(filter_size(scene, 'big'), 'sphere')"))))
-
-  lex = Lexicon.fromstring(r"""
-  :- NN, DET, ADJ
-
-  DET :: NN/NN
-  ADJ :: NN/NN
-
-  the => DET {\x.unique(x)}
-  big => ADJ {\x.filter_size(x,big)}
-  dog => NN {dog}""", include_semantics=True)
-  print(augment_lexicon(lex, "the small dog".split(), "unique(filter_size(dog,small))"))

@@ -11,7 +11,11 @@ L = logging.getLogger(__name__)
 
 class WordLearner(object):
 
-  def __init__(self, lexicon, compressor, bootstrap=True):
+  def __init__(self, lexicon, compressor, bootstrap=True,
+               learning_rate=10.0, beta=3.0, negative_samples=5,
+               total_negative_mass=0.1, syntax_prior_smooth=1e-3,
+               bootstrap_alpha=0.25):
+
     """
     Args:
       lexicon:
@@ -22,6 +26,14 @@ class WordLearner(object):
     self.compressor = compressor
 
     self.bootstrap = bootstrap
+
+    # Learning hyperparameters
+    self.learning_rate = learning_rate
+    self.beta = beta
+    self.negative_samples = negative_samples
+    self.total_negative_mass = total_negative_mass
+    self.syntax_prior_smooth = syntax_prior_smooth
+    self.bootstrap_alpha = bootstrap_alpha
 
   @property
   def ontology(self):
@@ -89,7 +101,8 @@ class WordLearner(object):
       # require an entry inserted
       L.info("Novel words: %s", " ".join(query_tokens))
       query_token_syntaxes = get_candidate_categories(
-          self.lexicon, query_tokens, sentence)
+          self.lexicon, query_tokens, sentence,
+          smooth=self.syntax_prior_smooth)
 
       return query_tokens, query_token_syntaxes
 
@@ -102,7 +115,8 @@ class WordLearner(object):
     for token in sentence:
       query_tokens = [token]
       query_token_syntaxes = get_candidate_categories(
-          self.lexicon, query_tokens, sentence)
+          self.lexicon, query_tokens, sentence,
+          smooth=self.syntax_prior_smooth)
 
       if query_token_syntaxes:
         # Found candidate parses! Let's try adding entries for this token,
@@ -127,8 +141,9 @@ class WordLearner(object):
     """
 
     try:
-      weighted_results, _ = update_perceptron_distant(self.lexicon, sentence,
-                                                      model, answer)
+      weighted_results, _ = update_perceptron_distant(
+          self.lexicon, sentence, model, answer,
+          learning_rate=self.learning_rate)
     except ValueError as e:
       # No parse succeeded -- attempt lexical induction.
       L.warning("Parse failed for sentence '%s'", " ".join(sentence))
@@ -144,13 +159,17 @@ class WordLearner(object):
       # the supported syntaxes for the novel words (`query_token_syntaxes`).
       self.lexicon = augment_lexicon_distant(
           self.lexicon, query_tokens, query_token_syntaxes, sentence,
-          self.ontology, model, answer, bootstrap=self.bootstrap)
+          self.ontology, model, answer, bootstrap=self.bootstrap,
+          alpha=self.bootstrap_alpha, beta=self.beta,
+          negative_samples=self.negative_samples,
+          total_negative_mass=self.total_negative_mass)
 
       # Compress the resulting lexicon.
       self.compress_lexicon()
 
       # Attempt a new parameter update.
       weighted_results, _ = update_perceptron_distant(
-          self.lexicon, sentence, model, answer)
+          self.lexicon, sentence, model, answer,
+          learning_rate=self.learning_rate)
 
     return weighted_results
