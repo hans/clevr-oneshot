@@ -146,10 +146,12 @@ def zero_shot(learner, example, token, bootstrap=True):
   Return zero-shot distributions p(syntax | example), p(syntax, meaning | example).
   """
   sentence, _, _ = prep_example(learner, example)
-  cand_categories = get_candidate_categories(learner.lexicon, [token], sentence)
-  candidates, _, _ = predict_zero_shot(learner.lexicon, [token], cand_categories, sentence,
+  tokens, syntaxes = learner.prepare_lexical_induction(sentence)
+  assert tokens == [token]
+
+  candidates, _, _ = predict_zero_shot(learner.lexicon, tokens, syntaxes, sentence,
                                        learner.ontology, bootstrap=bootstrap)
-  return cand_categories[token], candidates[token].as_distribution()
+  return syntaxes[token], candidates[token].as_distribution()
 
 
 def get_lexicon_distribution(learner, token):
