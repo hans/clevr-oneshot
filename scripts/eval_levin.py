@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 import logging
+import math
 from pathlib import Path
 
 from colorama import Fore, Style
@@ -314,38 +315,54 @@ def eval_model(compress=True, bootstrap=True, **learner_kwargs):
 
 
 if __name__ == "__main__":
+  hparams = [
+    ("learning_rate", False, 1.0, 10.0, 5.0),
+    ("bootstrap_alpha", False, 0.1, 0.9, 0.25),
+    ("beta", False, 0.5, 10.0, 3.0),
+    ("negative_samples", False, 1, 10, 5),
+    ("total_negative_mass", False, 0.1, 1.0, 0.1),
+    ("syntax_prior_smooth", True, 1e-6, 0.1, 1e-3),
+  ]
+
   p = ArgumentParser()
   p.add_argument("--out_dir", default=".", type=Path)
+  p.add_argument("-m", "--mode", choices=["search", "eval"])
+  for hparam, _, _, _, default in hparams:
+    p.add_argument("--%s" % hparam, default=default, type=type(default))
 
   args = p.parse_args()
-  # eval_model(bootstrap=False, compress=False)
 
-  params = [
-    ("learning_rate", 1.0, 10.0),
-    ("bootstrap_alpha", 1e-6, 0.1),
-    ("beta", 0.5, 10.0),
-    ("negative_samples", 1, 10),
-    ("total_negative_mass", 0.1, 1.0),
-    ("syntax_prior_smooth", 1e-6, 0.1),
-  ]
+  def sample_hparam(hparam):
+    name, log_scale, low, high, _ = hparam
+    if log_scale:
+      low, high = math.log(low, 10), math.log(high, 10)
+    val = np.random.uniform(low, high)
+    if log_scale:
+      val = math.pow(10, val)
+    return val
 
   with open("search.log", "a") as search_f:
     search_f.write("success_ratio\t")
-    search_f.write("\t".join(param for param, _, _ in params))
+    search_f.write("\t".join(hparam for hparam, _, _, _, _ in hparams))
     search_f.write("\n")
 
     while True:
-      sampled_params = {
-        param: np.random.uniform(low, high)
-        for param, low, high in params
+      sampled_hparams = {
+        hparam[0]: (sample_hparam(hparam) if args.mode == "search"
+                    else getattr(args, hparam[0]))
+        for hparam in hparams
       }
 
       setup_asserts()
-      eval_model(**sampled_params)
+      eval_model(**sampled_hparams)
       result = teardown_asserts()
 
       search_f.write("%.3f\t" % result)
-      search_f.write("\t".join("%g" % sampled_params[param] for param, _, _ in params))
+      search_f.write("\t".join("%g" % sampled_hparams[hparam]
+                              for hparam, _, _, _, _ in hparams))
       search_f.write("\n")
 
       search_f.flush()
+
+      if args.mode == "eval":
+        break
