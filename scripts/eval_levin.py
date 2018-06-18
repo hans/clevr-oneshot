@@ -141,17 +141,15 @@ def prep_example(learner, example):
   return sentence, model, answer
 
 
-def zero_shot(learner, example, token, bootstrap=True):
+def zero_shot(learner, example, token):
   """
   Return zero-shot distributions p(syntax | example), p(syntax, meaning | example).
   """
   sentence, _, _ = prep_example(learner, example)
-  tokens, syntaxes = learner.prepare_lexical_induction(sentence)
-  assert tokens == [token]
+  syntaxes, joint_candidates = learner.predict_zero_shot(sentence)
 
-  candidates, _, _ = predict_zero_shot(learner.lexicon, tokens, syntaxes, sentence,
-                                       learner.ontology, bootstrap=bootstrap)
-  return syntaxes[token], candidates[token].as_distribution()
+  assert list(syntaxes.keys()) == [token]
+  return syntaxes[token], joint_candidates[token].as_distribution()
 
 
 def get_lexicon_distribution(learner, token):
@@ -181,7 +179,7 @@ def eval_bootstrap_example(learner, example, token, expected_category,
   Validate that verb bootstrapping using a derived category executes
   successfully, and update the model afterwards.
   """
-  p_syn, p_syn_meaning = zero_shot(learner, example, token, bootstrap=bootstrap)
+  p_syn, p_syn_meaning = zero_shot(learner, example, token)
 
   plot_distribution(p_syn, "zeroshot.syntax.%s" % token)
   plot_distribution(p_syn_meaning, "zeroshot.joint.%s" % token)
@@ -324,11 +322,12 @@ if __name__ == "__main__":
     ("negative_samples", False, 1, 10, 5),
     ("total_negative_mass", False, 0.1, 1.0, 0.1),
     ("syntax_prior_smooth", True, 1e-6, 0.1, 1e-3),
+    ("meaning_prior_smooth", True, 1e-6, 1.0, 1e-3),
   ]
 
   p = ArgumentParser()
   p.add_argument("--out_dir", default=".", type=Path)
-  p.add_argument("-m", "--mode", choices=["search", "eval"])
+  p.add_argument("-m", "--mode", choices=["search", "eval"], default="search")
   for hparam, _, _, _, default in hparams:
     p.add_argument("--%s" % hparam, default=default, type=type(default))
 

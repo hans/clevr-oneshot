@@ -1,8 +1,8 @@
 import logging
 
 from clevros.compression import Compressor
-from clevros.lexicon import augment_lexicon_distant, get_candidate_categories, \
-    get_semantic_arity
+from clevros.lexicon import augment_lexicon_distant, predict_zero_shot, \
+    get_candidate_categories, get_semantic_arity
 from clevros.perceptron import update_perceptron_distant
 
 
@@ -14,7 +14,7 @@ class WordLearner(object):
   def __init__(self, lexicon, compressor, bootstrap=True,
                learning_rate=10.0, beta=3.0, negative_samples=5,
                total_negative_mass=0.1, syntax_prior_smooth=1e-3,
-               bootstrap_alpha=0.25):
+               meaning_prior_smooth=1e-3, bootstrap_alpha=0.25):
 
     """
     Args:
@@ -33,6 +33,7 @@ class WordLearner(object):
     self.negative_samples = negative_samples
     self.total_negative_mass = total_negative_mass
     self.syntax_prior_smooth = syntax_prior_smooth
+    self.meaning_prior_smooth = meaning_prior_smooth
     self.bootstrap_alpha = bootstrap_alpha
 
   @property
@@ -67,8 +68,7 @@ class WordLearner(object):
     # categories. The ordering allows us to support hard-propagating both e.g.
     # a new root category and a new argument category at the same time.
     #
-    # (We may have derived new categories for entries with types `PP/NP` and
-    # `S/NP/PP` -- in this case, we want to first make available a new category
+    # (We may have derived new categories for entries with types `PP/NP` and # `S/NP/PP` -- in this case, we want to first make available a new category
     # `D0{S}/NP/PP` such that we can propagate the derived `D1{PP}` onto it,
     # yielding `D0{S}/NP/D1{PP}`.)
     to_propagate = sorted(
@@ -126,6 +126,30 @@ class WordLearner(object):
     raise ValueError(
         "unable to find new entries which will make the sentence parse: %s" % sentence)
 
+  def predict_zero_shot(self, sentence):
+    """
+    Yield zero-shot predictions on the syntax and meaning of words in the
+    sentence requiring novel lexical entries.
+
+    Args:
+      sentence: List of token strings
+
+    Returns:
+      syntaxes: Dict mapping tokens to posterior distributions over syntactic
+        categories
+      joint_candidates: Dict mapping tokens to posterior distributions over
+        tuples `(syntax, lf)`
+    """
+    # Find tokens for which we need to insert lexical entries.
+    query_tokens, query_token_syntaxes = self.prepare_lexical_induction(sentence)
+    candidates, _, _ = predict_zero_shot(
+        self.lexicon, query_tokens, query_token_syntaxes,
+        sentence, self.ontology,
+        bootstrap=self.bootstrap,
+        meaning_prior_smooth=self.meaning_prior_smooth,
+        alpha=self.bootstrap_alpha)
+    return query_token_syntaxes, candidates
+
   def update_with_example(self, sentence, model, answer):
     """
     Observe a new `sentence -> answer` pair in the context of some `model` and
@@ -159,7 +183,9 @@ class WordLearner(object):
       # the supported syntaxes for the novel words (`query_token_syntaxes`).
       self.lexicon = augment_lexicon_distant(
           self.lexicon, query_tokens, query_token_syntaxes, sentence,
-          self.ontology, model, answer, bootstrap=self.bootstrap,
+          self.ontology, model, answer,
+          bootstrap=self.bootstrap,
+          meaning_prior_smooth=self.meaning_prior_smooth,
           alpha=self.bootstrap_alpha, beta=self.beta,
           negative_samples=self.negative_samples,
           total_negative_mass=self.total_negative_mass)

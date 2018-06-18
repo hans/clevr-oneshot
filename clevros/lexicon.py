@@ -297,7 +297,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       self._entries[word].extend(w_entries)
 
 
-  def lf_ngrams(self, order=1, conditioning_fn=None, smooth=True):
+  def lf_ngrams(self, order=1, conditioning_fn=None, smooth=None):
     """
     Calculate n-gram statistics about the predicates present in the semantic
     forms in the lexicon.
@@ -308,7 +308,8 @@ class Lexicon(ccg_lexicon.CCGLexicon):
         from the range of `conditioning_fn` to distributions over semantic
         predicates. This can be used to e.g. build distributions over
         predicates conditioned on syntactic category.
-      smooth: If `True`, add-1 smooth the returned distributions.
+      smooth: If not `None`, add-k smooth the returned distributions using the
+        provided float.
     """
     if order > 1:
       raise NotImplementedError()
@@ -325,12 +326,12 @@ class Lexicon(ccg_lexicon.CCGLexicon):
           for predicate in entry.semantics().predicates():
             ret[key][predicate.name] += entry.weight()
 
-    if smooth:
+    if smooth is not None:
       support = ret.support
       for key in ret:
         for predicate in support:
-          ret[key][predicate] += 1
-        ret[key][None] += 1
+          ret[key][predicate] += smooth
+        ret[key][None] += smooth
 
     ret.normalize_all()
 
@@ -709,7 +710,7 @@ def attempt_candidate_parse(lexicon, token, candidate_category,
 
 
 def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
-                      bootstrap=True, alpha=0.25):
+                      bootstrap=True, meaning_prior_smooth=1e-3, alpha=0.25):
   """
   Make zero-shot predictions of the posterior `p(syntax, meaning | sentence)`
   for each of `tokens`.
@@ -732,7 +733,8 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
   """
   # Prepare for syntactic bootstrap: pre-calculate distributions over semantic
   # form elements conditioned on syntactic category.
-  lf_ngrams = lex.lf_ngrams_mixed(order=1, smooth=True, alpha=alpha)
+  lf_ngrams = lex.lf_ngrams_mixed(alpha=alpha, order=1,
+                                  smooth=meaning_prior_smooth)
 
   # We will restrict semantic arities based on the observed arities available
   # for each category. Pre-calculate the necessary associations.
@@ -808,7 +810,8 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
 
 def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
                             sentence, ontology, model, answer,
-                            bootstrap=True, negative_samples=5, total_negative_mass=0.1,
+                            bootstrap=True, meaning_prior_smooth=1e-3,
+                            negative_samples=5, total_negative_mass=0.1,
                             alpha=1e-3, beta=3.0):
   """
   Augment a lexicon with candidate meanings for a given word using distant
@@ -844,6 +847,8 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
     answer: Ground-truth answer to `sentence`.
     bootstrap: If `True`, incorporate priors over LF predicates conditioned on
       syntactic category when scoring candidate lexical entries.
+    meaning_prior_smooth: If not `None`, use this float quantity to add-k
+      smooth the prior distribution over meaning predicates.
     negative_samples: Add this many unique negative sample lexical
       entries to the lexicon for each token. (A negative sample is a
       high-scoring lexical entry which does not yield the correct
@@ -867,7 +872,8 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
   ranked_candidates, category_parse_results, dummy_var = \
       predict_zero_shot(lex, query_tokens, query_token_syntaxes, sentence, ontology,
-                        bootstrap=bootstrap, alpha=alpha)
+                        bootstrap=bootstrap, meaning_prior_smooth=meaning_prior_smooth,
+                        alpha=alpha)
 
   successes = defaultdict(set)
   failures = defaultdict(set)
