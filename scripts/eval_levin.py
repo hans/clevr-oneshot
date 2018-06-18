@@ -341,6 +341,8 @@ if __name__ == "__main__":
     val = np.random.uniform(low, high)
     if log_scale:
       val = math.pow(10, val)
+    if isinstance(low, int):
+      val = int(round(val))
     return val
 
   with open("search.log", "a") as search_f:

@@ -754,6 +754,9 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
     token_syntaxes = candidate_syntaxes[token]
     L.info("Candidate syntaxes for %s: %r", token, token_syntaxes)
     for category, category_weight in token_syntaxes.items():
+      if category_weight == 0:
+        continue
+
       # Retrieve relevant bootstrap distribution p(meaning | syntax).
       cat_lf_ngrams = lf_ngrams[category]
       # Redistribute UNK probability uniformly across predicates not observed
