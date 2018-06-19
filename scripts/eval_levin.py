@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 import logging
 import math
 from pathlib import Path
+import sys
 
 from colorama import Fore, Style
 from frozendict import frozendict
@@ -316,13 +317,13 @@ def eval_model(compress=True, bootstrap=True, **learner_kwargs):
 
 if __name__ == "__main__":
   hparams = [
-    ("learning_rate", False, 1.0, 10.0, 5.0),
-    ("bootstrap_alpha", False, 0.1, 0.9, 0.25),
-    ("beta", False, 0.5, 10.0, 3.0),
+    ("learning_rate", True, 1e-3, 10.0, 5.0),
+    ("bootstrap_alpha", False, 0, 1, 0.25),
+    ("beta", True, 1e-3, 10.0, 3.0),
     ("negative_samples", False, 1, 10, 5),
     ("total_negative_mass", False, 0.1, 1.0, 0.1),
-    ("syntax_prior_smooth", True, 1e-6, 0.1, 1e-3),
-    ("meaning_prior_smooth", True, 1e-6, 1.0, 1e-3),
+    ("syntax_prior_smooth", True, 1e-8, 1.0, 1e-3),
+    ("meaning_prior_smooth", True, 1e-8, 1.0, 1e-3),
   ]
 
   p = ArgumentParser()
@@ -357,10 +358,16 @@ if __name__ == "__main__":
       }
 
       setup_asserts()
-      eval_model(**sampled_hparams)
-      result = teardown_asserts()
+      try:
+        eval_model(**sampled_hparams)
+        result = teardown_asserts()
+      except KeyboardInterrupt:
+        sys.exit(1)
+      except:
+        search_f.write("0\t")
+      else:
+        search_f.write("%.3f\t" % result)
 
-      search_f.write("%.3f\t" % result)
       search_f.write("\t".join("%g" % sampled_hparams[hparam]
                               for hparam, _, _, _, _ in hparams))
       search_f.write("\n")
