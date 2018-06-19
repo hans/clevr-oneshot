@@ -289,7 +289,10 @@ def eval_model(compress=True, bootstrap=True, **learner_kwargs):
   print(compute_alternations(learner, constructions))
 
   # Learn a novel frame for the fill class.
-  eval_bootstrap_example(learner, examples[4], "fill", FILL_CATEGORY, bootstrap=bootstrap)
+  # Skip 0-shot asserts -- don't expect to have correct guess for an entirely
+  # new frame.
+  eval_bootstrap_example(learner, examples[4], "fill", FILL_CATEGORY, bootstrap=bootstrap,
+                         asserts=False)
   eval_oneshot_example(learner, examples[4], "fill", FILL_CATEGORY)
   print(compute_alternations(learner, constructions))
 
@@ -318,7 +321,7 @@ def eval_model(compress=True, bootstrap=True, **learner_kwargs):
 if __name__ == "__main__":
   hparams = [
     ("learning_rate", True, 1e-3, 10.0, 5.0),
-    ("bootstrap_alpha", False, 0, 1, 0.25),
+    ("bootstrap_alpha", False, 0.0, 1.0, 0.25),
     ("beta", True, 1e-3, 10.0, 3.0),
     ("negative_samples", False, 1, 10, 5),
     ("total_negative_mass", False, 0.1, 1.0, 0.1),
@@ -345,34 +348,37 @@ if __name__ == "__main__":
       val = int(round(val))
     return val
 
-  with open("search.log", "a") as search_f:
+  if args.mode == "search":
+    search_f = open("search.log", "a")
     search_f.write("success_ratio\t")
     search_f.write("\t".join(hparam for hparam, _, _, _, _ in hparams))
     search_f.write("\n")
+  else:
+    search_f = sys.stderr
 
-    while True:
-      sampled_hparams = {
-        hparam[0]: (sample_hparam(hparam) if args.mode == "search"
-                    else getattr(args, hparam[0]))
-        for hparam in hparams
-      }
+  while True:
+    sampled_hparams = {
+      hparam[0]: (sample_hparam(hparam) if args.mode == "search"
+                  else getattr(args, hparam[0]))
+      for hparam in hparams
+    }
 
-      setup_asserts()
-      try:
-        eval_model(**sampled_hparams)
-        result = teardown_asserts()
-      except KeyboardInterrupt:
-        sys.exit(1)
-      except:
-        search_f.write("0\t")
-      else:
-        search_f.write("%.3f\t" % result)
+    setup_asserts()
+    try:
+      eval_model(**sampled_hparams)
+      result = teardown_asserts()
+    except KeyboardInterrupt:
+      sys.exit(1)
+    except:
+      search_f.write("0\t")
+    else:
+      search_f.write("%.3f\t" % result)
 
-      search_f.write("\t".join("%g" % sampled_hparams[hparam]
-                              for hparam, _, _, _, _ in hparams))
-      search_f.write("\n")
+    search_f.write("\t".join("%g" % sampled_hparams[hparam]
+                            for hparam, _, _, _, _ in hparams))
+    search_f.write("\n")
 
-      search_f.flush()
+    search_f.flush()
 
-      if args.mode == "eval":
-        break
+    if args.mode == "eval":
+      break
