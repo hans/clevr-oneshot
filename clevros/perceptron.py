@@ -70,17 +70,21 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
     root_token, _ = result.label()
     try:
       if model.evaluate(root_token.semantics()) == answer:
-        correct_results.append(result)
+        correct_results.append((score, result))
       else:
         raise ValueError()
     except:
-      incorrect_results.append(result)
+      incorrect_results.append((score, result))
   else:
     if not correct_results:
       raise ValueError("No parses derived have the correct answer.")
     elif not incorrect_results:
       L.warning("No incorrect parses. Skipping update.")
       return weighted_results, 0.0
+
+  # Sort results by descending parse score.
+  correct_results = sorted(correct_results, key=lambda r: r[0], reverse=True)
+  incorrect_results = sorted(incorrect_results, key=lambda r: r[0], reverse=True)
 
   # TODO margin?
   # Structured perceptron update: compare top-scoring correct result with
@@ -97,7 +101,7 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
   observed_leaf_sequences = set()
   for results, delta in zip([correct_results, incorrect_results],
                              [positive_mass, -negative_mass]):
-    for result in results:
+    for _, result in results:
       leaf_seq = tuple(leaf_token for _, leaf_token in result.pos())
       if leaf_seq not in observed_leaf_sequences:
         observed_leaf_sequences.add(leaf_seq)
@@ -108,7 +112,7 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
     delta *= learning_rate
     norm += delta ** 2
 
-    L.debug("Applying delta: %+.03f %s", delta, token)
+    L.info("Applying delta: %+.03f %s", delta, token)
     token._weight += delta
 
   return weighted_results, norm
