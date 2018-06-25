@@ -294,18 +294,19 @@ def eval_model(compress=True, bootstrap=True, **learner_kwargs):
   eval_bootstrap_example(learner, examples[4], "fill", FILL_CATEGORY, bootstrap=bootstrap,
                          asserts=False)
   eval_oneshot_example(learner, examples[4], "fill", FILL_CATEGORY)
+  eval_oneshot_example(learner, examples[5], "fill", FILL_CATEGORY)
   print(compute_alternations(learner, constructions))
 
   # Zero-shot predictions for the newly learned frame.
-  eval_bootstrap_example(learner, examples[5], "stuff", FILL_CATEGORY, bootstrap=bootstrap)
-  eval_oneshot_example(learner, examples[5], "stuff", FILL_CATEGORY)
+  eval_bootstrap_example(learner, examples[6], "stuff", FILL_CATEGORY, bootstrap=bootstrap)
+  eval_oneshot_example(learner, examples[6], "stuff", FILL_CATEGORY)
   print(compute_alternations(learner, constructions))
 
-  eval_oneshot_example(learner, examples[6], "drop", DROP_CATEGORY)
-  eval_oneshot_example(learner, examples[7], "raise", DROP_CATEGORY)
+  eval_oneshot_example(learner, examples[7], "drop", DROP_CATEGORY)
+  eval_oneshot_example(learner, examples[8], "raise", DROP_CATEGORY)
   print(compute_alternations(learner, constructions))
 
-  eval_oneshot_example(learner, examples[8], "spill", POUR_CATEGORY)
+  eval_oneshot_example(learner, examples[9], "spill", POUR_CATEGORY)
 
   ###########
 
@@ -320,13 +321,13 @@ def eval_model(compress=True, bootstrap=True, **learner_kwargs):
 
 if __name__ == "__main__":
   hparams = [
-    ("learning_rate", True, 1e-3, 10.0, 5.0),
+    ("learning_rate", False, 0.1, 5.0, 3.0),
     ("bootstrap_alpha", False, 0.0, 1.0, 0.25),
-    ("beta", True, 1e-3, 10.0, 3.0),
-    ("negative_samples", False, 1, 10, 5),
+    ("beta", True, 1e-4, 0.5, 0.1),
+    ("negative_samples", False, 5, 10, 7),
     ("total_negative_mass", False, 0.1, 1.0, 0.1),
-    ("syntax_prior_smooth", True, 1e-8, 1.0, 1e-3),
-    ("meaning_prior_smooth", True, 1e-8, 1.0, 1e-3),
+    ("syntax_prior_smooth", True, 1e-3, 1e-1, 1e-2),
+    ("meaning_prior_smooth", True, 1e-9, 1e-4, 1e-8),
   ]
 
   p = ArgumentParser()

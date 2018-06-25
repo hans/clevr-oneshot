@@ -113,6 +113,11 @@ class Lexicon(ccg_lexicon.CCGLexicon):
 
     return ret
 
+  def debug_print(self, stream=sys.stderr):
+    for token, entries in self._entries.items():
+      for entry in entries:
+        stream.write("%.3f %s\n" % (entry.weight(), entry))
+
   def parse_category(self, cat_str):
     return ccg_lexicon.augParseCategory(cat_str, self._primitives, self._families)[0]
 
@@ -132,7 +137,8 @@ class Lexicon(ccg_lexicon.CCGLexicon):
   def total_category_masses(self, exclude_tokens=frozenset(),
                             soft_propagate_roots=False):
     """
-    Return the total weight mass assigned to each syntactic category.
+    Return the total weight mass assigned to each syntactic category. Shifts
+    masses such that the minimum mass is zero.
 
     Args:
       exclude_tokens: Exclude entries with this token from the count.
@@ -140,6 +146,10 @@ class Lexicon(ccg_lexicon.CCGLexicon):
         a derived root category `D0{S}` and some lexical entry `S/N`, even if
         no entry has the category `D0{S}`, we will add a key to the returned
         counter with category `D0{S}/N` (and zero weight).
+
+    Returns:
+      masses: `Distribution` mapping from category types to masses. The minimum
+        mass value is zero and the maximum is unbounded.
     """
     ret = Distribution()
     # Track categories with root yield.
@@ -769,9 +779,9 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
       cat_lf_ngrams.update({pred: unk_lf_prob / len(unobserved_preds)
                            for pred in unobserved_preds})
 
-      L.debug("% 20s %s", category,
-              ", ".join("%.03f %s" % (prob, pred) for pred, prob
-                        in sorted(cat_lf_ngrams.items(), key=lambda x: x[1], reverse=True)))
+      L.info("% 20s %s", category,
+             ", ".join("%.03f %s" % (prob, pred) for pred, prob
+                       in sorted(cat_lf_ngrams.items(), key=lambda x: x[1], reverse=True)))
 
       # Attempt to parse with this parse category, and return the resulting
       # syntactic parses + sentence-level semantic forms, with a dummy variable

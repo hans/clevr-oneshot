@@ -190,6 +190,8 @@ class WordLearner(object):
           negative_samples=self.negative_samples,
           total_negative_mass=self.total_negative_mass)
 
+      self.lexicon.debug_print()
+
       # Compress the resulting lexicon.
       self.compress_lexicon()
 
