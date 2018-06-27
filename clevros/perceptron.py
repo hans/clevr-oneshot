@@ -4,6 +4,7 @@ Structured perceptron algorithm for learning CCG weights.
 
 from collections import Counter
 import logging
+import numpy as np
 
 from clevros import chart
 
@@ -63,6 +64,7 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
   if not weighted_results:
     raise ValueError("No successful parses computed.")
 
+  max_score, max_incorrect_score = -np.inf, -np.inf
   correct_results, incorrect_results = [], []
 
   L.debug("Desired answer: %s", answer)
@@ -70,11 +72,19 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
     root_token, _ = result.label()
     try:
       if model.evaluate(root_token.semantics()) == answer:
-        correct_results.append((score, result))
+        if score > max_score:
+          max_score = score
+          correct_results = [(score, result)]
+        elif score == max_score:
+          correct_results.append((score, result))
       else:
         raise ValueError()
     except:
-      incorrect_results.append((score, result))
+      if score > max_incorrect_score:
+        max_incorrect_score = score
+        incorrect_results = [(score, result)]
+      elif score == max_incorrect_score:
+        incorrect_results.append((score, result))
   else:
     if not correct_results:
       raise ValueError("No parses derived have the correct answer.")
@@ -82,15 +92,7 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
       L.warning("No incorrect parses. Skipping update.")
       return weighted_results, 0.0
 
-  # Sort results by descending parse score.
-  correct_results = sorted(correct_results, key=lambda r: r[0], reverse=True)
-  incorrect_results = sorted(incorrect_results, key=lambda r: r[0], reverse=True)
-
   # TODO margin?
-  # Structured perceptron update: compare top-scoring correct result with
-  # top-scoring incorrect results.
-  correct_results = correct_results[:1]
-  incorrect_results = incorrect_results[:5]
 
   # Update to separate max-scoring parse from max-scoring correct parse if
   # necessary.

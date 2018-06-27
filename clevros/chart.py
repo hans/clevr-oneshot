@@ -106,8 +106,10 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
           return -np.inf
         # TODO not the same scoring logic as in novel word induction .. an
         # ideal Bayesian model would have these aligned !! (No smoothing here)
-        logp = np.log(cat_priors[token.categ()])
-        logp += np.log(max(token.weight(), 1e-6) / total_cat_masses[token.categ()])
+        likelihood = max(token.weight(), 1e-6) / total_cat_masses[token.categ()]
+        logp = 0.5 * np.log(cat_priors[token.categ()])
+        logp += np.log(likelihood)
+
         score += logp
       return score
 

@@ -162,12 +162,8 @@ class Lexicon(ccg_lexicon.CCGLexicon):
         if get_yield(entry.categ()) == self._start:
           rooted_cats.add(entry.categ())
 
-        ret[entry.categ()] += entry.weight()
-
-    # Shift all weights s.t. all entries are positive.
-    min_val = min(ret.values())
-    if min_val < 0.0:
-      ret += -min_val
+        if entry.weight() > 0.0:
+          ret[entry.categ()] += entry.weight()
 
     if soft_propagate_roots:
       derived_root_cats = self._derived_categories_by_base[self._start]

@@ -268,6 +268,17 @@ def eval_model(compress=True, bootstrap=True, **learner_kwargs):
     sentence, model, answer = prep_example(learner, example)
     learner.update_with_example(sentence, model, answer)
 
+  # Ensure that derived categories are present in the highest-scoring entries'
+  # yields.
+  expected = [("put", PUT_CATEGORY), ("fill", FILL_CATEGORY)]
+  for token, expected_top_yield in expected:
+    entries = learner.lexicon._entries[token]
+    top_entry = max(entries, key=lambda e: e.weight())
+    top_yield = get_yield(top_entry.categ())
+    _assert(top_yield == expected_top_yield,
+            "Top-scoring category for '%s' has yield %s: %s"
+            % (token, expected_top_yield, top_yield))
+
   # Zero-shot predictions with bootstrapping in known frames
   def make_extra(target):
     def extra_check(token, cand_cats, cand_joint):
@@ -321,18 +332,19 @@ def eval_model(compress=True, bootstrap=True, **learner_kwargs):
 
 if __name__ == "__main__":
   hparams = [
-    ("learning_rate", False, 0.1, 5.0, 3.0),
+    ("learning_rate", True, 1e-3, 0.5, 1.0),
     ("bootstrap_alpha", False, 0.0, 1.0, 0.25),
-    ("beta", True, 1e-4, 0.5, 0.1),
-    ("negative_samples", False, 5, 10, 7),
+    ("beta", True, 1e-1, 3.0, 0.1),
+    ("negative_samples", False, 5, 20, 7),
     ("total_negative_mass", False, 0.1, 1.0, 0.1),
-    ("syntax_prior_smooth", True, 1e-3, 1e-1, 1e-2),
-    ("meaning_prior_smooth", True, 1e-9, 1e-4, 1e-8),
+    ("syntax_prior_smooth", True, 1e-5, 1e-1, 1e-3),
+    ("meaning_prior_smooth", True, 1e-9, 1e-5, 1e-8),
   ]
 
   p = ArgumentParser()
   p.add_argument("--out_dir", default=".", type=Path)
   p.add_argument("-m", "--mode", choices=["search", "eval"], default="search")
+  p.add_argument("-s", "--search_file", default="search.log", type=str)
   for hparam, _, _, _, default in hparams:
     p.add_argument("--%s" % hparam, default=default, type=type(default))
 
@@ -350,7 +362,7 @@ if __name__ == "__main__":
     return val
 
   if args.mode == "search":
-    search_f = open("search.log", "a")
+    search_f = open(args.search_file, "a")
     search_f.write("success_ratio\t")
     search_f.write("\t".join(hparam for hparam, _, _, _, _ in hparams))
     search_f.write("\n")
