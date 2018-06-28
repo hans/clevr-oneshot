@@ -200,4 +200,7 @@ class WordLearner(object):
           self.lexicon, sentence, model, answer,
           learning_rate=self.learning_rate)
 
+    prune_count = self.lexicon.prune()
+    L.info("Pruned %i entries from lexicon.", prune_count)
+
     return weighted_results

@@ -111,6 +111,25 @@ class Lexicon(ccg_lexicon.CCGLexicon):
 
     return ret
 
+  def prune(self, min_weight=0.0):
+    """
+    Prune low-weight entries from the lexicon in-place.
+
+    Args:
+      min_weight: Minimal weight for entries which should be retained.
+
+    Returns:
+      prune_count: Number of lexical entries which were pruned.
+    """
+    prune_count = 0
+    for token in self._entries:
+      entries_t = self._entries[token]
+      self._entries[token] = [entry for entry in entries_t
+                              if entry.weight() >= min_weight]
+      prune_count += len(entries_t) - len(self._entries[token])
+
+    return prune_count
+
   def debug_print(self, stream=sys.stderr):
     for token, entries in self._entries.items():
       for entry in entries:
