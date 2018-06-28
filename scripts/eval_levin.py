@@ -2,7 +2,9 @@ from argparse import ArgumentParser
 import logging
 import math
 from pathlib import Path
+from pprint import pprint
 import sys
+from traceback import print_exc
 
 from colorama import Fore, Style
 from frozendict import frozendict
@@ -223,8 +225,11 @@ def eval_oneshot_example(learner, example, token, expected_category,
 
 def eval_model(compress=True, bootstrap=True, **learner_kwargs):
   L.info("Building model.")
+  pprint(learner_kwargs)
 
-  lexicon = levin.lexicon.clone()
+  default_weight = learner_kwargs.pop("weight_init")
+  lexicon = levin.make_lexicon(default_weight=default_weight)
+
   compressor = Compressor(lexicon.ontology, **EC_kwargs) if compress else None
   learner = WordLearner(lexicon, compressor, bootstrap=bootstrap,
                         **learner_kwargs)
@@ -339,10 +344,11 @@ if __name__ == "__main__":
     ("total_negative_mass", False, 0.1, 1.0, 0.1),
     ("syntax_prior_smooth", True, 1e-5, 1e-1, 1e-3),
     ("meaning_prior_smooth", True, 1e-9, 1e-5, 1e-8),
+    ("weight_init", True, 1e-4, 1e-1, 1e-2),
   ]
 
   p = ArgumentParser()
-  p.add_argument("--out_dir", default=".", type=Path)
+  p.add_argument("-o", "--out_dir", default=".", type=Path)
   p.add_argument("-m", "--mode", choices=["search", "eval"], default="search")
   p.add_argument("-s", "--search_file", default="search.log", type=str)
   for hparam, _, _, _, default in hparams:
@@ -382,7 +388,8 @@ if __name__ == "__main__":
       result = teardown_asserts()
     except KeyboardInterrupt:
       sys.exit(1)
-    except:
+    except Exception as e:
+      print_exc(e)
       search_f.write("0\t")
     else:
       search_f.write("%.3f\t" % result)

@@ -51,7 +51,8 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     self._derived_categories_by_source = {}
 
   @classmethod
-  def fromstring(cls, lex_str, ontology=None, include_semantics=False):
+  def fromstring(cls, lex_str, ontology=None, include_semantics=False,
+                 default_weight=0.001):
     """
     Convert string representation into a lexicon for CCGs.
     """
@@ -89,14 +90,11 @@ class Lexicon(ccg_lexicon.CCGLexicon):
             else:
               semantics = l.Expression.fromstring(ccg_lexicon.SEMANTICS_RE.match(semantics_str).groups()[0])
 
-          if weight is not None:
-            weight = float(weight[1:-1])
-          else:
-            weight = 1.0
+          weight = float(weight[1:-1]) if weight is not None else default_weight
 
           # Word definition
           # ie, which => (N\N)/(S/NP)
-          entries[ident].append(Token(ident, cat, semantics, weight))
+          entries[ident].append(Token(ident, cat, semantics, weight=weight))
     return cls(primitives[0], primitives, families, entries,
                ontology=ontology)
 
@@ -424,7 +422,22 @@ class DerivedCategory(PrimitiveCategory):
     return "%s{%s}{%s}" % (self.name, self.base, self.source_name)
 
 
-class Token(ccg_lexicon.Token):
+class Token(object):
+
+  def __init__(self, token, categ, semantics=None, weight=0.001):
+    self._token = token
+    self._categ = categ
+    self._weight = weight
+    self._semantics = semantics
+
+  def categ(self):
+    return self._categ
+
+  def weight(self):
+    return self._weight
+
+  def semantics(self):
+    return self._semantics
 
   def clone(self):
     return Token(self._token, self._categ, self._semantics, self._weight)
@@ -434,6 +447,14 @@ class Token(ccg_lexicon.Token):
                                   " {%s}" % self._semantics if self._semantics else "")
 
   __repr__ = __str__
+
+  def __cmp__(self, other):
+    if not isinstance(other, Token): return -1
+    return cmp((self._categ, self._weight, self._semantics),
+               (other.categ(), other.weight(), other.semantics()))
+
+  def __hash__(self):
+    return hash((self._token, self._categ, self._weight, self._semantics))
 
 
 def get_semantic_arity(category, arity_overrides=None):
