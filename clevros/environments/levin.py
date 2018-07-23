@@ -21,6 +21,7 @@ functions = [
   types.new_function("wall", ("obj", "boolean"), lambda x: x["type"] == "wall"),
   types.new_function("table", ("obj", "boolean"), lambda x: x["type"] == "table"),
   types.new_function("jar", ("obj", "boolean"), lambda x: x["type"] == "jar"),
+  types.new_function("box", ("obj", "boolean"), lambda x: x.type == "box"),
   types.new_function("orientation", ("obj", "manner"), lambda x: x["orientation"]),
   types.new_function("liquid", ("obj", "boolean"), fn_liquid),
   types.new_function("full", ("obj", "boolean"), lambda x: x["full"]),
@@ -96,6 +97,7 @@ def make_lexicon(**kwargs):
     hoist => S/N/PP {\d o.put(e,o,addc(d,constraint(eq(direction(e),up))))}
 
     pour => S/N/PP {\d o.put(e,o,addc(d,constraint(liquid(result(e)))))}
+    pour => S/N/PP {\d o.put(e,o,addc(d,constraint(contain(d,result(e)))))}
     spill => S/N/PP {\d o.put(e,o,addc(d,constraint(liquid(result(e)))))}
 
     # # "spray the wall with paint"

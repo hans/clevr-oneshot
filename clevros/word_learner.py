@@ -44,9 +44,13 @@ class WordLearner(object):
     if self.compressor is None:
       return
 
-    # Run EC compression on the entries of the induced lexicon. This may create
-    # new inventions, updating both the `ontology` and the provided `lex`.
-    new_lex, affected_entries = self.compressor.make_inventions(self.lexicon)
+    try:
+      # Run EC compression on the entries of the induced lexicon. This may create
+      # new inventions, updating both the `ontology` and the provided `lex`.
+      new_lex, affected_entries = self.compressor.make_inventions(self.lexicon)
+    except Exception as e:
+      L.error("Compression failed: %s", e)
+      return
 
     # Create derived categories following new inventions.
     to_propagate = []

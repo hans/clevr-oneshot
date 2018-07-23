@@ -48,6 +48,7 @@ scene = {
     Object(type="table"),
     Collection("cookie"),
     Object(type="water"),
+    Object(type="box"),
   ]
 }
 objs = scene["objects"]
@@ -59,6 +60,8 @@ examples = [
   # Weight updates
   ("put the book on the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2])))),
   ("fill the jar with the cookies", scene, Put(event, objs[3], Constraint(Contain(objs[0], event.result), event.patient.full))),
+  ("pour the water on the table", scene, Put(event, objs[4], Constraint(event.result.contact(objs[2]), event.result.state.equals("liquid")))),
+  ("hoist the book onto the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2]), event.direction.equals("up")))),
 
   # BOOTSTRAP
   ("place the book on the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2])))),
@@ -66,14 +69,15 @@ examples = [
 
   # NOVEL FRAME -- learn that "fill" class alternates
   ("fill the jar", scene, Put(event, event.result, Constraint(Contain(objs[0], event.result), event.patient.full))),
+  ("fill the box", scene, Put(event, event.result, Constraint(Contain(objs[5], event.result), event.patient.full))),
 
   # Bootstrap on that novel frame
   ("stuff the jar", scene, Put(event, event.result, Constraint(Contain(objs[0], event.result), event.patient.full))),
 
   # Weight updates -- new frames
-  ("drop the jar on the table", scene, Put(event, objs[0], Constraint(event.result.contact(objs[2]), event.direction.equals("down")))),
+  ("lower the jar on the table", scene, Put(event, objs[0], Constraint(event.result.contact(objs[2]), event.direction.equals("down")))),
   ("raise the book onto the table", scene, Put(event, objs[1], Constraint(event.result.contact(objs[2]), event.direction.equals("up")))),
-  ("spill the water on the table", scene, Put(event, objs[4], Constraint(event.result.contact(objs[2]), event.result.state.equals("liquid")))),
+  ("drip the water on the table", scene, Put(event, objs[4], Constraint(event.result.contact(objs[2]), event.result.state.equals("liquid")))),
 ]
 
 
@@ -171,6 +175,7 @@ def compute_alternations(learner, constructions):
     for construction in constructions:
       query_cat = set_yield(construction, der_cat)
       table.loc[str(construction), str(der_cat)] = cat_masses[query_cat]
+  print(table)
   table = table.subtract(table.min(axis=1), axis=0)
   table = table.div(table.max(axis=1), axis=0)
   return table
@@ -269,7 +274,7 @@ def eval_model(compress=True, bootstrap=True, **learner_kwargs):
   ###########
 
   # Run initial weight updates.
-  for example in examples[:2]:
+  for example in examples[:3]:
     sentence, model, answer = prep_example(learner, example)
     learner.update_with_example(sentence, model, answer)
 
@@ -292,37 +297,39 @@ def eval_model(compress=True, bootstrap=True, **learner_kwargs):
               "Top cat for %s should have first arg of type %s: %s" %
               (token, target, top_cat))
     return extra_check
-  eval_bootstrap_example(learner, examples[2], "place", PUT_CATEGORY,
+  eval_bootstrap_example(learner, examples[3], "place", PUT_CATEGORY,
                          bootstrap=bootstrap, extra=make_extra(PP_CONTACT_CATEGORY))
-  eval_oneshot_example(learner, examples[2], "place", PUT_CATEGORY,
+  eval_oneshot_example(learner, examples[3], "place", PUT_CATEGORY,
                        extra=make_extra(PP_CONTACT_CATEGORY))
   print(compute_alternations(learner, constructions))
 
-  eval_bootstrap_example(learner, examples[3], "cover", FILL_CATEGORY,
+  eval_bootstrap_example(learner, examples[4], "cover", FILL_CATEGORY,
                          bootstrap=bootstrap, extra=make_extra(learner.lexicon.parse_category("PP")))
-  eval_oneshot_example(learner, examples[3], "cover", FILL_CATEGORY,
+  eval_oneshot_example(learner, examples[4], "cover", FILL_CATEGORY,
                        extra=make_extra(learner.lexicon.parse_category("PP")))
   print(compute_alternations(learner, constructions))
 
   # Learn a novel frame for the fill class.
   # Skip 0-shot asserts -- don't expect to have correct guess for an entirely
   # new frame.
-  eval_bootstrap_example(learner, examples[4], "fill", FILL_CATEGORY, bootstrap=bootstrap,
+  eval_bootstrap_example(learner, examples[5], "fill", FILL_CATEGORY, bootstrap=bootstrap,
                          asserts=False)
-  eval_oneshot_example(learner, examples[4], "fill", FILL_CATEGORY)
   eval_oneshot_example(learner, examples[5], "fill", FILL_CATEGORY)
+  eval_oneshot_example(learner, examples[6], "fill", FILL_CATEGORY)
   print(compute_alternations(learner, constructions))
 
   # Zero-shot predictions for the newly learned frame.
-  eval_bootstrap_example(learner, examples[6], "stuff", FILL_CATEGORY, bootstrap=bootstrap)
-  eval_oneshot_example(learner, examples[6], "stuff", FILL_CATEGORY)
+  eval_bootstrap_example(learner, examples[7], "stuff", FILL_CATEGORY, bootstrap=bootstrap)
+  eval_oneshot_example(learner, examples[7], "stuff", FILL_CATEGORY)
   print(compute_alternations(learner, constructions))
 
-  eval_oneshot_example(learner, examples[7], "drop", DROP_CATEGORY)
-  eval_oneshot_example(learner, examples[8], "raise", DROP_CATEGORY)
+  eval_oneshot_example(learner, examples[8], "lower", DROP_CATEGORY)
+  eval_oneshot_example(learner, examples[9], "raise", DROP_CATEGORY,
+                       extra=make_extra(PP_CONTACT_CATEGORY))
   print(compute_alternations(learner, constructions))
 
-  eval_oneshot_example(learner, examples[9], "spill", POUR_CATEGORY)
+  eval_oneshot_example(learner, examples[10], "drip", POUR_CATEGORY,
+                       extra=make_extra(PP_CONTACT_CATEGORY))
 
   ###########
 
@@ -337,9 +344,9 @@ def eval_model(compress=True, bootstrap=True, **learner_kwargs):
 
 if __name__ == "__main__":
   hparams = [
-    ("learning_rate", True, 1e-3, 0.5, 1.0),
+    ("learning_rate", False, 0.1, 0.5, 0.3),
     ("bootstrap_alpha", False, 0.0, 1.0, 0.25),
-    ("beta", True, 1e-1, 3.0, 0.1),
+    ("beta", False, 0.1, 1.1, 0.1),
     ("negative_samples", False, 5, 20, 7),
     ("total_negative_mass", False, 0.1, 1.0, 0.1),
     ("syntax_prior_smooth", True, 1e-5, 1e-1, 1e-3),
