@@ -8,6 +8,7 @@ from functools import reduce
 import itertools
 import logging
 import queue
+import sys
 
 from nltk.ccg import lexicon as ccg_lexicon
 from nltk.ccg.api import PrimitiveCategory, FunctionalCategory, AbstractCCGCategory
