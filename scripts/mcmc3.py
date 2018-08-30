@@ -1,5 +1,9 @@
 """
-MCMC inference sandbox, second model: minimal CCG model.
+MCMC inference sandbox, second model: minimal CCG model,
+with an option to split words into two primitive categories.
+The setup: examples are of the form "a(n) X"; an optimal
+model would learn to separate Xs beginning with vowels and
+Xs beginning with consonants into two separate CCG categories.
 
 Data consists of two-word sequences. Generative model:
 bag-of-CCG-lexical-items.

@@ -48,6 +48,13 @@ class Distribution(Counter):
       return self * (1 / Z)
     return self
 
+  def log(self):
+    ret = copy(self)
+    for key in ret.keys():
+      ret[key] = np.log(ret[key])
+
+    return ret
+
   def mix(self, other, alpha=0.5):
     assert alpha >= 0 and alpha <= 1
     return self * alpha + other * (1 - alpha)

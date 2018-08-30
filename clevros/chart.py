@@ -97,18 +97,11 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
         used_edges.extend([edge_sequence] * len(partial_results))
 
     # Score using Bayes' rule, calculated with lexicon weights.
-    cat_priors = self._lexicon.observed_category_distribution()
-    total_cat_masses = self._lexicon.total_category_masses()
+    cat_log_priors = self._lexicon.observed_category_distribution().log()
     def score_parse(parse):
       score = 0.0
       for _, token in parse.pos():
-        if total_cat_masses[token.categ()] == 0:
-          return -np.inf
-        # TODO not the same scoring logic as in novel word induction .. an
-        # ideal Bayesian model would have these aligned !! (No smoothing here)
-        likelihood = max(token.weight(), 1e-6) / total_cat_masses[token.categ()]
-        logp = 0.5 * np.log(cat_priors[token.categ()])
-        logp += np.log(likelihood)
+        logp = cat_log_priors[token.categ()] + np.log(token.weight())
 
         score += logp
       return score
