@@ -29,6 +29,7 @@ from tqdm import trange
 from clevros.lexicon import Lexicon, Token
 from clevros.chart import WeightedCCGChartParser, printCCGDerivation
 from clevros.logic import TypeSystem, Ontology
+from clevros.model import Model
 
 
 types = TypeSystem(["obj", "boolean"])
@@ -206,9 +207,13 @@ if __name__ == '__main__':
     loglk = 0
     for utt, scene, answer in examples:
       weighted_results = parser.parse(utt.split(), return_aux=True)
+      model = Model(scene, ontology)
+
       local_prob = 0
       for parse, logp, _ in weighted_results:
-        local_prob += np.exp(logp)
+        root_token, _ = parse.label()
+        if model.evaluate(root_token.semantics()) == answer:
+          local_prob += np.exp(logp)
 
       loglk += np.log(local_prob)
 
