@@ -17,7 +17,12 @@ Well, with a post-hoc constraint that a sentence parse.
 from collections import Counter
 from frozendict import frozendict
 import itertools
+import logging
+logging.basicConfig(level=logging.DEBUG)
+L = logging.getLogger(__name__)
 
+from nltk.ccg import lexicon as ccg_lexicon
+from nltk.sem.logic import Expression
 import numpy as np
 from tqdm import trange
 
@@ -53,8 +58,10 @@ examples = [
 vocabulary = sorted(set(itertools.chain.from_iterable(
                 words.split() for words, _, _ in examples)))
 
-lex = Lexicon("N", ["N"], [], [])
-categories = [lex.parse_category("N")]
+lex = Lexicon.fromstring(r"""
+  :- N
+""", include_semantics=True)
+categories = [lex._start]
 
 sem_tokens = [f.name for f in functions]
 
@@ -118,7 +125,7 @@ class ParserParameters(object):
     logp += np.log(self.p_tokens_cat[cat_id, word_id])
     # sem | token
     for predicate in token.semantics().predicates():
-      sem_id = self.sem2idx[predicate]
+      sem_id = self.sem2idx[predicate.name]
       logp += np.log(self.p_sems_token[word_id, sem_id])
     return logp
 
@@ -126,7 +133,7 @@ class ParserParameters(object):
     score = sum(self.score_token(token) for _, token in parse.pos())
     return score
 
-  def as_lexicon(self, ontology, max_sem_depth=2):
+  def as_lexicon(self, ontology, max_sem_depth=3):
     """
     Convert parameters to a `Lexicon` instance in order to pass to parser.
     It's also an expensive exhaustive conversion which won't scale!
@@ -134,7 +141,9 @@ class ParserParameters(object):
     Args:
       ontology: Ontology instance which iterates over legal logical expressions
     """
-    lex = Lexicon(self.categories[0], self.categories, [], {})
+    ccg_lexicon.CCGVar.reset_id()
+    lex = Lexicon(str(self.categories[0]), [str(cat) for cat in self.categories],
+                  {}, {})
     for word in self.vocabulary:
       w_entries = []
       for category in self.categories:
@@ -164,6 +173,7 @@ def run_mcmc(x0, proposal_fn, loglk_fn, iterations=5000):
   x = x0
   chain[0] = x0
   loglks[0] = loglk_fn(x0)
+  n_accepts = 0
 
   for i in trange(1, iterations + 1):
     # draw proposal
@@ -178,11 +188,13 @@ def run_mcmc(x0, proposal_fn, loglk_fn, iterations=5000):
       # Accept proposal.
       x = x_next
       loglks[i] = loglk_next
+      n_accepts += 1
     else:
       loglks[i] = loglks[i - 1]
 
     chain[i] = x
 
+  L.info("Number of proposals accepted: %d/%d (%f%%)" % (n_accepts, iterations, n_accepts / iterations * 100))
   return chain, loglks
 
 
@@ -217,4 +229,4 @@ if __name__ == '__main__':
 
   pprint({word: sorted([(entry, entry.weight()) for entry in entries],
                        key=lambda x: x[1], reverse=True)
-          for word, entries in params._entries.items()})
+          for word, entries in params.as_lexicon(ontology)._entries.items()})
