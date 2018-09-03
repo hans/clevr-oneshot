@@ -58,11 +58,13 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
       parses.extend(chart.parses(start_cat))
     return parses
 
-  def parse(self, tokens, return_aux=False):
+  def parse(self, tokens, return_aux=False, scorer=None):
     """
     Args:
       tokens: list of string tokens
       return_aux: return auxiliary information (`weights`, `valid_edges`)
+      scorer: A callable which assigns a scalar score to each candidate parse.
+        If `None`, use a sane default based on the lexicon weights.
 
     Returns:
       parses: list of CCG derivation results
@@ -98,15 +100,23 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
 
     # Score using Bayes' rule, calculated with lexicon weights.
     cat_log_priors = self._lexicon.observed_category_distribution().log()
-    def score_parse(parse):
-      score = 0.0
-      for _, token in parse.pos():
-        logp = cat_log_priors[token.categ()] + np.log(token.weight())
+    if scorer is None:
+      def score_parse(parse):
+        score = 0.0
+        for _, token in parse.pos():
+          # Category prior
+          logp = cat_log_priors[token.categ()]
+          # token | category, TODO
+          logp += np.log(token.weight())
+          # sem | token, TODO
+          logp += 0.0
 
-        score += logp
-      return score
+          score += logp
+        return score
 
-    results = sorted(results, key=score_parse, reverse=True)
+      scorer = score_parse
+
+    results = sorted(results, key=scorer, reverse=True)
     if not return_aux:
       return results
     return [(parse, score_parse(parse), used_edges_i)
