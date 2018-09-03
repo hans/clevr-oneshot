@@ -107,7 +107,7 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
           # Category prior
           logp = cat_log_priors[token.categ()]
           # token | category, TODO
-          logp += np.log(token.weight())
+          logp += token.weight()
           # sem | token, TODO
           logp += 0.0
 
