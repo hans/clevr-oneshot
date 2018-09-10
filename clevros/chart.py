@@ -119,7 +119,7 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
     results = sorted(results, key=scorer, reverse=True)
     if not return_aux:
       return results
-    return [(parse, score_parse(parse), used_edges_i)
+    return [(parse, scorer(parse), used_edges_i)
             for parse, used_edges_i in zip(results, used_edges)]
 
 

@@ -34,8 +34,8 @@ from clevros.model import Model
 
 types = TypeSystem(["obj", "boolean"])
 functions = [
-  types.new_function("book", ("obj", "boolean"), lambda x: x.type == "book"),
-  types.new_function("rock", ("obj", "boolean"), lambda x: x.type == "rock"),
+  types.new_function("book", ("obj", "boolean"), lambda x: x["type"] == "book"),
+  types.new_function("rock", ("obj", "boolean"), lambda x: x["type"] == "rock"),
 ]
 ontology = Ontology(types, functions, constants=[])
 
@@ -50,8 +50,8 @@ scene = {
 objs = scene["objects"]
 
 examples = [
-  ("rock", scene, objs[1]),
-  ("book", scene, objs[0]),
+    ("rock", scene, frozendict({objs[0]: False, objs[1]: True})),
+    ("book", scene, frozendict({objs[0]: True, objs[1]: False})),
 ]
 
 #####
@@ -176,24 +176,27 @@ def run_mcmc(x0, proposal_fn, loglk_fn, iterations=5000):
   loglks[0] = loglk_fn(x0)
   n_accepts = 0
 
-  for i in trange(1, iterations + 1):
-    # draw proposal
-    x_next, log_proposal_ratio = proposal_fn(x)
+  with trange(1, iterations + 1) as t:
+    for i in t:
+      # draw proposal
+      x_next, log_proposal_ratio = proposal_fn(x)
 
-    # compute acceptance factor
-    loglk_next = loglk_fn(x_next)
-    loglk_ratio = loglk_next - loglks[i - 1]
-    acceptance_factor = np.exp(loglk_ratio + log_proposal_ratio)
+      # compute acceptance factor
+      loglk_next = loglk_fn(x_next)
+      loglk_ratio = loglk_next - loglks[i - 1]
+      acceptance_factor = np.exp(loglk_ratio + log_proposal_ratio)
 
-    if np.random.uniform() < acceptance_factor:
-      # Accept proposal.
-      x = x_next
-      loglks[i] = loglk_next
-      n_accepts += 1
-    else:
-      loglks[i] = loglks[i - 1]
+      if np.random.uniform() < acceptance_factor:
+        # Accept proposal.
+        x = x_next
+        loglks[i] = loglk_next
+        n_accepts += 1
+      else:
+        loglks[i] = loglks[i - 1]
 
-    chain[i] = x
+      chain[i] = x
+
+      t.set_postfix(accept="%2.2f" % (n_accepts / iterations * 100))
 
   L.info("Number of proposals accepted: %d/%d (%f%%)" % (n_accepts, iterations, n_accepts / iterations * 100))
   return chain, loglks
@@ -206,7 +209,8 @@ if __name__ == '__main__':
 
     loglk = 0
     for utt, scene, answer in examples:
-      weighted_results = parser.parse(utt.split(), return_aux=True)
+      weighted_results = parser.parse(utt.split(), scorer=weights.score_parse,
+                                      return_aux=True)
       model = Model(scene, ontology)
 
       local_prob = 0
