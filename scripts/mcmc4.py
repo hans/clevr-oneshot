@@ -22,18 +22,22 @@ logging.basicConfig(level=logging.DEBUG)
 L = logging.getLogger(__name__)
 
 from nltk.ccg import lexicon as ccg_lexicon
+from nltk.ccg.api import PrimitiveCategory
 from nltk.sem.logic import Expression
 import numpy as np
+from scipy import stats
 from tqdm import trange
 
 from clevros.lexicon import Lexicon, Token
-from clevros.chart import WeightedCCGChartParser, printCCGDerivation
+from clevros.chart import WeightedCCGChartParser, printCCGDerivation, ApplicationRuleSet
 from clevros.logic import TypeSystem, Ontology
 from clevros.model import Model
+from clevros.primitives import fn_unique
 
 
 types = TypeSystem(["obj", "boolean"])
 functions = [
+  types.new_function("unique", (("obj", "boolean"), "obj"), fn_unique),
   types.new_function("book", ("obj", "boolean"), lambda x: x["type"] == "book"),
   types.new_function("rock", ("obj", "boolean"), lambda x: x["type"] == "rock"),
 ]
@@ -50,8 +54,8 @@ scene = {
 objs = scene["objects"]
 
 examples = [
-    ("rock", scene, frozendict({objs[0]: False, objs[1]: True})),
-    ("book", scene, frozendict({objs[0]: True, objs[1]: False})),
+    ("the rock", scene, objs[1]),
+    ("the book", scene, objs[0]),
 ]
 
 #####
@@ -60,9 +64,12 @@ vocabulary = sorted(set(itertools.chain.from_iterable(
                 words.split() for words, _, _ in examples)))
 
 lex = Lexicon.fromstring(r"""
-  :- N
+  :- N, NA, NB
+
+  the => N/NA {\x.unique(x)}
+  the => N/NB {\x.unique(x)}
 """, include_semantics=True)
-categories = [lex._start]
+categories = [lex.parse_category(x) for x in ["N", "NA", "NB", "N/NA", "N/NB"]]
 
 sem_tokens = [f.name for f in functions]
 
@@ -95,13 +102,27 @@ class ParserParameters(object):
 
   @classmethod
   def sample(cls, categories, vocabulary, sem_tokens):
-    p_cat = np.random.dirichlet((1,) * len(categories))
-    p_tokens_cat = np.random.dirichlet((1,) * len(vocabulary),
+    density = 0.0
+
+    cat_prior = (1,) * len(categories)
+    p_cat = np.random.dirichlet(cat_prior)
+    density += stats.dirichlet.logpdf(p_cat, cat_prior)
+
+    tokens_cat_prior = (1,) * len(vocabulary)
+    p_tokens_cat = np.random.dirichlet(tokens_cat_prior,
                                        size=len(categories))
-    p_sems_token = np.random.dirichlet((1,) * len(sem_tokens),
+    for sample in p_tokens_cat:
+      density += stats.dirichlet.logpdf(sample, tokens_cat_prior)
+
+    sems_token_prior = (1,) * len(sem_tokens)
+    p_sems_token = np.random.dirichlet(sems_token_prior,
                                        size=len(vocabulary))
-    return cls(categories, vocabulary, sem_tokens,
-               p_cat, p_tokens_cat, p_sems_token)
+    for sample in p_sems_token:
+      density += stats.dirichlet.logpdf(sample, sems_token_prior)
+
+    return (cls(categories, vocabulary, sem_tokens,
+                p_cat, p_tokens_cat, p_sems_token),
+            density)
 
   @classmethod
   def average(cls, instances):
@@ -115,6 +136,29 @@ class ParserParameters(object):
     inst0 = instances[0]
     return cls(inst0.categories, inst0.vocabulary, inst0.sem_tokens,
                p_cat, p_tokens_cat, p_sems_token)
+
+  def noise(self, scaling_factor=1):
+    # Resample parameters from Dirichlet priors parameterized by the current
+    # weights.
+    density = 0.0
+
+    p_cat = np.random.dirichlet(self.p_cat * scaling_factor)
+    print(p_cat, self.p_cat * scaling_factor)
+    density += stats.dirichlet.logpdf(p_cat, self.p_cat * scaling_factor)
+
+    p_tokens_cat = np.array([np.random.dirichlet(dir_prior * scaling_factor)
+                             for dir_prior in self.p_tokens_cat])
+    for sample, dir_prior in zip(p_tokens_cat, self.p_tokens_cat):
+      density += stats.dirichlet.logpdf(sample, dir_prior * scaling_factor)
+
+    p_sems_token = np.array([np.random.dirichlet(dir_prior * scaling_factor)
+                             for dir_prior in self.p_sems_token])
+    for sample, dir_prior in zip(p_sems_token, self.p_sems_token):
+      density += stats.dirichlet.logpdf(sample, dir_prior * scaling_factor)
+
+    return (ParserParameters(self.categories, self.vocabulary, self.sem_tokens,
+                             p_cat, p_tokens_cat, p_sems_token),
+            density)
 
   def score_token(self, token):
     cat_id = self.cat2idx[token.categ()]
@@ -143,8 +187,9 @@ class ParserParameters(object):
       ontology: Ontology instance which iterates over legal logical expressions
     """
     ccg_lexicon.CCGVar.reset_id()
-    lex = Lexicon(str(self.categories[0]), [str(cat) for cat in self.categories],
-                  {}, {})
+    primitives = [str(cat) for cat in self.categories
+                  if isinstance(cat, PrimitiveCategory)]
+    lex = Lexicon(str(self.categories[0]), primitives, {}, {})
     for word in self.vocabulary:
       w_entries = []
       for category in self.categories:
@@ -159,7 +204,7 @@ class ParserParameters(object):
     return lex
 
 
-def run_mcmc(x0, proposal_fn, loglk_fn, iterations=5000):
+def run_mcmc(x0, proposal_fn, loglk_fn, iterations=300):
   """
   Args:
     x0: initial parameter setting
@@ -169,17 +214,20 @@ def run_mcmc(x0, proposal_fn, loglk_fn, iterations=5000):
   """
 
   chain = [None] * (iterations + 1)
+  proposal_densities = np.empty((iterations + 1,))
   loglks = np.empty((iterations + 1,))
 
   x = x0
   chain[0] = x0
   loglks[0] = loglk_fn(x0)
+  proposal_densities[0] = 0
   n_accepts = 0
 
   with trange(1, iterations + 1) as t:
     for i in t:
       # draw proposal
-      x_next, log_proposal_ratio = proposal_fn(x)
+      x_next, log_density = proposal_fn(x)
+      log_proposal_ratio = log_density - proposal_densities[i - 1]
 
       # compute acceptance factor
       loglk_next = loglk_fn(x_next)
@@ -190,9 +238,11 @@ def run_mcmc(x0, proposal_fn, loglk_fn, iterations=5000):
         # Accept proposal.
         x = x_next
         loglks[i] = loglk_next
+        proposal_densities[i] = log_density
         n_accepts += 1
       else:
         loglks[i] = loglks[i - 1]
+        proposal_densities[i] = proposal_densities[i - 1]
 
       chain[i] = x
 
@@ -205,7 +255,7 @@ def run_mcmc(x0, proposal_fn, loglk_fn, iterations=5000):
 if __name__ == '__main__':
   def loglk_fn(weights):
     lex = weights.as_lexicon(ontology)
-    parser = WeightedCCGChartParser(lex)
+    parser = WeightedCCGChartParser(lex, ruleset=ApplicationRuleSet)
 
     loglk = 0
     for utt, scene, answer in examples:
@@ -223,10 +273,12 @@ if __name__ == '__main__':
 
     return loglk
 
-  def proposal_fn(x):
-    sample = ParserParameters.sample(categories, vocabulary, sem_tokens)
-    log_density_ratio = 0.0 # TODO
-    return sample, log_density_ratio
+  def proposal_fn(weights):
+    if weights is None:
+      sample, density = ParserParameters.sample(categories, vocabulary, sem_tokens)
+    else:
+      sample, density = weights.noise()
+    return sample, density
 
   x0, _ = proposal_fn(None)
   chain, loglks = run_mcmc(x0, proposal_fn, loglk_fn)
