@@ -55,7 +55,9 @@ objs = scene["objects"]
 
 examples = [
     ("the rock", scene, objs[1]),
+    ("the stone", scene, objs[1]),
     ("the book", scene, objs[0]),
+    ("the tome", scene, objs[0]),
 ]
 
 #####
@@ -65,9 +67,6 @@ vocabulary = sorted(set(itertools.chain.from_iterable(
 
 lex = Lexicon.fromstring(r"""
   :- N, NA, NB
-
-  the => N/NA {\x.unique(x)}
-  the => N/NB {\x.unique(x)}
 """, include_semantics=True)
 categories = [lex.parse_category(x) for x in ["N", "NA", "NB", "N/NA", "N/NB"]]
 
@@ -83,12 +82,12 @@ class ParserParameters(object):
       categories
     p_tokens_cat: `n_category * n_vocabulary`-ndarray, conditional
       distributions P(token | category)
-    p_sems_token: `n_vocabulary * n_sem`-ndarray, conditional distributions
-      P(sem_token | token)
+    p_sems_cat: `n_category * n_sem`-ndarray, conditional distributions
+      P(sem_token | category)
   """
 
   def __init__(self, categories, vocabulary, sem_tokens,
-               p_cat, p_tokens_cat, p_sems_token):
+               p_cat, p_tokens_cat, p_sems_cat):
     self.categories = categories
     self.cat2idx = {cat: idx for idx, cat in enumerate(self.categories)}
     self.vocabulary = vocabulary
@@ -98,7 +97,7 @@ class ParserParameters(object):
 
     self.p_cat = p_cat
     self.p_tokens_cat = p_tokens_cat
-    self.p_sems_token = p_sems_token
+    self.p_sems_cat = p_sems_cat
 
   @classmethod
   def sample(cls, categories, vocabulary, sem_tokens):
@@ -114,14 +113,14 @@ class ParserParameters(object):
     for sample in p_tokens_cat:
       density += stats.dirichlet.logpdf(sample, tokens_cat_prior)
 
-    sems_token_prior = (100,) * len(sem_tokens)
-    p_sems_token = np.random.dirichlet(sems_token_prior,
-                                       size=len(vocabulary))
-    for sample in p_sems_token:
-      density += stats.dirichlet.logpdf(sample, sems_token_prior)
+    sems_cat_prior = (100,) * len(sem_tokens)
+    p_sems_cat = np.random.dirichlet(sems_cat_prior,
+                                     size=len(vocabulary))
+    for sample in p_sems_cat:
+      density += stats.dirichlet.logpdf(sample, sems_cat_prior)
 
     return (cls(categories, vocabulary, sem_tokens,
-                p_cat, p_tokens_cat, p_sems_token),
+                p_cat, p_tokens_cat, p_sems_cat),
             density)
 
   @classmethod
@@ -131,33 +130,54 @@ class ParserParameters(object):
     """
     p_cat = np.mean([inst.p_cat for inst in instances], axis=0)
     p_tokens_cat = np.mean([inst.p_tokens_cat for inst in instances], axis=0)
-    p_sems_token = np.mean([inst.p_sems_token for inst in instances], axis=0)
+    p_sems_cat = np.mean([inst.p_sems_cat for inst in instances], axis=0)
 
     inst0 = instances[0]
     return cls(inst0.categories, inst0.vocabulary, inst0.sem_tokens,
-               p_cat, p_tokens_cat, p_sems_token)
+               p_cat, p_tokens_cat, p_sems_cat)
 
-  def noise(self, scaling_factor=1000):
+  def noise(self, scaling_factor=10000):
     # Resample parameters from Dirichlet priors parameterized by the current
     # weights.
     D = stats.dirichlet
     density = 0.0
 
-    p_cat = D.rvs(self.p_cat * scaling_factor, size=None)
+    # Gamma sampling method borks when alpha parameters are very small. Below
+    # we define a Dirichlet sampler based on Beta samples, which is slower but
+    # more stable.
+    def D_sample(alphas, size=None):
+      try:
+        ret = D.rvs(alphas, size=size)
+      except ValueError:
+        ret = [np.random.beta(alphas[0], sum(alphas[1:]))]
+        for j in range(1, len(alphas) - 1):
+          phi = np.random.beta(alphas[j], sum(alphas[j + 1:]))
+          ret.append((1 - sum(ret)) * phi)
+        ret.append(1 - sum(ret))
+        ret = np.array(ret)
+
+      if ret.min() == 0:
+        ret += 1e-15
+        ret /= ret.sum()
+      return ret
+
+    p_cat = D_sample(self.p_cat * scaling_factor)
     density += D.logpdf(p_cat, self.p_cat * scaling_factor)
 
-    p_tokens_cat = np.array([D.rvs(dir_prior * scaling_factor, size=None)
-                             for dir_prior in self.p_tokens_cat])
+    p_tokens_cat = np.array([D_sample(dir_prior * scaling_factor)
+                            for dir_prior in self.p_tokens_cat])
     for sample, dir_prior in zip(p_tokens_cat, self.p_tokens_cat):
       density += D.logpdf(sample, dir_prior * scaling_factor)
 
-    p_sems_token = np.array([D.rvs(dir_prior * scaling_factor, size=None)
-                             for dir_prior in self.p_sems_token])
-    for sample, dir_prior in zip(p_sems_token, self.p_sems_token):
-      density += D.logpdf(sample, dir_prior * scaling_factor)
+    # HACK: don't resample p_sems_cat
+    # p_sems_cat = np.array([D_sample(dir_prior * scaling_factor)
+    #                         for dir_prior in self.p_sems_cat])
+    # for sample, dir_prior in zip(p_sems_cat, self.p_sems_cat):
+    #   density += D.logpdf(sample, dir_prior * scaling_factor)
+    p_sems_cat = self.p_sems_cat.copy()
 
     return (ParserParameters(self.categories, self.vocabulary, self.sem_tokens,
-                             p_cat, p_tokens_cat, p_sems_token),
+                             p_cat, p_tokens_cat, p_sems_cat),
             density)
 
   def score_token(self, token):
@@ -171,7 +191,7 @@ class ParserParameters(object):
     # sem | token
     for predicate in token.semantics().predicates():
       sem_id = self.sem2idx[predicate.name]
-      logp += np.log(self.p_sems_token[word_id, sem_id])
+      logp += np.log(self.p_sems_cat[cat_id, sem_id])
     return logp
 
   def score_parse(self, parse):
@@ -233,7 +253,7 @@ def run_mcmc(x0, proposal_fn, loglk_fn, iterations=300):
       loglk_next = loglk_fn(x_next)
       loglk_ratio = loglk_next - loglks[i - 1]
       acceptance_factor = min(1, np.exp(loglk_ratio + log_proposal_ratio))
-      print(log_density - proposal_densities[i - 1], loglk_next, acceptance_factor)
+      print(log_density, proposal_densities[i - 1], log_density - proposal_densities[i - 1], loglk_next, acceptance_factor)
 
       if np.random.uniform() < acceptance_factor:
         # Accept proposal.
@@ -241,6 +261,10 @@ def run_mcmc(x0, proposal_fn, loglk_fn, iterations=300):
         loglks[i] = loglk_next
         proposal_densities[i] = log_density
         n_accepts += 1
+
+        import pandas as pd
+        df = pd.DataFrame(x.p_tokens_cat, columns=vocabulary, index=list(map(str, categories)))
+        print(df)
       else:
         loglks[i] = loglks[i - 1]
         proposal_densities[i] = proposal_densities[i - 1]
@@ -282,6 +306,28 @@ if __name__ == '__main__':
     return sample, density
 
   x0, _ = proposal_fn(None)
+
+  # HACK: fix some known parameters
+  def one_hot(i, n):
+    ret = np.zeros(n) + 5e-2
+    ret[i] = 1.0
+    ret /= ret.sum()
+    return ret
+  n_sems = len(x0.sem2idx)
+  x0.p_sems_cat[x0.cat2idx[PrimitiveCategory("NA")]] = one_hot(x0.sem2idx["book"], n_sems)
+  x0.p_sems_cat[x0.cat2idx[PrimitiveCategory("NB")]] = one_hot(x0.sem2idx["rock"], n_sems)
+  x0.p_sems_cat[x0.cat2idx[lex.parse_category("N/NA")]] = one_hot(x0.sem2idx["unique"], n_sems)
+  x0.p_sems_cat[x0.cat2idx[lex.parse_category("N/NB")]] = one_hot(x0.sem2idx["unique"], n_sems)
+
+  noun_dist = one_hot(x0.cat2idx[PrimitiveCategory("NA")], len(categories)) + \
+      one_hot(x0.cat2idx[PrimitiveCategory("NB")], len(categories))
+  noun_dist /= noun_dist.sum()
+  x0.p_tokens_cat[:, x0.word2idx["book"]] = noun_dist
+  x0.p_tokens_cat[:, x0.word2idx["tome"]] = noun_dist
+  x0.p_tokens_cat[:, x0.word2idx["rock"]] = noun_dist
+  x0.p_tokens_cat[:, x0.word2idx["stone"]] = noun_dist
+  print(x0.p_tokens_cat)
+
   chain, loglks = run_mcmc(x0, proposal_fn, loglk_fn)
 
   from pprint import pprint
