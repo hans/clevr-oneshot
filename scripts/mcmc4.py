@@ -104,17 +104,17 @@ class ParserParameters(object):
   def sample(cls, categories, vocabulary, sem_tokens):
     density = 0.0
 
-    cat_prior = (1,) * len(categories)
+    cat_prior = (100,) * len(categories)
     p_cat = np.random.dirichlet(cat_prior)
     density += stats.dirichlet.logpdf(p_cat, cat_prior)
 
-    tokens_cat_prior = (1,) * len(vocabulary)
+    tokens_cat_prior = (100,) * len(vocabulary)
     p_tokens_cat = np.random.dirichlet(tokens_cat_prior,
                                        size=len(categories))
     for sample in p_tokens_cat:
       density += stats.dirichlet.logpdf(sample, tokens_cat_prior)
 
-    sems_token_prior = (1,) * len(sem_tokens)
+    sems_token_prior = (100,) * len(sem_tokens)
     p_sems_token = np.random.dirichlet(sems_token_prior,
                                        size=len(vocabulary))
     for sample in p_sems_token:
@@ -137,24 +137,24 @@ class ParserParameters(object):
     return cls(inst0.categories, inst0.vocabulary, inst0.sem_tokens,
                p_cat, p_tokens_cat, p_sems_token)
 
-  def noise(self, scaling_factor=1):
+  def noise(self, scaling_factor=1000):
     # Resample parameters from Dirichlet priors parameterized by the current
     # weights.
+    D = stats.dirichlet
     density = 0.0
 
-    p_cat = np.random.dirichlet(self.p_cat * scaling_factor)
-    print(p_cat, self.p_cat * scaling_factor)
-    density += stats.dirichlet.logpdf(p_cat, self.p_cat * scaling_factor)
+    p_cat = D.rvs(self.p_cat * scaling_factor, size=None)
+    density += D.logpdf(p_cat, self.p_cat * scaling_factor)
 
-    p_tokens_cat = np.array([np.random.dirichlet(dir_prior * scaling_factor)
+    p_tokens_cat = np.array([D.rvs(dir_prior * scaling_factor, size=None)
                              for dir_prior in self.p_tokens_cat])
     for sample, dir_prior in zip(p_tokens_cat, self.p_tokens_cat):
-      density += stats.dirichlet.logpdf(sample, dir_prior * scaling_factor)
+      density += D.logpdf(sample, dir_prior * scaling_factor)
 
-    p_sems_token = np.array([np.random.dirichlet(dir_prior * scaling_factor)
+    p_sems_token = np.array([D.rvs(dir_prior * scaling_factor, size=None)
                              for dir_prior in self.p_sems_token])
     for sample, dir_prior in zip(p_sems_token, self.p_sems_token):
-      density += stats.dirichlet.logpdf(sample, dir_prior * scaling_factor)
+      density += D.logpdf(sample, dir_prior * scaling_factor)
 
     return (ParserParameters(self.categories, self.vocabulary, self.sem_tokens,
                              p_cat, p_tokens_cat, p_sems_token),
@@ -220,7 +220,7 @@ def run_mcmc(x0, proposal_fn, loglk_fn, iterations=300):
   x = x0
   chain[0] = x0
   loglks[0] = loglk_fn(x0)
-  proposal_densities[0] = 0
+  proposal_densities[0] = np.log(1e-10)
   n_accepts = 0
 
   with trange(1, iterations + 1) as t:
@@ -232,7 +232,8 @@ def run_mcmc(x0, proposal_fn, loglk_fn, iterations=300):
       # compute acceptance factor
       loglk_next = loglk_fn(x_next)
       loglk_ratio = loglk_next - loglks[i - 1]
-      acceptance_factor = np.exp(loglk_ratio + log_proposal_ratio)
+      acceptance_factor = min(1, np.exp(loglk_ratio + log_proposal_ratio))
+      print(log_density - proposal_densities[i - 1], loglk_next, acceptance_factor)
 
       if np.random.uniform() < acceptance_factor:
         # Accept proposal.
@@ -246,7 +247,7 @@ def run_mcmc(x0, proposal_fn, loglk_fn, iterations=300):
 
       chain[i] = x
 
-      t.set_postfix(accept="%2.2f" % (n_accepts / iterations * 100))
+      t.set_postfix(accept="%2.2f" % (n_accepts / (i + 1) * 100))
 
   L.info("Number of proposals accepted: %d/%d (%f%%)" % (n_accepts, iterations, n_accepts / iterations * 100))
   return chain, loglks
