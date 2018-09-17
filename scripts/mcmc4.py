@@ -18,6 +18,7 @@ from collections import Counter
 from frozendict import frozendict
 import itertools
 import logging
+import random
 logging.basicConfig(level=logging.DEBUG)
 L = logging.getLogger(__name__)
 
@@ -136,7 +137,7 @@ class ParserParameters(object):
     return cls(inst0.categories, inst0.vocabulary, inst0.sem_tokens,
                p_cat, p_tokens_cat, p_sems_cat)
 
-  def noise(self, scaling_factor=10000):
+  def noise(self, scaling_factor=1000):
     # Resample parameters from Dirichlet priors parameterized by the current
     # weights.
     D = stats.dirichlet
@@ -161,11 +162,24 @@ class ParserParameters(object):
         ret /= ret.sum()
       return ret
 
-    p_cat = D_sample(self.p_cat * scaling_factor)
+    # Noise just one of the parameters.
+    which_parameter = np.random.choice(["cat", "tokens_cat"], p=[0.25, 0.75])
+
+    if which_parameter == "cat":
+      p_cat = D_sample(self.p_cat * scaling_factor)
+    else:
+      p_cat = self.p_cat
     density += D.logpdf(p_cat, self.p_cat * scaling_factor)
 
-    p_tokens_cat = np.array([D_sample(dir_prior * scaling_factor)
-                            for dir_prior in self.p_tokens_cat])
+    if which_parameter == "tokens_cat":
+      # Resample just an individual category -> word distribution.
+      cat_id = np.random.choice(len(self.categories))
+
+      p_tokens_cat = self.p_tokens_cat.copy()
+      p_tokens_cat[cat_id] = D_sample(self.p_tokens_cat[cat_id] * scaling_factor)
+    else:
+      p_tokens_cat = self.p_tokens_cat
+    print(which_parameter)
     for sample, dir_prior in zip(p_tokens_cat, self.p_tokens_cat):
       density += D.logpdf(sample, dir_prior * scaling_factor)
 
@@ -326,6 +340,10 @@ if __name__ == '__main__':
   x0.p_tokens_cat[:, x0.word2idx["tome"]] = noun_dist
   x0.p_tokens_cat[:, x0.word2idx["rock"]] = noun_dist
   x0.p_tokens_cat[:, x0.word2idx["stone"]] = noun_dist
+  x0.p_tokens_cat[:, x0.word2idx["the"]] = 0.1
+  x0.p_tokens_cat[x0.cat2idx[lex.parse_category("N/NA")], x0.word2idx["the"]] = 0.4
+  x0.p_tokens_cat[x0.cat2idx[lex.parse_category("N/NB")], x0.word2idx["the"]] = 0.4
+  x0.p_tokens_cat /= x0.p_tokens_cat.sum(axis=1, keepdims=True)
   print(x0.p_tokens_cat)
 
   chain, loglks = run_mcmc(x0, proposal_fn, loglk_fn)
