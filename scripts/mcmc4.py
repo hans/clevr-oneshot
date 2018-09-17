@@ -137,7 +137,7 @@ class ParserParameters(object):
     return cls(inst0.categories, inst0.vocabulary, inst0.sem_tokens,
                p_cat, p_tokens_cat, p_sems_cat)
 
-  def noise(self, scaling_factor=1000):
+  def noise(self, scaling_factor=100):
     # Resample parameters from Dirichlet priors parameterized by the current
     # weights.
     D = stats.dirichlet
