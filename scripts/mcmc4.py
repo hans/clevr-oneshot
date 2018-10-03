@@ -116,7 +116,7 @@ class ParserParameters(object):
 
     sems_cat_prior = (100,) * len(sem_tokens)
     p_sems_cat = np.random.dirichlet(sems_cat_prior,
-                                     size=len(vocabulary))
+                                     size=len(categories))
     for sample in p_sems_cat:
       density += stats.dirichlet.logpdf(sample, sems_cat_prior)
 
