@@ -125,10 +125,13 @@ class ParserParameters(object):
             density)
 
   @classmethod
-  def average(cls, instances):
+  def average(cls, instances, burn=None):
     """
     Create a parameter instance which is the average of many sampled instances.
     """
+    if burn is not None:
+      instances = instances[int(len(instances) * burn):]
+
     p_cat = np.mean([inst.p_cat for inst in instances], axis=0)
     p_tokens_cat = np.mean([inst.p_tokens_cat for inst in instances], axis=0)
     p_sems_cat = np.mean([inst.p_sems_cat for inst in instances], axis=0)
@@ -137,7 +140,7 @@ class ParserParameters(object):
     return cls(inst0.categories, inst0.vocabulary, inst0.sem_tokens,
                p_cat, p_tokens_cat, p_sems_cat)
 
-  def noise(self, scaling_factor=100):
+  def noise(self, scaling_factor=500):
     # Resample parameters from Dirichlet priors parameterized by the current
     # weights.
     D = stats.dirichlet
@@ -350,7 +353,7 @@ if __name__ == '__main__':
 
   from pprint import pprint
   # Try something
-  params = ParserParameters.average(chain)
+  params = ParserParameters.average(chain, burn=0.2)
   print(params.p_tokens_cat)
 
   pprint({word: sorted([(entry, entry.weight()) for entry in entries],
