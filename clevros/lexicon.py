@@ -718,6 +718,7 @@ def attempt_candidate_parse(lexicon, token, candidate_category,
   results = chart.WeightedCCGChartParser(lexicon, ruleset=chart.ApplicationRuleSet) \
       .parse(sentence)
   if results:
+    lexicon._entries[token] = []
     return results, sub_target
 
   # Attempt to parse, allowing for function composition. In order to support
@@ -744,6 +745,7 @@ def attempt_candidate_parse(lexicon, token, candidate_category,
     results.extend(
         chart.WeightedCCGChartParser(lexicon, ruleset=chart.DefaultRuleSet).parse(sentence))
 
+  lexicon._entries[token] = []
   return results, sub_target
 
 
