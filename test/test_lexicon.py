@@ -207,8 +207,8 @@ def test_get_lf_unigrams():
     """, include_semantics=True)
 
   expected = {
-    "NN": Counter({"and_": 2 / 6, "object": 2 / 6, "sphere": 1 / 6, "cube": 1 / 6}),
-    "(NN/NN)": Counter({"unique": 1})
+    "NN": Counter({"and_": 2 / 6, "object": 2 / 6, "sphere": 1 / 6, "cube": 1 / 6, None: 0.0, "unique": 0.0}),
+    "(NN/NN)": Counter({"unique": 1, "cube": 0.0, "object": 0.0, "sphere": 0.0, "and_": 0.0, None: 0.0})
   }
 
   ngrams = lex.lf_ngrams_given_syntax(order=1, smooth=False)
@@ -231,8 +231,8 @@ def test_get_yield():
   cases = [
       ("S", "S"),
       ("S/NN", "S"),
-      (r"NN\PP/NN", "PP"),
-      (r"NN/(PP/NN)", "NN"),
+      (r"NN\PP/NN", "NN"),
+      (r"(S\NN)/NN", "S"),
   ]
 
   def test_case(cat, cat_yield):
@@ -240,6 +240,35 @@ def test_get_yield():
 
   for cat, cat_yield in cases:
     yield test_case, cat, cat_yield
+
+
+def test_set_yield():
+  from nltk.ccg.lexicon import augParseCategory
+  lex = Lexicon.fromstring(r"""
+    :- S, NN, PP
+
+    on => PP/NN
+    the => S/NN
+    the => NN/NN
+    sphere => NN
+    sphere => NN
+    """)
+
+  cases = [
+      ("S", "NN", "NN"),
+      ("S/NN", "NN", "NN/NN"),
+      (r"NN\PP/NN", "S", r"S\PP/NN"),
+      (r"(S\NN)/NN", "NN", r"(NN\NN)/NN"),
+  ]
+
+  def test_case(cat, update, expected):
+    source = lex.parse_category(cat)
+    updated = set_yield(source, update)
+
+    eq_(str(updated), str(lex.parse_category(expected)))
+
+  for cat, update, expected in cases:
+    yield test_case, cat, update, expected
 
 
 def test_attempt_candidate_parse():

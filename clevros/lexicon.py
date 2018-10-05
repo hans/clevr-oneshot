@@ -8,6 +8,7 @@ from functools import reduce
 import itertools
 import logging
 import queue
+import sys
 
 from nltk.ccg import lexicon as ccg_lexicon
 from nltk.ccg.api import PrimitiveCategory, FunctionalCategory, AbstractCCGCategory
@@ -51,7 +52,8 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     self._derived_categories_by_source = {}
 
   @classmethod
-  def fromstring(cls, lex_str, ontology=None, include_semantics=False):
+  def fromstring(cls, lex_str, ontology=None, include_semantics=False,
+                 default_weight=0.001):
     """
     Convert string representation into a lexicon for CCGs.
     """
@@ -89,14 +91,11 @@ class Lexicon(ccg_lexicon.CCGLexicon):
             else:
               semantics = l.Expression.fromstring(ccg_lexicon.SEMANTICS_RE.match(semantics_str).groups()[0])
 
-          if weight is not None:
-            weight = float(weight[1:-1])
-          else:
-            weight = 1.0
+          weight = float(weight[1:-1]) if weight is not None else default_weight
 
           # Word definition
           # ie, which => (N\N)/(S/NP)
-          entries[ident].append(Token(ident, cat, semantics, weight))
+          entries[ident].append(Token(ident, cat, semantics, weight=weight))
     return cls(primitives[0], primitives, families, entries,
                ontology=ontology)
 
@@ -112,6 +111,30 @@ class Lexicon(ccg_lexicon.CCGLexicon):
           token._semantics = None
 
     return ret
+
+  def prune(self, min_weight=0.0):
+    """
+    Prune low-weight entries from the lexicon in-place.
+
+    Args:
+      min_weight: Minimal weight for entries which should be retained.
+
+    Returns:
+      prune_count: Number of lexical entries which were pruned.
+    """
+    prune_count = 0
+    for token in self._entries:
+      entries_t = self._entries[token]
+      self._entries[token] = [entry for entry in entries_t
+                              if entry.weight() >= min_weight]
+      prune_count += len(entries_t) - len(self._entries[token])
+
+    return prune_count
+
+  def debug_print(self, stream=sys.stderr):
+    for token, entries in self._entries.items():
+      for entry in entries:
+        stream.write("%.3f %s\n" % (entry.weight(), entry))
 
   def parse_category(self, cat_str):
     return ccg_lexicon.augParseCategory(cat_str, self._primitives, self._families)[0]
@@ -132,7 +155,8 @@ class Lexicon(ccg_lexicon.CCGLexicon):
   def total_category_masses(self, exclude_tokens=frozenset(),
                             soft_propagate_roots=False):
     """
-    Return the total weight mass assigned to each syntactic category.
+    Return the total weight mass assigned to each syntactic category. Shifts
+    masses such that the minimum mass is zero.
 
     Args:
       exclude_tokens: Exclude entries with this token from the count.
@@ -140,6 +164,10 @@ class Lexicon(ccg_lexicon.CCGLexicon):
         a derived root category `D0{S}` and some lexical entry `S/N`, even if
         no entry has the category `D0{S}`, we will add a key to the returned
         counter with category `D0{S}/N` (and zero weight).
+
+    Returns:
+      masses: `Distribution` mapping from category types to masses. The minimum
+        mass value is zero and the maximum is unbounded.
     """
     ret = Distribution()
     # Track categories with root yield.
@@ -152,12 +180,8 @@ class Lexicon(ccg_lexicon.CCGLexicon):
         if get_yield(entry.categ()) == self._start:
           rooted_cats.add(entry.categ())
 
-        ret[entry.categ()] += entry.weight()
-
-    # Shift all weights s.t. all entries are positive.
-    min_val = min(ret.values())
-    if min_val < 0.0:
-      ret += -min_val
+        if entry.weight() > 0.0:
+          ret[entry.categ()] += entry.weight()
 
     if soft_propagate_roots:
       derived_root_cats = self._derived_categories_by_base[self._start]
@@ -297,7 +321,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       self._entries[word].extend(w_entries)
 
 
-  def lf_ngrams(self, order=1, conditioning_fn=None, smooth=True):
+  def lf_ngrams(self, order=1, conditioning_fn=None, smooth=None):
     """
     Calculate n-gram statistics about the predicates present in the semantic
     forms in the lexicon.
@@ -308,7 +332,8 @@ class Lexicon(ccg_lexicon.CCGLexicon):
         from the range of `conditioning_fn` to distributions over semantic
         predicates. This can be used to e.g. build distributions over
         predicates conditioned on syntactic category.
-      smooth: If `True`, add-1 smooth the returned distributions.
+      smooth: If not `None`, add-k smooth the returned distributions using the
+        provided float.
     """
     if order > 1:
       raise NotImplementedError()
@@ -325,12 +350,12 @@ class Lexicon(ccg_lexicon.CCGLexicon):
           for predicate in entry.semantics().predicates():
             ret[key][predicate.name] += entry.weight()
 
-    if smooth:
+    if smooth is not None:
       support = ret.support
       for key in ret:
         for predicate in support:
-          ret[key][predicate] += 1
-        ret[key][None] += 1
+          ret[key][predicate] += smooth
+        ret[key][None] += smooth
 
     ret.normalize_all()
 
@@ -343,7 +368,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     kwargs["conditioning_fn"] = conditioning_fn
     return self.lf_ngrams(**kwargs)
 
-  def lf_ngrams_mixed(self, **kwargs):
+  def lf_ngrams_mixed(self, alpha=0.25, **kwargs):
     """
     Return conditional distributions over logical form n-grams conditioned on
     syntactic category, calculated by mixing two distribution classes: a
@@ -376,7 +401,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       # Mix root-conditioned distribution and the full syntax-conditioned
       # distribution.
       yield_dist = lf_yield_ngrams[get_yield(syntax)]
-      lf_mixed_ngrams[syntax] = lf_syntax_ngrams[syntax].mix(yield_dist, alpha=0.25) # TODO magic
+      lf_mixed_ngrams[syntax] = lf_syntax_ngrams[syntax].mix(yield_dist, alpha)
 
     return lf_mixed_ngrams
 
@@ -417,7 +442,22 @@ class DerivedCategory(PrimitiveCategory):
     return "%s{%s}{%s}" % (self.name, self.base, self.source_name)
 
 
-class Token(ccg_lexicon.Token):
+class Token(object):
+
+  def __init__(self, token, categ, semantics=None, weight=0.001):
+    self._token = token
+    self._categ = categ
+    self._weight = weight
+    self._semantics = semantics
+
+  def categ(self):
+    return self._categ
+
+  def weight(self):
+    return self._weight
+
+  def semantics(self):
+    return self._semantics
 
   def clone(self):
     return Token(self._token, self._categ, self._semantics, self._weight)
@@ -427,6 +467,14 @@ class Token(ccg_lexicon.Token):
                                   " {%s}" % self._semantics if self._semantics else "")
 
   __repr__ = __str__
+
+  def __cmp__(self, other):
+    if not isinstance(other, Token): return -1
+    return cmp((self._categ, self._weight, self._semantics),
+               (other.categ(), other.weight(), other.semantics()))
+
+  def __hash__(self):
+    return hash((self._token, self._categ, self._weight, self._semantics))
 
 
 def get_semantic_arity(category, arity_overrides=None):
@@ -467,10 +515,7 @@ def get_yield(category):
   if isinstance(category, PrimitiveCategory):
     return category
   elif isinstance(category, FunctionalCategory):
-    if category.dir().is_forward():
-      return get_yield(category.res())
-    else:
-      return get_yield(category.arg())
+    return get_yield(category.res())
   else:
     raise ValueError("unknown category type with instance %r" % category)
 
@@ -479,19 +524,13 @@ def set_yield(category, new_yield):
   if isinstance(category, PrimitiveCategory):
     return new_yield
   elif isinstance(category, FunctionalCategory):
-    if category.dir().is_forward():
-      res = set_yield(category.res(), new_yield)
-      arg = category.arg()
-    else:
-      res = category.res()
-      arg = set_yield(category.arg(), new_yield)
-
-    return FunctionalCategory(res, arg, category.dir())
+    return FunctionalCategory(set_yield(category.res(), new_yield),
+                              category.arg(), category.dir())
   else:
     raise ValueError("unknown category type of instance %r" % category)
 
 
-def get_candidate_categories(lex, tokens, sentence, smooth=True):
+def get_candidate_categories(lex, tokens, sentence, smooth=1e-3):
   """
   Find candidate categories for the given tokens which appear in `sentence` such
   that `sentence` yields a parse.
@@ -500,7 +539,8 @@ def get_candidate_categories(lex, tokens, sentence, smooth=True):
     lex:
     tokens:
     sentence:
-    smooth: If `True`, add-1 smooth the returned distributions.
+    smooth: If not `None`, add-k smooth the prior distribution over syntactic
+      categories (where the float value of `smooth` specifies `k`).
 
   Returns:
     cat_dists: Dictionary mapping each token to a `Distribution` over
@@ -517,10 +557,10 @@ def get_candidate_categories(lex, tokens, sentence, smooth=True):
 
   category_prior = lex.observed_category_distribution(
       exclude_tokens=set(tokens), soft_propagate_roots=True)
-  if smooth:
-    L.debug("Smoothing category prior.")
+  if smooth is not None:
+    L.debug("Smoothing category prior with k = %g", smooth)
     for key in category_prior.keys():
-      category_prior[key] += 1e-3 # TODO do this in a principled way
+      category_prior[key] += smooth
     category_prior = category_prior.normalize()
   L.debug("Smoothed category prior with soft root propagation: %s", category_prior)
 
@@ -543,7 +583,6 @@ def get_candidate_categories(lex, tokens, sentence, smooth=True):
       score = 0
       for token, category in zip(tokens, cat_assignment):
         score += np.log(category_prior[category])
-        pass
 
       # Likelihood weight comes from parse score
       score += np.log(sum(np.exp(weight)
@@ -679,7 +718,7 @@ def attempt_candidate_parse(lexicon, token, candidate_category,
   results = chart.WeightedCCGChartParser(lexicon, ruleset=chart.ApplicationRuleSet) \
       .parse(sentence)
   if results:
-    # TODO: also attempt parses with composition?
+    lexicon._entries[token] = []
     return results, sub_target
 
   # Attempt to parse, allowing for function composition. In order to support
@@ -706,15 +745,26 @@ def attempt_candidate_parse(lexicon, token, candidate_category,
     results.extend(
         chart.WeightedCCGChartParser(lexicon, ruleset=chart.DefaultRuleSet).parse(sentence))
 
-  # TODO need to return more information if we've lifted the sub_target
+  lexicon._entries[token] = []
   return results, sub_target
 
 
 def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
-                      bootstrap=True):
+                      bootstrap=True, meaning_prior_smooth=1e-3, alpha=0.25):
   """
   Make zero-shot predictions of the posterior `p(syntax, meaning | sentence)`
   for each of `tokens`.
+
+  Args:
+    lex:
+    tokens:
+    candidate_syntaxes:
+    sentence:
+    ontology:
+    bootstrap: If `True`, use syntactic category information to bootstrap
+      predictions about meanings.
+    alpha: Mixing parameter for bootstrapping distributions. See `alpha`
+      parameter of `Lexicon.lf_ngrams_mixed`.
 
   Returns:
     queues:
@@ -723,7 +773,8 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
   """
   # Prepare for syntactic bootstrap: pre-calculate distributions over semantic
   # form elements conditioned on syntactic category.
-  lf_ngrams = lex.lf_ngrams_mixed(order=1, smooth=True)
+  lf_ngrams = lex.lf_ngrams_mixed(alpha=alpha, order=1,
+                                  smooth=meaning_prior_smooth)
 
   # We will restrict semantic arities based on the observed arities available
   # for each category. Pre-calculate the necessary associations.
@@ -731,7 +782,7 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
 
   # Enumerate expressions just once! We'll bias the search over the enumerated
   # forms later.
-  candidate_exprs = set(ontology.iter_expressions(max_depth=3))
+  candidate_exprs = set(ontology.iter_expressions(max_depth=4))
 
   # Shared dummy variable which is included in candidate semantic forms, to be
   # replaced by all candidate lexical expressions and evaluated.
@@ -745,6 +796,9 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
     token_syntaxes = candidate_syntaxes[token]
     L.info("Candidate syntaxes for %s: %r", token, token_syntaxes)
     for category, category_weight in token_syntaxes.items():
+      if category_weight == 0:
+        continue
+
       # Retrieve relevant bootstrap distribution p(meaning | syntax).
       cat_lf_ngrams = lf_ngrams[category]
       # Redistribute UNK probability uniformly across predicates not observed
@@ -755,9 +809,9 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
       cat_lf_ngrams.update({pred: unk_lf_prob / len(unobserved_preds)
                            for pred in unobserved_preds})
 
-      L.debug("% 20s %s", category,
-              ", ".join("%.03f %s" % (prob, pred) for pred, prob
-                        in sorted(cat_lf_ngrams.items(), key=lambda x: x[1], reverse=True)))
+      L.info("% 20s %s", category,
+             ", ".join("%.03f %s" % (prob, pred) for pred, prob
+                       in sorted(cat_lf_ngrams.items(), key=lambda x: x[1], reverse=True)))
 
       # Attempt to parse with this parse category, and return the resulting
       # syntactic parses + sentence-level semantic forms, with a dummy variable
@@ -796,8 +850,9 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
 
 def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
                             sentence, ontology, model, answer,
-                            bootstrap=True, negative_samples=5, total_negative_mass=0.1,
-                            beta=3.0):
+                            bootstrap=True, meaning_prior_smooth=1e-3,
+                            negative_samples=5, total_negative_mass=0.1,
+                            alpha=1e-3, beta=3.0):
   """
   Augment a lexicon with candidate meanings for a given word using distant
   supervision. (The induced meanings for the queried words must yield parses
@@ -832,6 +887,8 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
     answer: Ground-truth answer to `sentence`.
     bootstrap: If `True`, incorporate priors over LF predicates conditioned on
       syntactic category when scoring candidate lexical entries.
+    meaning_prior_smooth: If not `None`, use this float quantity to add-k
+      smooth the prior distribution over meaning predicates.
     negative_samples: Add this many unique negative sample lexical
       entries to the lexicon for each token. (A negative sample is a
       high-scoring lexical entry which does not yield the correct
@@ -839,6 +896,11 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
     total_negative_mass: Distribute this much weight mass across
       negative samples. (Each negative sample will have an entry weight of
       `total_negative_mass / negative_samples.`)
+    alpha: Smoothing parameter for syntactic category prior distribution (see
+      `get_candidate_categories`).
+    beta: Total mass to assign to novel candidate lexical entries. (Mass will
+      be divided according to the one-shot probability distribution induced from
+      the example.)
   """
 
   # Target lexicon to be returned.
@@ -850,7 +912,8 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
   ranked_candidates, category_parse_results, dummy_var = \
       predict_zero_shot(lex, query_tokens, query_token_syntaxes, sentence, ontology,
-                        bootstrap=bootstrap)
+                        bootstrap=bootstrap, meaning_prior_smooth=meaning_prior_smooth,
+                        alpha=alpha)
 
   successes = defaultdict(set)
   failures = defaultdict(set)
@@ -891,7 +954,7 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
           # Parse succeeded with correct meaning. Add candidate lexical entry.
           successes[token].add(description)
         else:
-          if len(failures[token]) < negative_samples:
+          if len(failures[token]) < negative_samples and description not in successes[token]:
             failures[token].add(description)
 
   for token in query_tokens:
@@ -921,12 +984,12 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
         [Token(token, category, expr, weight=negative_mass)
          for _, (category, expr) in failures_t])
 
-    L.debug("Inferred %i novel entries for token %s:", len(successes_t), token)
-    for (_, entry_info), weight in zip(successes_t, weights_t):
-      L.debug("%.4f %s", weight, entry_info)
-    L.debug("Negatively sampled %i more novel entries for token %s:", len(failures_t), token)
+    L.info("Inferred %i novel entries for token %s:", len(successes_t), token)
+    for (_, entry_info), weight in sorted(zip(successes_t, weights_t), key=lambda x: x[1], reverse=True):
+      L.info("%.4f %s", weight, entry_info)
+    L.info("Negatively sampled %i more novel entries for token %s:", len(failures_t), token)
     for (_, entry_info) in failures_t:
-      L.debug("%.4f %s", negative_mass, entry_info)
+      L.info("%.4f %s", negative_mass, entry_info)
 
 
   return lex
@@ -1029,19 +1092,3 @@ def lf_parts(lf_str):
         candidates.add(l.LambdaExpression(variable, app_expr))
 
   return candidates
-
-
-if __name__ == '__main__':
-  print(list(map(str, lf_parts("filter_shape(scene,'sphere')"))))
-  print(list(map(str, lf_parts("filter_shape(filter_size(scene, 'big'), 'sphere')"))))
-
-  lex = Lexicon.fromstring(r"""
-  :- NN, DET, ADJ
-
-  DET :: NN/NN
-  ADJ :: NN/NN
-
-  the => DET {\x.unique(x)}
-  big => ADJ {\x.filter_size(x,big)}
-  dog => NN {dog}""", include_semantics=True)
-  print(augment_lexicon(lex, "the small dog".split(), "unique(filter_size(dog,small))"))

@@ -1,8 +1,8 @@
 import logging
 
 from clevros.compression import Compressor
-from clevros.lexicon import augment_lexicon_distant, get_candidate_categories, \
-    get_semantic_arity
+from clevros.lexicon import augment_lexicon_distant, predict_zero_shot, \
+    get_candidate_categories, get_semantic_arity
 from clevros.perceptron import update_perceptron_distant
 
 
@@ -11,7 +11,11 @@ L = logging.getLogger(__name__)
 
 class WordLearner(object):
 
-  def __init__(self, lexicon, compressor, bootstrap=True):
+  def __init__(self, lexicon, compressor, bootstrap=True,
+               learning_rate=10.0, beta=3.0, negative_samples=5,
+               total_negative_mass=0.1, syntax_prior_smooth=1e-3,
+               meaning_prior_smooth=1e-3, bootstrap_alpha=0.25):
+
     """
     Args:
       lexicon:
@@ -23,6 +27,15 @@ class WordLearner(object):
 
     self.bootstrap = bootstrap
 
+    # Learning hyperparameters
+    self.learning_rate = learning_rate
+    self.beta = beta
+    self.negative_samples = negative_samples
+    self.total_negative_mass = total_negative_mass
+    self.syntax_prior_smooth = syntax_prior_smooth
+    self.meaning_prior_smooth = meaning_prior_smooth
+    self.bootstrap_alpha = bootstrap_alpha
+
   @property
   def ontology(self):
     return self.lexicon.ontology
@@ -31,9 +44,13 @@ class WordLearner(object):
     if self.compressor is None:
       return
 
-    # Run EC compression on the entries of the induced lexicon. This may create
-    # new inventions, updating both the `ontology` and the provided `lex`.
-    new_lex, affected_entries = self.compressor.make_inventions(self.lexicon)
+    try:
+      # Run EC compression on the entries of the induced lexicon. This may create
+      # new inventions, updating both the `ontology` and the provided `lex`.
+      new_lex, affected_entries = self.compressor.make_inventions(self.lexicon)
+    except Exception as e:
+      L.error("Compression failed: %s", e)
+      return
 
     # Create derived categories following new inventions.
     to_propagate = []
@@ -55,8 +72,7 @@ class WordLearner(object):
     # categories. The ordering allows us to support hard-propagating both e.g.
     # a new root category and a new argument category at the same time.
     #
-    # (We may have derived new categories for entries with types `PP/NP` and
-    # `S/NP/PP` -- in this case, we want to first make available a new category
+    # (We may have derived new categories for entries with types `PP/NP` and # `S/NP/PP` -- in this case, we want to first make available a new category
     # `D0{S}/NP/PP` such that we can propagate the derived `D1{PP}` onto it,
     # yielding `D0{S}/NP/D1{PP}`.)
     to_propagate = sorted(
@@ -89,7 +105,8 @@ class WordLearner(object):
       # require an entry inserted
       L.info("Novel words: %s", " ".join(query_tokens))
       query_token_syntaxes = get_candidate_categories(
-          self.lexicon, query_tokens, sentence)
+          self.lexicon, query_tokens, sentence,
+          smooth=self.syntax_prior_smooth)
 
       return query_tokens, query_token_syntaxes
 
@@ -102,7 +119,8 @@ class WordLearner(object):
     for token in sentence:
       query_tokens = [token]
       query_token_syntaxes = get_candidate_categories(
-          self.lexicon, query_tokens, sentence)
+          self.lexicon, query_tokens, sentence,
+          smooth=self.syntax_prior_smooth)
 
       if query_token_syntaxes:
         # Found candidate parses! Let's try adding entries for this token,
@@ -111,6 +129,30 @@ class WordLearner(object):
 
     raise ValueError(
         "unable to find new entries which will make the sentence parse: %s" % sentence)
+
+  def predict_zero_shot(self, sentence):
+    """
+    Yield zero-shot predictions on the syntax and meaning of words in the
+    sentence requiring novel lexical entries.
+
+    Args:
+      sentence: List of token strings
+
+    Returns:
+      syntaxes: Dict mapping tokens to posterior distributions over syntactic
+        categories
+      joint_candidates: Dict mapping tokens to posterior distributions over
+        tuples `(syntax, lf)`
+    """
+    # Find tokens for which we need to insert lexical entries.
+    query_tokens, query_token_syntaxes = self.prepare_lexical_induction(sentence)
+    candidates, _, _ = predict_zero_shot(
+        self.lexicon, query_tokens, query_token_syntaxes,
+        sentence, self.ontology,
+        bootstrap=self.bootstrap,
+        meaning_prior_smooth=self.meaning_prior_smooth,
+        alpha=self.bootstrap_alpha)
+    return query_token_syntaxes, candidates
 
   def update_with_example(self, sentence, model, answer):
     """
@@ -127,8 +169,9 @@ class WordLearner(object):
     """
 
     try:
-      weighted_results, _ = update_perceptron_distant(self.lexicon, sentence,
-                                                      model, answer)
+      weighted_results, _ = update_perceptron_distant(
+          self.lexicon, sentence, model, answer,
+          learning_rate=self.learning_rate)
     except ValueError as e:
       # No parse succeeded -- attempt lexical induction.
       L.warning("Parse failed for sentence '%s'", " ".join(sentence))
@@ -144,13 +187,24 @@ class WordLearner(object):
       # the supported syntaxes for the novel words (`query_token_syntaxes`).
       self.lexicon = augment_lexicon_distant(
           self.lexicon, query_tokens, query_token_syntaxes, sentence,
-          self.ontology, model, answer, bootstrap=self.bootstrap)
+          self.ontology, model, answer,
+          bootstrap=self.bootstrap,
+          meaning_prior_smooth=self.meaning_prior_smooth,
+          alpha=self.bootstrap_alpha, beta=self.beta,
+          negative_samples=self.negative_samples,
+          total_negative_mass=self.total_negative_mass)
+
+      self.lexicon.debug_print()
 
       # Compress the resulting lexicon.
       self.compress_lexicon()
 
       # Attempt a new parameter update.
       weighted_results, _ = update_perceptron_distant(
-          self.lexicon, sentence, model, answer)
+          self.lexicon, sentence, model, answer,
+          learning_rate=self.learning_rate)
+
+    prune_count = self.lexicon.prune()
+    L.info("Pruned %i entries from lexicon.", prune_count)
 
     return weighted_results
