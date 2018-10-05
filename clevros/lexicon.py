@@ -782,7 +782,7 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
 
   # Enumerate expressions just once! We'll bias the search over the enumerated
   # forms later.
-  candidate_exprs = set(ontology.iter_expressions(max_depth=3))
+  candidate_exprs = set(ontology.iter_expressions(max_depth=4))
 
   # Shared dummy variable which is included in candidate semantic forms, to be
   # replaced by all candidate lexical expressions and evaluated.

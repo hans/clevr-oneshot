@@ -219,7 +219,8 @@ class Action(object):
     return ComposedAction(self, other)
 
   def __eq__(self, other):
-    return hash(self) == hash(other)
+    return isinstance(other, self.__class__) and hash(self) == hash(other)
+
 
 class Constraint(object):
   # TODO semantics not right -- subclasses don't take multiple constraints. We
