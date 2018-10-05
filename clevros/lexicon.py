@@ -515,10 +515,7 @@ def get_yield(category):
   if isinstance(category, PrimitiveCategory):
     return category
   elif isinstance(category, FunctionalCategory):
-    if category.dir().is_forward():
-      return get_yield(category.res())
-    else:
-      return get_yield(category.arg())
+    return get_yield(category.res())
   else:
     raise ValueError("unknown category type with instance %r" % category)
 
@@ -527,14 +524,8 @@ def set_yield(category, new_yield):
   if isinstance(category, PrimitiveCategory):
     return new_yield
   elif isinstance(category, FunctionalCategory):
-    if category.dir().is_forward():
-      res = set_yield(category.res(), new_yield)
-      arg = category.arg()
-    else:
-      res = category.res()
-      arg = set_yield(category.arg(), new_yield)
-
-    return FunctionalCategory(res, arg, category.dir())
+    return FunctionalCategory(set_yield(category.res(), new_yield),
+                              category.arg(), category.dir())
   else:
     raise ValueError("unknown category type of instance %r" % category)
 
