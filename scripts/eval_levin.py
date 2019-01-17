@@ -208,7 +208,7 @@ def eval_bootstrap_example(learner, example, token, expected_category,
 def eval_oneshot_example(learner, example, token, expected_category,
                          asserts=True, extra=None):
   sentence, model, answer = prep_example(learner, example)
-  learner.update_with_example(sentence, model, answer)
+  learner.update_with_distant(sentence, model, answer)
 
   # Fetch validated posterior from lexicon.
   posterior = get_lexicon_distribution(learner, token)
@@ -276,7 +276,7 @@ def eval_model(compress=True, bootstrap=True, **learner_kwargs):
   # Run initial weight updates.
   for example in examples[:3]:
     sentence, model, answer = prep_example(learner, example)
-    learner.update_with_example(sentence, model, answer)
+    learner.update_with_distant(sentence, model, answer)
 
   # Ensure that derived categories are present in the highest-scoring entries'
   # yields.

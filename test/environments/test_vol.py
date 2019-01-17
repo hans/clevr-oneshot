@@ -40,7 +40,7 @@ class LevinTest(unittest.TestCase):
       sentence = sentence.split()
       model = Model(scene, self.ontology)
 
-      weighted_results = self.learner.update_with_example(sentence, model, answer)
+      weighted_results = self.learner.update_with_distant(sentence, model, answer)
 
       final_sem = weighted_results[0][0].label()[0].semantics()
 

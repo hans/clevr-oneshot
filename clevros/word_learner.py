@@ -154,7 +154,10 @@ class WordLearner(object):
         alpha=self.bootstrap_alpha)
     return query_token_syntaxes, candidates
 
-  def update_with_example(self, sentence, model, answer):
+  def _update_with_example(self, sentence, model,
+                           augment_lexicon_fn, update_perceptron_fn,
+                           augment_lexicon_args=None,
+                           update_perceptron_args=None):
     """
     Observe a new `sentence -> answer` pair in the context of some `model` and
     update learner weights.
@@ -169,9 +172,10 @@ class WordLearner(object):
     """
 
     try:
-      weighted_results, _ = update_perceptron_distant(
-          self.lexicon, sentence, model, answer,
-          learning_rate=self.learning_rate)
+      weighted_results, _ = update_perceptron_fn(
+          self.lexicon, sentence, model,
+          learning_rate=self.learning_rate,
+          **update_perceptron_args)
     except ValueError as e:
       # No parse succeeded -- attempt lexical induction.
       L.warning("Parse failed for sentence '%s'", " ".join(sentence))
@@ -185,14 +189,15 @@ class WordLearner(object):
       # Augment the lexicon with all entries for novel words which yield the
       # correct answer to the sentence under some parse. Restrict the search by
       # the supported syntaxes for the novel words (`query_token_syntaxes`).
-      self.lexicon = augment_lexicon_distant(
+      self.lexicon = augment_lexicon_fn(
           self.lexicon, query_tokens, query_token_syntaxes, sentence,
-          self.ontology, model, answer,
+          self.ontology, model,
           bootstrap=self.bootstrap,
           meaning_prior_smooth=self.meaning_prior_smooth,
           alpha=self.bootstrap_alpha, beta=self.beta,
           negative_samples=self.negative_samples,
-          total_negative_mass=self.total_negative_mass)
+          total_negative_mass=self.total_negative_mass,
+          **augment_lexicon_args)
 
       self.lexicon.debug_print()
 
@@ -200,11 +205,56 @@ class WordLearner(object):
       self.compress_lexicon()
 
       # Attempt a new parameter update.
-      weighted_results, _ = update_perceptron_distant(
-          self.lexicon, sentence, model, answer,
-          learning_rate=self.learning_rate)
+      weighted_results, _ = update_perceptron_fn(
+          self.lexicon, sentence, model,
+          learning_rate=self.learning_rate,
+          **update_perceptron_args)
 
     prune_count = self.lexicon.prune()
     L.info("Pruned %i entries from lexicon.", prune_count)
 
     return weighted_results
+
+  def update_with_distant(self, sentence, model, answer):
+    """
+    Observe a new `sentence -> answer` pair in the context of some `model` and
+    update learner weights.
+
+    Args:
+      sentence: List of token strings
+      model: `Model` instance
+      answer: Desired result from `model.evaluate(lf_result(sentence))`
+
+    Returns:
+      weighted_results: List of weighted parse results for the example.
+    """
+    kwargs = {"answer": answer}
+    return self._update_with_example(
+        sentence, model,
+        augment_lexicon_fn=augment_lexicon_distant,
+        update_perceptron_fn=update_perceptron_distant,
+        augment_lexicon_args=kwargs,
+        update_perceptron_args=kwargs)
+
+
+  def update_with_2afc(self, sentence, model1, model2):
+    """
+    Observe a new `sentence` in the context of two possible scene references
+    `model1` and `model2`, where `sentence` is true of at least one of the
+    scenes. Update learner weights.
+
+    Args:
+      sentence: List of token strings
+      model1: `Model` instance
+      model2: `Model` instance
+
+    Returns:
+      weighted_results: List of weighted results for the example, where each
+        result is a pair `(model, parse_result)`. `parse_result` is the CCG
+        syntax/semantics parse result, and `model` identifies the scene for
+        which the semantic parse is true.
+    """
+    return self._update_with_example(
+        sentence, (model1, model2),
+        augment_lexicon_fn=augment_lexicon_2afc,
+        update_perceptron_fn=update_perceptron_2afc)
