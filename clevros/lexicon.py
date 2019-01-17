@@ -609,89 +609,6 @@ def get_candidate_categories(lex, tokens, sentence, smooth=1e-3):
   return cat_dists
 
 
-def augment_lexicon(old_lex, sentence, lf):
-  """
-  Augment an existing lexicon to cover the elements present in a new
-  sentence--logical form pair.
-
-  This is the first step of the standard "GENLEX" routine.
-  Will create an explosion of possible word-meaning pairs. Many of these
-  form-meaning pairs won't be valid -- i.e., they won't combine with other
-  elements of the lexicon in any way to yield the original parse `lf`.
-
-  Args:
-    lexicon: CCGLexicon
-    sentence: list of string tokens
-    lf: LF string
-  Returns:
-    A modified deep copy of `lexicon`.
-  """
-
-  new_lex = old_lex.clone()
-
-  lf_cands = lf_parts(lf)
-  for word in sentence:
-    if not new_lex.categories(word):
-      for category in old_lex.primitive_categories:
-        for lf_cand in lf_cands:
-          if not is_compatible(category, lf_cand):
-            # Arities of syntactic form and semantic form do not match.
-            continue
-
-          new_token = Token(word, category, lf_cand, 1.0)
-          new_lex._entries[word].append(new_token)
-
-  return new_lex
-
-
-def augment_lexicon_scene(old_lex, sentence, scene):
-  """
-  Augment a lexicon to cover the words in a new sentence uttered in some
-  scene context.
-
-  Args:
-    old_lex: CCGLexicon
-    sentence: list of word tokens
-    scene: CLEVR scene
-  """
-
-  # Build a "minimal" clone of the given lexicon which tracks only
-  # syntax. This minimal lexicon will be used to impose syntactic
-  # constraints and prune the candidates for new words.
-  old_lex_minimal = old_lex.clone(retain_semantics=False)
-  minimal_parser = chart.WeightedCCGChartParser(old_lex_minimal)
-
-  # Target lexicon to be returned.
-  lex = old_lex.clone()
-
-  lf_cands = scene_candidate_referents(scene)
-
-  for word in sentence:
-    if not lex.categories(word):
-      for category in lex.primitive_categories:
-        # Run a test syntactic parse to determine whether this word can
-        # plausibly have this syntactic category under the grammar rules.
-        #
-        # TODO: It could be the case that a single word appears multiple times
-        # in a sentence and has different syntactic interpretations among
-        # those instances. This pruning would fail, causing that
-        # sentence to have zero valid interpretations.
-        minimal_token = Token(word, category)
-        old_lex_minimal._entries[word].append(minimal_token)
-        results = minimal_parser.parse(sentence)
-        if not results:
-          # Syntactically invalid candidate.
-          continue
-
-        for lf_cand in lf_cands:
-          if not is_compatible(category, lf_cand):
-            continue
-          new_token = Token(word, category, lf_cand, 1.0)
-          lex._entries[word].append(new_token)
-
-  return lex
-
-
 def attempt_candidate_parse(lexicon, token, candidate_category,
                             candidate_expressions, sentence, dummy_var=None):
   """
@@ -995,6 +912,18 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
   return lex
 
 
+def augment_lexicon_2afc(old_lex, query_tokens, query_token_syntaxes,
+                         sentence, ontology, models):
+  """
+  Augment a lexicon with candidate meanings for a given word using 2AFC
+  supervision. (We assume that the uttered sentence is true of at least one of
+  the 2 scenes given in the tuple `models`.)
+
+  TODO complete
+  """
+  raise NotImplementedError
+
+
 def filter_lexicon_entry(lexicon, entry, sentence, lf):
   """
   Filter possible syntactic/semantic mappings for a given lexicon entry s.t.
@@ -1032,63 +961,3 @@ def filter_lexicon_entry(lexicon, entry, sentence, lf):
   new_lex._entries[entry] = [cand.token() for cand in valid_cands]
 
   return new_lex
-
-
-def lf_parts(lf_str):
-  """
-  Parse a logical form string into a set of candidate lexical items which
-  could be combined to produce the original LF.
-
-  >>> sorted(map(str, lf_parts("filter_shape(scene,'sphere')")))
-  ["'sphere'", "\\\\x.filter_shape(scene,'sphere')", '\\\\x.filter_shape(scene,x)', "\\\\x.filter_shape(x,'sphere')", 'scene']
-  """
-  # TODO avoid producing lambda expressions which don't make use of
-  # their arguments.
-
-  # Parse into a lambda calculus expression.
-  expr = l.Expression.fromstring(lf_str)
-  assert isinstance(expr, l.ApplicationExpression)
-
-  # First candidates: all available constants
-  candidates = set([l.ConstantExpression(const)
-                    for const in expr.constants()])
-
-  # All level-1 abstractions of the LF
-  queue = [expr]
-  while queue:
-    node = queue.pop()
-
-    n_constants = 0
-    for arg in node.args:
-      if isinstance(arg, l.ConstantExpression):
-        n_constants += 1
-      elif isinstance(arg, l.ApplicationExpression):
-        queue.append(arg)
-      else:
-        assert False, "Unexpected type " + str(arg)
-
-    # Hard constraint for now: all but one variable should be a
-    # constant expression.
-    if n_constants < len(node.args) - 1:
-      continue
-
-    # Create the candidate node(s).
-    variable = l.Variable("x")
-    for i, arg in enumerate(node.args):
-      if isinstance(arg, l.ApplicationExpression):
-        new_arg_cands = [l.VariableExpression(variable)]
-      else:
-        new_arg_cands = [arg]
-        if n_constants == len(node.args):
-          # All args are constant, so turning each constant into
-          # a variable is also legal. Do that.
-          new_arg_cands.append(l.VariableExpression(variable))
-
-      # Enumerate candidate new arguments and yield candidate new exprs.
-      for new_arg_cand in new_arg_cands:
-        new_args = node.args[:i] + [new_arg_cand] + node.args[i + 1:]
-        app_expr = l.ApplicationExpression(node.pred, new_args[0])
-        app_expr = reduce(lambda x, y: l.ApplicationExpression(x, y), new_args[1:], app_expr)
-        candidates.add(l.LambdaExpression(variable, app_expr))
-
-  return candidates
