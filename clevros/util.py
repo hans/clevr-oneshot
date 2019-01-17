@@ -4,6 +4,9 @@ import heapq
 import itertools
 from queue import PriorityQueue
 
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
 import numpy as np
 
 
@@ -54,6 +57,36 @@ class Distribution(Counter):
 
   def argmax(self):
     return max(self, key=lambda k: self[k])
+
+  def plot(self, name, out_dir, k=5, xlabel=None, title=None, save_csv=True):
+    """
+    Save a bar plot of the distribution.
+    """
+    support = sorted(self.keys(), key=lambda k: distribution[k], reverse=True)
+
+    if save_csv:
+      with (out_dir / ("%s.csv" % name)).open("w") as csv_f:
+        for key in support:
+          csv_f.write("%s,%f\n" % (key, self[key]))
+
+    # Trim support for plot.
+    if k is not None:
+      support = support[:k]
+
+    xs = np.arange(len(support))
+    fig = plt.figure(figsize=(10, 8))
+    plt.bar(xs, [self[support] for support in support])
+    plt.xticks(xs, list(map(str, support)), rotation="vertical")
+    plt.ylabel("Probability mass")
+    if xlabel is not None:
+      plt.xlabel(xlabel)
+    if title is not None:
+      plt.title(title)
+
+    plt.tight_layout()
+
+    path = out_dir / ("%s.png" % name)
+    fig.savefig(path)
 
 
 class ConditionalDistribution(object):
