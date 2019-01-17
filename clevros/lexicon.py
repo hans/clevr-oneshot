@@ -938,7 +938,8 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
 
 def augment_lexicon_2afc(old_lex, query_tokens, query_token_syntaxes,
-                         sentence, ontology, models):
+                         sentence, ontology, models,
+                         **augment_kwargs):
   """
   Augment a lexicon with candidate meanings for a given word using 2AFC
   supervision. (We assume that the uttered sentence is true of at least one of
@@ -946,7 +947,29 @@ def augment_lexicon_2afc(old_lex, query_tokens, query_token_syntaxes,
 
   TODO complete
   """
-  raise NotImplementedError
+  # Cache success results.
+  success_results = {}
+  def success_fn(_, sentence_semantics, models):
+    success = success_results.get(sentence_semantics)
+    if success is None:
+      model1, model2 = models
+      try:
+        model1_success = model1.evaluate(sentence_semantics)
+      except:
+        model1_success = False
+      try:
+        model2_success = model2.evaluate(sentence_semantics)
+      except:
+        model2_success = False
+
+      success = model1_success or model2_success
+      success_results[sentence_semantics] = success
+
+    return success
+
+  return augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
+                         sentence, ontology, model, success_fn,
+                         **augment_kwargs)
 
 
 def filter_lexicon_entry(lexicon, entry, sentence, lf):
