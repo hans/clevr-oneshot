@@ -765,18 +765,18 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
   return queues, category_parse_results, dummy_var
 
 
-def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
-                            sentence, ontology, model, answer,
-                            bootstrap=True, meaning_prior_smooth=1e-3,
-                            negative_samples=5, total_negative_mass=0.1,
-                            alpha=1e-3, beta=3.0):
+def augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
+                    sentence, ontology, model, success_fn,
+                    bootstrap=True, meaning_prior_smooth=1e-3,
+                    negative_samples=5, total_negative_mass=0.1,
+                    alpha=1e-3, beta=3.0):
   """
-  Augment a lexicon with candidate meanings for a given word using distant
-  supervision. (The induced meanings for the queried words must yield parses
-  that lead to `answer` under the `model`.)
+  Augment a lexicon with candidate meanings for a given word using an abstract
+  success function. (The induced meanings for the queried words must yield
+  parses that yield `True` under the `success_fn`, given `model`.)
 
   Candidate entries will be assigned relative weights according to a posterior
-  distribution $P(word -> syntax, meaning | sentence, answer, lexicon)$. This
+  distribution $P(word -> syntax, meaning | sentence, success_fn, lexicon)$. This
   distribution incorporates multiple prior and likelihood terms:
 
   1. A prior over syntactic categories (derived by inspection of the current
@@ -801,7 +801,15 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
     ontology: Available logical ontology -- used to enumerate possible logical
       forms.
     model: Scene model which evaluates logical forms to answers.
-    answer: Ground-truth answer to `sentence`.
+    success_fn: Function which accepts two arguments
+      `candidate_mapping, sentence_semantics, model`. `candidate_mapping` maps
+      each token in `query_tokens` to a tuple `(syntax, semantics)`;
+      `sentence_semantics` is a list of possible semantic representations of
+      the sentence given the joint assignment; `model` is simply the `model`
+      parameter provided to this function. Return `True` when the particular
+      assignment is "successful." For distant supervision, for example, a parse
+      is successful when it yields a prespecified "answer" after being
+      evaluated against `model`.
     bootstrap: If `True`, incorporate priors over LF predicates conditioned on
       syntactic category when scoring candidate lexical entries.
     meaning_prior_smooth: If not `None`, use this float quantity to add-k
@@ -834,7 +842,6 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
   successes = defaultdict(set)
   failures = defaultdict(set)
-  semantics_results = {}
   for token, candidate_queue in ranked_candidates.items():
     # NB not parallelizing anything below
     candidates = sorted(candidate_queue.queue,
@@ -848,23 +855,13 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
         # TODO can we pre-compute the simplification?
         semantics = semantics.replace(dummy_var, expr).simplify()
 
-        # Check cached result first.
-        success = semantics_results.get(semantics)
-        if success is None:
-          # Evaluate the expression and cache result.
-          try:
-            pred_answer = model.evaluate(semantics)
-            success = pred_answer == answer
-          except (TypeError, AttributeError) as e:
-            # Type inconsistency. TODO catch this in the iter_expression
-            # stage, or typecheck before evaluating.
-            success = False
-          except AssertionError as e:
-            # Precondition of semantics failed to pass.
-            success = False
+        # TODO assumes single token
+        assignments = {
+          token: (category, expr)
+        }
 
-          # Cache evaluation result.
-          semantics_results[semantics] = success
+        # Evaluate success.
+        success = success_fn(assignments, semantics, model)
 
         description = (joint_score, (category, expr))
         if success:
@@ -910,6 +907,34 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
 
   return lex
+
+
+def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
+                            sentence, ontology, model, answer,
+                            **augment_kwargs):
+  # Cache success results.
+  success_results = {}
+  def success_fn(_, sentence_semantics, model):
+    success = success_results.get(sentence_semantics)
+    if success is None:
+      try:
+        pred_answer = model.evaluate(sentence_semantics)
+        success = pred_answer == answer
+      except (TypeError, AttributeError) as e:
+        # Type inconsistency. TODO catch this in the iter_expression
+        # stage, or typecheck before evaluating.
+        success = False
+      except AssertionError as e:
+        # Precondition of semantics failed to pass.
+        success = False
+
+      success_results[sentence_semantics] = success
+
+    return success
+
+  return augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
+                         sentence, ontology, model, success_fn,
+                         **augment_kwargs)
 
 
 def augment_lexicon_2afc(old_lex, query_tokens, query_token_syntaxes,
