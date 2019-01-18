@@ -122,3 +122,8 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
     token._weight += delta
 
   return weighted_results, norm
+
+
+def update_perceptron_2afc():
+  # TODO
+  raise NotImplementedError

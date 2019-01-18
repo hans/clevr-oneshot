@@ -685,7 +685,10 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
 
   Returns:
     queues:
-    category_parse_results: TODO
+    category_parse_results: Multi-level dictionary. First level keys are tokens
+      (elements of `tokens`) for which meanings are being explored. Second
+      level keys are candidate syntactic categories for the corresponding
+      token. Values are a weighted list of sentence parse results.
     dummy_var: TODO
   """
   # Prepare for syntactic bootstrap: pre-calculate distributions over semantic
@@ -737,6 +740,7 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
                                                    sentence, dummy_var=dummy_var)
       category_parse_results[token][category] = results
 
+      # Score candidate expressions.
       for expr in candidate_exprs:
         if get_arity(expr) not in category_sem_arities[category]:
           # TODO rather than arity-checking post-hoc, form a type request
@@ -912,6 +916,13 @@ def augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
 def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
                             sentence, ontology, model, answer,
                             **augment_kwargs):
+  """
+  Augment a lexicon with candidate meanings for a given word using distant
+  supervision. (Find word meanings such that the whole sentence meaning yields
+  an expected `answer`.)
+
+  For argument documentation, see `augment_lexicon`.
+  """
   # Cache success results.
   success_results = {}
   def success_fn(_, sentence_semantics, model):
@@ -945,7 +956,7 @@ def augment_lexicon_2afc(old_lex, query_tokens, query_token_syntaxes,
   supervision. (We assume that the uttered sentence is true of at least one of
   the 2 scenes given in the tuple `models`.)
 
-  TODO complete
+  For argument documentation, see `augment_lexicon`.
   """
   # Cache success results.
   success_results = {}

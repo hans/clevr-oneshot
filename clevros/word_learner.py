@@ -4,6 +4,7 @@ from clevros.compression import Compressor
 from clevros.lexicon import augment_lexicon_distant, predict_zero_shot, \
     get_candidate_categories, get_semantic_arity
 from clevros.perceptron import update_perceptron_distant
+from clevros.util import Distribution
 
 
 L = logging.getLogger(__name__)
@@ -258,3 +259,26 @@ class WordLearner(object):
         sentence, (model1, model2),
         augment_lexicon_fn=augment_lexicon_2afc,
         update_perceptron_fn=update_perceptron_2afc)
+
+  def predict_2afc(self, sentence, model1, model2):
+    """
+    Observe a new `sentence` in the context of two possible scene references
+    `model1` and `model2`, where `sentence` is true of at least one of the
+    scenes. Update learner weights and provide a posterior prediction
+    `p(referred scene | sentence)`, marginalizing over possible sentence parses
+    and possible novel word meanings.
+
+    TODO sketch out the marginalization process in more detail
+
+    Returns:
+      model_scores: `Distribution` over scene models (with support `model1` and
+      `model2`), `p(referred scene | sentence)`
+    """
+    weighted_results = self.update_with_2afc(sentence, model1, model2)
+    dist = Distribution()
+
+    for model, parse_result in weighted_results:
+      _, score, _ = parse_result
+      dist[model] += np.exp(score)
+
+    return dist.ensure_support((model1, model2)).normalize()

@@ -22,6 +22,16 @@ class Distribution(Counter):
       ret[key] = 1 / len(support)
     return ret
 
+  @property
+  def support(self):
+    return self.keys()
+
+  def ensure_support(self, keys):
+    for key in keys:
+      self[key]
+
+    return self
+
   def __mul__(self, scale):
     assert isinstance(scale, (int, float))
 
