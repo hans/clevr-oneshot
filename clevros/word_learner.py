@@ -192,6 +192,36 @@ class WordLearner(object):
         self.ontology, model, self._build_likelihood_fns(sentence, model))
     return query_token_syntaxes, candidates
 
+  def predict_zero_shot_2afc(self, sentence, model1, model2):
+    """
+    Yield zero-shot predictions on a 2AFC sentence, marginalizing over possible
+    novel lexical entries required to parse the sentence.
+
+    TODO explain marginalization process in more detail
+
+    Args:
+      sentence: List of token strings
+      models:
+
+    Returns:
+      model_scores: `Distribution` over scene models (with support `models`),
+        `p(referred scene | sentence)`
+    """
+    aug_lexicon = self.do_lexical_induction(sentence, (model1, model2),
+                                            augment_lexicon_fn=augment_lexicon_2afc)
+    parser = chart.WeightedCCGChartParser(aug_lexicon)
+    weighted_results = parser.parse(sentence, True)
+    dist = Distribution()
+
+    for result, score, _ in weighted_results:
+      semantics = result.label()[0].semantics()
+      if model1.evaluate(semantics):
+        dist[model1] += np.exp(score)
+      if model2.evaluate(semantics):
+        dist[model2] += np.exp(score)
+
+    return dist.ensure_support((model1, model2)).normalize()
+
   def _update_with_example(self, sentence, model,
                            augment_lexicon_fn, update_perceptron_fn,
                            augment_lexicon_args=None,
@@ -283,32 +313,3 @@ class WordLearner(object):
         sentence, (model1, model2),
         augment_lexicon_fn=augment_lexicon_2afc,
         update_perceptron_fn=update_perceptron_2afc)
-
-  def predict_2afc(self, sentence, model1, model2):
-    """
-    Observe a new `sentence` in the context of two possible scene references
-    `model1` and `model2`, where `sentence` is true of at least one of the
-    scenes. Update learner weights and provide a posterior prediction
-    `p(referred scene | sentence)`, marginalizing over possible sentence parses
-    and possible novel word meanings.
-
-    TODO sketch out the marginalization process in more detail
-
-    Returns:
-      model_scores: `Distribution` over scene models (with support `model1` and
-      `model2`), `p(referred scene | sentence)`
-    """
-    aug_lexicon = self.do_lexical_induction(sentence, (model1, model2),
-                                            augment_lexicon_fn=augment_lexicon_2afc)
-    parser = chart.WeightedCCGChartParser(aug_lexicon)
-    weighted_results = parser.parse(sentence, True)
-    dist = Distribution()
-
-    for result, score, _ in weighted_results:
-      semantics = result.label()[0].semantics()
-      if model1.evaluate(semantics):
-        dist[model1] += np.exp(score)
-      if model2.evaluate(semantics):
-        dist[model2] += np.exp(score)
-
-    return dist.ensure_support((model1, model2)).normalize()
