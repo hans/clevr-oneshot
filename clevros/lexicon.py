@@ -711,24 +711,40 @@ def build_bootstrap_likelihood(lex, sentence, ontology,
   return likelihood_fn
 
 
-def build_2afc_likelihood():
+def likelihood_scene(token, category, expr, sentence_parses, model):
   """
-  Prepare a 0-1 likelihood function for the 2AFC paradigm, where an uttered
+  0-1 likelihood function, 1 when a sentence is true of the model and false
+  otherwise.
+
+  Args:
+    token:
+    category:
+    expr:
+    sentence_parses:
+    model:
+
+  Returns:
+    log_likelihood:
+  """
+  return 0. if any(model.evaluate(parse) for parse in sentence_parses) \
+            else -np.inf
+
+
+def likelihood_2afc(token, category, expr, sentence_parses, models):
+  """
+  0-1 likelihood function for the 2AFC paradigm, where an uttered
   sentence is known to be true of at least one of two scenes.
 
   Args:
     models:
 
   Returns:
-    likelihood_fn: A likelihood function to be used with `predict_zero_shot`.
+    log_likelihood:
   """
-
-  def likelihood_fn(token, category, expr, sentence_parses, models):
-    model1, model2 = models
-    return any(model1.evaluate(parse) or model2.evaluate(parse)
-               for parse in sentence_parses)
-
-  return likelihood_fn
+  model1, model2 = models
+  return 0. if any(model1.evaluate(parse) or model2.evaluate(parse)
+                   for parse in sentence_parses) \
+            else -np.inf
 
 
 def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
@@ -1030,7 +1046,7 @@ def augment_lexicon_2afc(old_lex, query_tokens, query_token_syntaxes,
     return success
 
   return augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
-                         sentence, ontology, model, success_fn, likelihood_fns,
+                         sentence, ontology, models, success_fn, likelihood_fns,
                          **augment_kwargs)
 
 

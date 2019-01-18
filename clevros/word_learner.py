@@ -1,5 +1,8 @@
 import logging
 
+import numpy as np
+
+from clevros import chart
 from clevros.compression import Compressor
 from clevros.lexicon import predict_zero_shot, \
     get_candidate_categories, get_semantic_arity, \
@@ -133,6 +136,31 @@ class WordLearner(object):
     raise ValueError(
         "unable to find new entries which will make the sentence parse: %s" % sentence)
 
+  def do_lexical_induction(self, sentence, model, augment_lexicon_fn,
+                           **augment_lexicon_args):
+    """
+    Perform necessary lexical induction such that `sentence` can be parsed
+    under `model`.
+
+    Returns:
+      aug_lexicon: augmented lexicon, a modified copy of `self.lexicon`
+    """
+    # Find tokens for which we need to insert lexical entries.
+    query_tokens, query_token_syntaxes = \
+        self.prepare_lexical_induction(sentence)
+    L.info("Inducing new lexical entries for words: %s", ", ".join(query_tokens))
+
+    # Augment the lexicon with all entries for novel words which yield the
+    # correct answer to the sentence under some parse. Restrict the search by
+    # the supported syntaxes for the novel words (`query_token_syntaxes`).
+    return augment_lexicon_fn(
+        self.lexicon, query_tokens, query_token_syntaxes, sentence,
+        self.ontology, model, self._build_likelihood_fns(sentence, model),
+        beta=self.beta,
+        negative_samples=self.negative_samples,
+        total_negative_mass=self.total_negative_mass,
+        **augment_lexicon_args)
+
   def _build_likelihood_fns(self, sentence, model):
     ret = []
     if self.bootstrap:
@@ -143,7 +171,7 @@ class WordLearner(object):
 
     return ret
 
-  def predict_zero_shot(self, sentence, model):
+  def predict_zero_shot_tokens(self, sentence, model):
     """
     Yield zero-shot predictions on the syntax and meaning of words in the
     sentence requiring novel lexical entries.
@@ -194,22 +222,8 @@ class WordLearner(object):
       L.warning("Parse failed for sentence '%s'", " ".join(sentence))
       L.warning(e)
 
-      # Find tokens for which we need to insert lexical entries.
-      query_tokens, query_token_syntaxes = \
-          self.prepare_lexical_induction(sentence)
-      L.info("Inducing new lexical entries for words: %s", ", ".join(query_tokens))
-
-      # Augment the lexicon with all entries for novel words which yield the
-      # correct answer to the sentence under some parse. Restrict the search by
-      # the supported syntaxes for the novel words (`query_token_syntaxes`).
-      self.lexicon = augment_lexicon_fn(
-          self.lexicon, query_tokens, query_token_syntaxes, sentence,
-          self.ontology, model, self._build_likelihood_fns(sentence, model),
-          beta=self.beta,
-          negative_samples=self.negative_samples,
-          total_negative_mass=self.total_negative_mass,
-          **augment_lexicon_args)
-
+      self.lexicon = self.do_lexical_induction(sentence, model, augment_lexicon_fn,
+                                               **augment_lexicon_args)
       self.lexicon.debug_print()
 
       # Compress the resulting lexicon.
@@ -284,11 +298,17 @@ class WordLearner(object):
       model_scores: `Distribution` over scene models (with support `model1` and
       `model2`), `p(referred scene | sentence)`
     """
-    weighted_results = self.update_with_2afc(sentence, model1, model2)
+    aug_lexicon = self.do_lexical_induction(sentence, (model1, model2),
+                                            augment_lexicon_fn=augment_lexicon_2afc)
+    parser = chart.WeightedCCGChartParser(aug_lexicon)
+    weighted_results = parser.parse(sentence, True)
     dist = Distribution()
 
-    for model, parse_result in weighted_results:
-      _, score, _ = parse_result
-      dist[model] += np.exp(score)
+    for result, score, _ in weighted_results:
+      semantics = result.label()[0].semantics()
+      if model1.evaluate(semantics):
+        dist[model1] += np.exp(score)
+      if model2.evaluate(semantics):
+        dist[model2] += np.exp(score)
 
     return dist.ensure_support((model1, model2)).normalize()

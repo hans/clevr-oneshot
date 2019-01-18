@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from clevros.compression import Compressor
-from clevros.lexicon import Lexicon, get_candidate_categories, predict_zero_shot, get_yield, set_yield
+from clevros.lexicon import Lexicon, get_candidate_categories, get_yield, set_yield
 from clevros.logic import TypeSystem, Ontology
 from clevros.model import Model
 from clevros.primitives import *
@@ -242,7 +242,7 @@ def zero_shot(learner, example, token):
   Return zero-shot distributions p(syntax | example), p(syntax, meaning | example).
   """
   sentence, model, _ = prep_example(learner, example)
-  syntaxes, joint_candidates = learner.predict_zero_shot(sentence, model)
+  syntaxes, joint_candidates = learner.predict_zero_shot_tokens(sentence, model)
 
   assert list(syntaxes.keys()) == [token]
   return syntaxes[token], joint_candidates[token].as_distribution()
