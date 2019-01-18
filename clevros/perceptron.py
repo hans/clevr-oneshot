@@ -53,8 +53,8 @@ def update_perceptron_batch(lexicon, data, learning_rate=0.1, parser=None):
   return norm
 
 
-def update_perceptron_distant(lexicon, sentence, model, answer,
-                              learning_rate=10, parser=None):
+def update_perceptron(lexicon, sentence, model, success_fn,
+                      learning_rate=10, parser=None):
   if parser is None:
     parser = chart.WeightedCCGChartParser(lexicon,
                                           ruleset=chart.DefaultRuleSet)
@@ -67,30 +67,25 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
   max_score, max_incorrect_score = -np.inf, -np.inf
   correct_results, incorrect_results = [], []
 
-  L.debug("Desired answer: %s", answer)
   for result, score, _ in weighted_results:
-    root_token, _ = result.label()
-    try:
-      if model.evaluate(root_token.semantics()) == answer:
-        if score > max_score:
-          max_score = score
-          correct_results = [(score, result)]
-        elif score == max_score:
-          correct_results.append((score, result))
-      else:
-        raise ValueError()
-    except:
+    if success_fn(result, model):
+      if score > max_score:
+        max_score = score
+        correct_results = [(score, result)]
+      elif score == max_score:
+        correct_results.append((score, result))
+    else:
       if score > max_incorrect_score:
         max_incorrect_score = score
         incorrect_results = [(score, result)]
       elif score == max_incorrect_score:
         incorrect_results.append((score, result))
-  else:
-    if not correct_results:
-      raise ValueError("No parses derived have the correct answer.")
-    elif not incorrect_results:
-      L.warning("No incorrect parses. Skipping update.")
-      return weighted_results, 0.0
+
+  if not correct_results:
+    raise ValueError("No parses derived are successful.")
+  elif not incorrect_results:
+    L.warning("No incorrect parses. Skipping update.")
+    return weighted_results, 0.0
 
   # Sort results by descending parse score.
   correct_results = sorted(correct_results, key=lambda r: r[0], reverse=True)
@@ -124,6 +119,46 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
   return weighted_results, norm
 
 
-def update_perceptron_2afc():
-  # TODO
-  raise NotImplementedError
+def update_perceptron_distant(lexicon, sentence, model, answer,
+                              **update_perceptron_kwargs):
+  def success_fn(parse_result, model):
+    root_token, _ = parse_result.label()
+
+    try:
+      pred_answer = model.evaluate(root_token.semantics())
+      success = pred_answer == answer
+    except (TypeError, AttributeError) as e:
+      # Type inconsistency. TODO catch this in the iter_expression
+      # stage, or typecheck before evaluating.
+      success = False
+    except AssertionError as e:
+      # Precondition of semantics failed to pass.
+      success = False
+
+    return success
+
+  L.debug("Desired answer: %s", answer)
+  return update_perceptron(lexicon, sentence, model, success_fn,
+                           **update_perceptron_kwargs)
+
+
+def update_perceptron_2afc(lexicon, sentence, models,
+                           **update_perceptron_kwargs):
+  def success_fn(parse_result, models):
+    model1, model2 = models
+    root_token, _ = parse_result.label()
+    sentence_semantics = root_token.semantics()
+
+    try:
+      model1_success = model1.evaluate(sentence_semantics)
+    except:
+      model1_success = False
+    try:
+      model2_success = model2.evaluate(sentence_semantics)
+    except:
+      model2_success = False
+
+    return model1_success or model2_success
+
+  return update_perceptron(lexicon, sentence, models, success_fn,
+                           **update_perceptron_kwargs)
