@@ -666,8 +666,74 @@ def attempt_candidate_parse(lexicon, token, candidate_category,
   return results, sub_target
 
 
+def build_bootstrap_likelihood(lex, sentence, ontology,
+                               alpha=0.25, meaning_prior_smooth=1e-3):
+  """
+  Prepare a likelihood function `p(meaning | syntax, sentence)` based on
+  syntactic bootstrapping.
+
+  Args:
+    lex:
+    sentence:
+    ontology:
+    alpha: Mixing parameter for bootstrapping distributions. See `alpha`
+      parameter of `Lexicon.lf_ngrams_mixed`.
+
+  Returns:
+    likelihood_fn: A likelihood function to be used with `predict_zero_shot`.
+  """
+  # Prepare for syntactic bootstrap: pre-calculate distributions over semantic
+  # form elements conditioned on syntactic category.
+  lf_ngrams = lex.lf_ngrams_mixed(alpha=alpha, order=1,
+                                  smooth=meaning_prior_smooth)
+  for category in lf_ngrams:
+    # Redistribute UNK probability uniformly across predicates not observed for
+    # this category.
+    unk_lf_prob = lf_ngrams[category].pop(None)
+    unobserved_preds = set(f.name for f in ontology.functions) - set(lf_ngrams[category].keys())
+    lf_ngrams[category].update({pred: unk_lf_prob / len(unobserved_preds)
+                                for pred in unobserved_preds})
+
+    L.info("% 20s %s", category,
+           ", ".join("%.03f %s" % (prob, pred) for pred, prob
+                     in sorted(lf_ngrams[category].items(), key=lambda x: x[1], reverse=True)))
+
+  def likelihood_fn(token, category, expr, sentence_parses, model):
+    # Retrieve relevant bootstrap distribution p(meaning | syntax).
+    cat_lf_ngrams = lf_ngrams[category]
+    likelihood = 0.0
+    for predicate in expr.predicates():
+      if predicate.name in cat_lf_ngrams:
+        likelihood += np.log(cat_lf_ngrams[predicate.name])
+
+    return likelihood
+
+  return likelihood_fn
+
+
+def build_2afc_likelihood():
+  """
+  Prepare a 0-1 likelihood function for the 2AFC paradigm, where an uttered
+  sentence is known to be true of at least one of two scenes.
+
+  Args:
+    models:
+
+  Returns:
+    likelihood_fn: A likelihood function to be used with `predict_zero_shot`.
+  """
+
+  def likelihood_fn(token, category, expr, sentence_parses, models):
+    model1, model2 = models
+    return any(model1.evaluate(parse) or model2.evaluate(parse)
+               for parse in sentence_parses)
+
+  return likelihood_fn
+
+
 def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
-                      bootstrap=True, meaning_prior_smooth=1e-3, alpha=0.25):
+                      model, likelihood_fns,
+                      meaning_prior_smooth=1e-3, alpha=0.25):
   """
   Make zero-shot predictions of the posterior `p(syntax, meaning | sentence)`
   for each of `tokens`.
@@ -678,10 +744,12 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
     candidate_syntaxes:
     sentence:
     ontology:
-    bootstrap: If `True`, use syntactic category information to bootstrap
-      predictions about meanings.
-    alpha: Mixing parameter for bootstrapping distributions. See `alpha`
-      parameter of `Lexicon.lf_ngrams_mixed`.
+    model:
+    likelihood_fns: Collection of likelihood functions `p(meaning | syntax,
+      sentence, model)` used to score candidate meaning--syntax pairs for a
+      word.  Function should accept arguments `(token, candidate_category,
+      candidate_meaning, candidate_semantic_parses, model)` and return a
+      log-likelihood.
 
   Returns:
     queues:
@@ -691,10 +759,6 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
       token. Values are a weighted list of sentence parse results.
     dummy_var: TODO
   """
-  # Prepare for syntactic bootstrap: pre-calculate distributions over semantic
-  # form elements conditioned on syntactic category.
-  lf_ngrams = lex.lf_ngrams_mixed(alpha=alpha, order=1,
-                                  smooth=meaning_prior_smooth)
 
   # We will restrict semantic arities based on the observed arities available
   # for each category. Pre-calculate the necessary associations.
@@ -719,20 +783,6 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
       if category_weight == 0:
         continue
 
-      # Retrieve relevant bootstrap distribution p(meaning | syntax).
-      cat_lf_ngrams = lf_ngrams[category]
-      # Redistribute UNK probability uniformly across predicates not observed
-      # for this category.
-      # TODO do this outside of the loop
-      unk_lf_prob = cat_lf_ngrams.pop(None)
-      unobserved_preds = set(f.name for f in ontology.functions) - set(cat_lf_ngrams.keys())
-      cat_lf_ngrams.update({pred: unk_lf_prob / len(unobserved_preds)
-                           for pred in unobserved_preds})
-
-      L.info("% 20s %s", category,
-             ", ".join("%.03f %s" % (prob, pred) for pred, prob
-                       in sorted(cat_lf_ngrams.items(), key=lambda x: x[1], reverse=True)))
-
       # Attempt to parse with this parse category, and return the resulting
       # syntactic parses + sentence-level semantic forms, with a dummy variable
       # in place of where the candidate expressions will go.
@@ -746,11 +796,15 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
           # TODO rather than arity-checking post-hoc, form a type request
           continue
 
-        likelihood = 0.0
-        if bootstrap:
-          for predicate in expr.predicates():
-            if predicate.name in cat_lf_ngrams:
-              likelihood += np.log(cat_lf_ngrams[predicate.name])
+        # Compute candidate sentence-level parses by substitution.
+        candidate_semantic_parses = [
+            result.label()[0].semantics().replace(dummy_var, expr).simplify()
+            for result in results
+        ]
+
+        likelihood = sum(likelihood_fn(token, category, expr,
+                                       candidate_semantic_parses, model)
+                         for likelihood_fn in likelihood_fns)
 
         joint_score = np.log(category_weight) + likelihood
         new_item = (joint_score, (category, expr))
@@ -771,9 +825,8 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
 
 def augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
                     sentence, ontology, model, success_fn,
-                    bootstrap=True, meaning_prior_smooth=1e-3,
-                    negative_samples=5, total_negative_mass=0.1,
-                    alpha=1e-3, beta=3.0):
+                    likelihood_fns, negative_samples=5,
+                    total_negative_mass=0.1, beta=3.0):
   """
   Augment a lexicon with candidate meanings for a given word using an abstract
   success function. (The induced meanings for the queried words must yield
@@ -814,10 +867,9 @@ def augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
       assignment is "successful." For distant supervision, for example, a parse
       is successful when it yields a prespecified "answer" after being
       evaluated against `model`.
-    bootstrap: If `True`, incorporate priors over LF predicates conditioned on
-      syntactic category when scoring candidate lexical entries.
-    meaning_prior_smooth: If not `None`, use this float quantity to add-k
-      smooth the prior distribution over meaning predicates.
+    likelihood_fns: Sequence of functions describing zero-shot likelihoods
+      `p(meaning | syntax, sentence, model)`. See `predict_zero_shot` for more
+      information.
     negative_samples: Add this many unique negative sample lexical
       entries to the lexicon for each token. (A negative sample is a
       high-scoring lexical entry which does not yield the correct
@@ -840,9 +892,8 @@ def augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
     lex._entries[token] = []
 
   ranked_candidates, category_parse_results, dummy_var = \
-      predict_zero_shot(lex, query_tokens, query_token_syntaxes, sentence, ontology,
-                        bootstrap=bootstrap, meaning_prior_smooth=meaning_prior_smooth,
-                        alpha=alpha)
+      predict_zero_shot(lex, query_tokens, query_token_syntaxes, sentence,
+                        ontology, model, likelihood_fns)
 
   successes = defaultdict(set)
   failures = defaultdict(set)
@@ -914,7 +965,7 @@ def augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
 
 
 def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
-                            sentence, ontology, model, answer,
+                            sentence, ontology, model, likelihood_fns, answer,
                             **augment_kwargs):
   """
   Augment a lexicon with candidate meanings for a given word using distant
@@ -944,12 +995,12 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
     return success
 
   return augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
-                         sentence, ontology, model, success_fn,
+                         sentence, ontology, model, success_fn, likelihood_fns,
                          **augment_kwargs)
 
 
 def augment_lexicon_2afc(old_lex, query_tokens, query_token_syntaxes,
-                         sentence, ontology, models,
+                         sentence, ontology, models, likelihood_fns,
                          **augment_kwargs):
   """
   Augment a lexicon with candidate meanings for a given word using 2AFC
@@ -979,7 +1030,7 @@ def augment_lexicon_2afc(old_lex, query_tokens, query_token_syntaxes,
     return success
 
   return augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
-                         sentence, ontology, model, success_fn,
+                         sentence, ontology, model, success_fn, likelihood_fns,
                          **augment_kwargs)
 
 

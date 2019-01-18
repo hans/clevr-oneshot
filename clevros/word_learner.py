@@ -1,9 +1,11 @@
 import logging
 
 from clevros.compression import Compressor
-from clevros.lexicon import augment_lexicon_distant, predict_zero_shot, \
-    get_candidate_categories, get_semantic_arity
-from clevros.perceptron import update_perceptron_distant
+from clevros.lexicon import predict_zero_shot, \
+    get_candidate_categories, get_semantic_arity, \
+    augment_lexicon_distant, augment_lexicon_2afc, \
+    build_bootstrap_likelihood
+from clevros.perceptron import update_perceptron_distant, update_perceptron_2afc
 from clevros.util import Distribution
 
 
@@ -131,7 +133,17 @@ class WordLearner(object):
     raise ValueError(
         "unable to find new entries which will make the sentence parse: %s" % sentence)
 
-  def predict_zero_shot(self, sentence):
+  def _build_likelihood_fns(self, sentence, model):
+    ret = []
+    if self.bootstrap:
+      ret.append(build_bootstrap_likelihood(
+        self.lexicon, sentence, self.ontology,
+        alpha=self.bootstrap_alpha,
+        meaning_prior_smooth=self.meaning_prior_smooth))
+
+    return ret
+
+  def predict_zero_shot(self, sentence, model):
     """
     Yield zero-shot predictions on the syntax and meaning of words in the
     sentence requiring novel lexical entries.
@@ -148,11 +160,8 @@ class WordLearner(object):
     # Find tokens for which we need to insert lexical entries.
     query_tokens, query_token_syntaxes = self.prepare_lexical_induction(sentence)
     candidates, _, _ = predict_zero_shot(
-        self.lexicon, query_tokens, query_token_syntaxes,
-        sentence, self.ontology,
-        bootstrap=self.bootstrap,
-        meaning_prior_smooth=self.meaning_prior_smooth,
-        alpha=self.bootstrap_alpha)
+        self.lexicon, query_tokens, query_token_syntaxes, sentence,
+        self.ontology, model, self._build_likelihood_fns(sentence, model))
     return query_token_syntaxes, candidates
 
   def _update_with_example(self, sentence, model,
@@ -171,6 +180,9 @@ class WordLearner(object):
     Returns:
       weighted_results: List of weighted parse results for the example.
     """
+
+    augment_lexicon_args = augment_lexicon_args or {}
+    update_perceptron_args = update_perceptron_args or {}
 
     try:
       weighted_results, _ = update_perceptron_fn(
@@ -192,10 +204,8 @@ class WordLearner(object):
       # the supported syntaxes for the novel words (`query_token_syntaxes`).
       self.lexicon = augment_lexicon_fn(
           self.lexicon, query_tokens, query_token_syntaxes, sentence,
-          self.ontology, model,
-          bootstrap=self.bootstrap,
-          meaning_prior_smooth=self.meaning_prior_smooth,
-          alpha=self.bootstrap_alpha, beta=self.beta,
+          self.ontology, model, self._build_likelihood_fns(sentence, model),
+          beta=self.beta,
           negative_samples=self.negative_samples,
           total_negative_mass=self.total_negative_mass,
           **augment_lexicon_args)

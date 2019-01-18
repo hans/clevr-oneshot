@@ -241,8 +241,8 @@ def zero_shot(learner, example, token):
   """
   Return zero-shot distributions p(syntax | example), p(syntax, meaning | example).
   """
-  sentence, _, _ = prep_example(learner, example)
-  syntaxes, joint_candidates = learner.predict_zero_shot(sentence)
+  sentence, model, _ = prep_example(learner, example)
+  syntaxes, joint_candidates = learner.predict_zero_shot(sentence, model)
 
   assert list(syntaxes.keys()) == [token]
   return syntaxes[token], joint_candidates[token].as_distribution()
