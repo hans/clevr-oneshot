@@ -221,6 +221,13 @@ class Action(object):
   def __eq__(self, other):
     return isinstance(other, self.__class__) and hash(self) == hash(other)
 
+  @property
+  def entailed_actions(self):
+    """
+    Return all actions which are logically entailed by this action.
+    """
+    return []
+
 
 class Constraint(object):
   # TODO semantics not right -- subclasses don't take multiple constraints. We

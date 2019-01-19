@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from copy import copy
 import logging
 import math
 from pathlib import Path
@@ -28,6 +29,10 @@ class Cause(Action):
   def __init__(self, agent, behavior):
     self.agent = agent
     self.behavior = behavior
+
+  @property
+  def entailed_actions(self):
+    return [self.behavior]
 
   def __hash__(self):
     return hash((self.agent, self.behavior))
@@ -66,6 +71,13 @@ class Become(Action):
   __repr__ = __str__
 
 
+INTENSIONAL_TYPES = [Action, Cause, Move, Become]
+"""
+Logical types which, when evaluated on a scene, should be compared to a stored
+collection of intentional referents. (In other words, these types have truth
+values which are determined by the intentional referent collection.)
+"""
+
 types = TypeSystem(["agent", "action", "manner", "state", "boolean"])
 
 functions = [
@@ -89,6 +101,38 @@ constants = [
 ]
 
 ontology = Ontology(types, functions, constants)
+
+######
+# Logical evaluation routine.
+
+class IntensionalModel(Model):
+  """
+  Logical model which supports scenes with intensional references.
+  """
+
+  def __init__(self, scene, ontology,
+               intensional_types=None, intensional_referents=None):
+    super().__init__(scene, ontology)
+    # TODO support subclasses?
+    self.intensional_types = set(intensional_types or [])
+
+    try:
+      intensional_referents = intensional_referents or scene.events
+    except AttributeError:
+      intensional_referents = [Action]
+    for ref in intensional_referents:
+      assert type(ref) in self.intensional_types, \
+          "Intensional referent %s is not one of prescribed intensional types" % ref
+    self.intensional_referents = set(intensional_referents or [])
+
+  def evaluate(self, expr):
+    ret = super().evaluate(expr)
+    if type(ret) in self.intensional_types:
+      print(ret in self.intensional_referents, ret, self.intensional_referents)
+      return ret in self.intensional_referents
+    if isinstance(ret, ComposedAction):
+      return all(action in self.intensional_referents for action in ret.actions)
+    return ret
 
 ######
 # Lexicon.
@@ -118,10 +162,30 @@ L.info("Preparing evaluation data.")
 Rabbit = frozendict(type="rabbit")
 Duck = frozendict(type="duck")
 
-
 class Scene(object):
-  def __init__(self, objects, events):
+  def __init__(self, objects, events, name=None, event_closure=False):
+    """
+    Args:
+      objects:
+      events:
+      name:
+      event_closure: If `True`, replace `events` with its closure under
+        entailment.
+    """
     self.objects = objects
+    self.name = name
+
+    events = set(events)
+    if event_closure:
+      while True:
+        new_events = copy(events)
+        for event in events:
+          new_events |= set(event.entailed_actions)
+
+        if events == new_events:
+          # Closure is complete.
+          break
+        events = new_events
     self.events = events
 
   # backwards-compat
@@ -137,14 +201,19 @@ class Scene(object):
     objects[idx] = new_obj
     return Scene(objects)
 
-scene1 = Scene([ Rabbit, Duck ], [Cause(Duck, Move(Rabbit, "bend"))])
-scene2 = Scene([ Rabbit, Duck ], [Move(Rabbit, "lift"), Move(Duck, "lift")])
+  def __str__(self):
+    if self.name: return "Scene<%s>" % self.name
+    else: return super().__str__()
+
+scene1 = Scene([ Rabbit, Duck ], [Cause(Duck, Move(Rabbit, "bend"))], "scene1")
+scene2 = Scene([ Rabbit, Duck ], [Move(Rabbit, "lift"), Move(Duck, "lift")], "scene2")
 
 examples = [
 
   (("the duck gorps the bunny", scene1, scene2), scene1),
+  # (("the duck gorps the bunny", scene2, scene1), scene1),
 
-  # ("the bunny florps", scene, Move(Rabbit, "lift"))
+  (("the bunny florps", scene1, scene2), scene2),
 
 ]
 
@@ -180,7 +249,11 @@ def teardown_asserts():
 def prep_example(learner, example):
   sentence, scene1, scene2 = example
   sentence = sentence.split()
-  return sentence, Model(scene1, learner.ontology), Model(scene2, learner.ontology)
+  model1 = IntensionalModel(scene1, learner.ontology,
+                            intensional_types=INTENSIONAL_TYPES)
+  model2 = IntensionalModel(scene2, learner.ontology,
+                            intensional_types=INTENSIONAL_TYPES)
+  return sentence, model1, model2
 
 
 def zero_shot(learner, example, token):
@@ -255,17 +328,18 @@ def eval_2afc_zeroshot(learner, example, expected_scene, asserts=True):
   """
   sentence, model1, model2 = prep_example(learner, example)
   posterior = learner.predict_zero_shot_2afc(sentence, model1, model2)
+  print(posterior)
   assert expected_scene in [model1.scene, model2.scene], \
     "`expected_scene` must be associated with one of provided models"
 
   if asserts:
-    _assert(sum(posterior.values()) == 1,
+    _assert(abs(sum(posterior.values()) - 1) < 1e-7,
             "2AFC posterior is a valid probability distribution")
 
     top_model = posterior.argmax()
     print(top_model.scene, expected_scene)
     _assert(top_model.scene == expected_scene,
-            "Top model is expected")
+            "Top model is expected for \"%s\"" % " ".join(sentence))
 
 
 def eval_model(bootstrap=True, **learner_kwargs):
@@ -289,7 +363,7 @@ if __name__ == "__main__":
   hparams = [
     ("learning_rate", False, 0.1, 0.5, 0.3),
     ("bootstrap_alpha", False, 0.0, 1.0, 0.25),
-    ("beta", False, 0.1, 1.1, 0.1),
+    ("beta", False, 0.1, 1.1, 0.5),
     ("negative_samples", False, 5, 20, 7),
     ("total_negative_mass", False, 0.1, 1.0, 0.1),
     ("syntax_prior_smooth", True, 1e-5, 1e-1, 1e-3),
