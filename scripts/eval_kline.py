@@ -128,7 +128,6 @@ class IntensionalModel(Model):
   def evaluate(self, expr):
     ret = super().evaluate(expr)
     if type(ret) in self.intensional_types:
-      print(ret in self.intensional_referents, ret, self.intensional_referents)
       return ret in self.intensional_referents
     if isinstance(ret, ComposedAction):
       return all(action in self.intensional_referents for action in ret.actions)
@@ -337,7 +336,6 @@ def eval_2afc_zeroshot(learner, example, expected_scene, asserts=True):
             "2AFC posterior is a valid probability distribution")
 
     top_model = posterior.argmax()
-    print(top_model.scene, expected_scene)
     _assert(top_model.scene == expected_scene,
             "Top model is expected for \"%s\"" % " ".join(sentence))
 
