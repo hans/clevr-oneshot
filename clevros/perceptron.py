@@ -150,11 +150,11 @@ def update_perceptron_2afc(lexicon, sentence, models,
     sentence_semantics = root_token.semantics()
 
     try:
-      model1_success = model1.evaluate(sentence_semantics)
+      model1_success = model1.evaluate(sentence_semantics) == True
     except:
       model1_success = False
     try:
-      model2_success = model2.evaluate(sentence_semantics)
+      model2_success = model2.evaluate(sentence_semantics) == True
     except:
       model2_success = False
 

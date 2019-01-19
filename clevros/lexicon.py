@@ -742,7 +742,8 @@ def likelihood_2afc(token, category, expr, sentence_parses, models):
     log_likelihood:
   """
   model1, model2 = models
-  return 0. if any(model1.evaluate(parse) or model2.evaluate(parse)
+  return 0. if any(model1.evaluate(parse) == True
+                    or model2.evaluate(parse) == True
                    for parse in sentence_parses) \
             else -np.inf
 
@@ -1032,11 +1033,11 @@ def augment_lexicon_2afc(old_lex, query_tokens, query_token_syntaxes,
     if success is None:
       model1, model2 = models
       try:
-        model1_success = model1.evaluate(sentence_semantics)
+        model1_success = model1.evaluate(sentence_semantics) == True
       except:
         model1_success = False
       try:
-        model2_success = model2.evaluate(sentence_semantics)
+        model2_success = model2.evaluate(sentence_semantics) == True
       except:
         model2_success = False
 
