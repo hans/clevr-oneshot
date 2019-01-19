@@ -1,6 +1,8 @@
 import itertools
 
 from nltk.ccg import chart as nchart
+from nltk.ccg.lexicon import Token
+from nltk.sem import logic as l
 from nltk.tree import Tree
 import numpy as np
 
@@ -95,6 +97,26 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
       if return_aux:
         # Track which edge values were used to generate these parses.
         used_edges.extend([edge_sequence] * len(partial_results))
+
+    ## Monkey-patches.
+    for result in results:
+      root, operation = result.label()
+      sem = root.semantics()
+      new_sem = None
+      if not sem:
+        continue
+
+      # #1: post-hoc type raise on negation
+      # (not(\x.foo(x)))(a) ==> not(foo(a))
+      # TODO this is probably logically inconsistent, and should be fixed
+      # elsewhere upstream (e.g. in clevros.lexicon:attempt_candidate_parse)
+      if isinstance(sem, l.ApplicationExpression) \
+          and isinstance(sem.pred, l.NegatedExpression):
+        new_sem = l.NegatedExpression(l.ApplicationExpression(sem.pred.term, sem.args[0]))
+
+      if new_sem is not None:
+        new_root = Token(root._token, root.categ(), new_sem, root.weight())
+        result.set_label((new_root, operation))
 
     # Score using Bayes' rule, calculated with lexicon weights.
     cat_priors = self._lexicon.observed_category_distribution()

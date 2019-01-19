@@ -9,6 +9,7 @@ from traceback import print_exc
 
 from colorama import Fore, Style
 from frozendict import frozendict
+from nltk.sem import logic as l
 import numpy as np
 
 from clevros.lexicon import Lexicon, get_yield, set_yield
@@ -136,6 +137,8 @@ class IntensionalModel(Model):
     self.intensional_referents = set(intensional_referents or [])
 
   def evaluate(self, expr, v=False):
+    if isinstance(expr, l.NegatedExpression):
+      return not self.evaluate(expr.term)
     ret = super().evaluate(expr)
     if type(ret) in self.intensional_types:
       return ret in self.intensional_referents
@@ -234,10 +237,10 @@ examples = [
     Scene([Sarah, Toy], [Become(Toy, "active")])),
    0),
 
-  # (("she doesn't gorps the toy",
-  #   Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
-  #   Scene([Sarah, Toy], [Become(Toy, "active")])),
-  #  1),
+  (("she doesn't gorps the toy",
+    Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
+    Scene([Sarah, Toy], [Become(Toy, "active")])),
+   1),
 
   (("she gorps the toy",
     Scene([Sarah, Donut], [Cause(Sarah, Become(Donut, "active"))]),
