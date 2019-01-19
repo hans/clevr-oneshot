@@ -7,8 +7,6 @@ import traceback
 
 from nltk.sem.logic import *
 
-from clevros.primitives import Action, ComposedAction
-
 
 class Model(object):
   """
@@ -21,8 +19,7 @@ class Model(object):
     self.domain = deepcopy(scene["objects"])
 
   def __str__(self):
-    if self.scene.name: return "%s<%s>" % (self.__class__.__name__, self.scene.name)
-    else: return super().__str__()
+    return "%s<%s>" % (self.__class__.__name__, self.scene.name or id(self))
 
   __repr__ = __str__
 

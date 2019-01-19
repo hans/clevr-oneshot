@@ -215,10 +215,19 @@ class WordLearner(object):
 
     for result, score, _ in weighted_results:
       semantics = result.label()[0].semantics()
-      if model1.evaluate(semantics) == True:
-        dist[model1] += np.exp(score)
-      if model2.evaluate(semantics) == True:
-        dist[model2] += np.exp(score)
+      try:
+        model1_pass = model1.evaluate(semantics) == True
+      except: pass
+      else:
+        if model1_pass:
+          dist[model1] += np.exp(score)
+
+      try:
+        model2_pass = model2.evaluate(semantics) == True
+      except: pass
+      else:
+        if model2_pass:
+          dist[model2] += np.exp(score)
 
     return dist.ensure_support((model1, model2)).normalize()
 

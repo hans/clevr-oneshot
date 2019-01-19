@@ -290,6 +290,18 @@ class ComposedAction(Action):
 
   __repr__ = __str__
 
+class NegatedAction(Action):
+  def __init__(self, action):
+    self.action = action
+
+  def __hash__(self):
+    return hash(("not", self.action))
+
+  def __str__(self):
+    return "!(%s)" % self.action
+
+  __repr__ = __str__
+
 class Move(Action):
   def __init__(self, obj, dest, manner):
     self.obj = obj

@@ -769,7 +769,8 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
       log-likelihood.
 
   Returns:
-    queues:
+    queues: A dictionary mapping each query token to a ranked sequence of
+      candidates of the form `(logprob, (category, semantics))`
     category_parse_results: Multi-level dictionary. First level keys are tokens
       (elements of `tokens`) for which meanings are being explored. Second
       level keys are candidate syntactic categories for the corresponding

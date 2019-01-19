@@ -666,3 +666,6 @@ class Ontology(object):
 
     return inner(expr, [])
 
+
+def is_negation(expr):
+  return isinstance(expr, l.ApplicationExpression) and isinstance(expr.pred, l.NegatedExpression)

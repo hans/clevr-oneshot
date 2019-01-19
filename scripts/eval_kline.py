@@ -12,7 +12,7 @@ from frozendict import frozendict
 import numpy as np
 
 from clevros.lexicon import Lexicon, get_yield, set_yield
-from clevros.logic import TypeSystem, Ontology
+from clevros.logic import TypeSystem, Ontology, is_negation
 from clevros.model import Model
 from clevros.primitives import *
 from clevros.util import Distribution
@@ -27,6 +27,8 @@ L = logging.getLogger(__name__)
 
 class Cause(Action):
   def __init__(self, agent, behavior):
+    if not isinstance(agent, frozendict):
+      raise ValueError()
     self.agent = agent
     self.behavior = behavior
 
@@ -45,6 +47,8 @@ class Cause(Action):
 
 class Move(Action):
   def __init__(self, agent, manner):
+    if not isinstance(agent, frozendict):
+      raise ValueError()
     self.agent = agent
     self.manner = manner
 
@@ -59,6 +63,8 @@ class Move(Action):
 
 class Become(Action):
   def __init__(self, agent, state):
+    if not isinstance(agent, frozendict):
+      raise ValueError()
     self.agent = agent
     self.state = state
 
@@ -86,9 +92,11 @@ functions = [
   types.new_function("become", ("agent", "state", "action"), Become),
 
   types.new_function("unique", (("agent", "boolean"), "agent"), fn_unique),
+  types.new_function("nott", ("action", "action"), lambda a: NegatedAction(a)),
 
-  types.new_function("rabbit", ("agent", "boolean"), lambda a: a["type"] == "rabbit"),
-  types.new_function("duck", ("agent", "boolean"), lambda a: a["type"] == "duck"),
+  types.new_function("female", ("agent", "boolean"), lambda a: a["female"]),
+  types.new_function("toy", ("agent", "boolean"), lambda a: a["type"] == "toy"),
+  types.new_function("shade", ("agent", "boolean"), lambda a: a["type"] == "shade"),
 ]
 
 constants = [
@@ -98,6 +106,8 @@ constants = [
 
   types.new_constant("clean", "state"),
   types.new_constant("dirty", "state"),
+  types.new_constant("active", "state"),
+  types.new_constant("inactive", "state"),
 ]
 
 ontology = Ontology(types, functions, constants)
@@ -125,12 +135,14 @@ class IntensionalModel(Model):
           "Intensional referent %s is not one of prescribed intensional types" % ref
     self.intensional_referents = set(intensional_referents or [])
 
-  def evaluate(self, expr):
+  def evaluate(self, expr, v=False):
     ret = super().evaluate(expr)
     if type(ret) in self.intensional_types:
       return ret in self.intensional_referents
     if isinstance(ret, ComposedAction):
       return all(action in self.intensional_referents for action in ret.actions)
+    if isinstance(ret, NegatedAction):
+      return not self.evaluate(ret.action)
     return ret
 
 ######
@@ -140,14 +152,18 @@ initial_lexicon = Lexicon.fromstring(r"""
   :- S, N
 
   the => N/N {\x.unique(x)}
-  duck => N {\x.duck(x)}
-  bunny => N {\x.rabbit(x)}
+  she => N {\x.female(x)}
+  toy => N {\x.toy(x)}
+  shade => N {\x.shade(x)}
+
+  doesn't => (S\N)/(S\N) {\a.not(a)}
 
   bends => S\N/N {\p a.cause(a,move(p,bend))}
   lifts => S\N/N {\p a.cause(a,move(p,lift))}
   tilts => S\N/N {\p a.cause(a,move(p,tilt))}
   cleans => S\N/N {\p a.cause(a,become(p,clean))}
   dirties => S\N/N {\p a.cause(a,become(p,dirty))}
+  switches => S\N/N {\p a.cause(a,become(p,active))}
 
   ducks => S\N {\a.move(a,bend)}
   jumps => S\N {\a.move(a,lift)}
@@ -158,8 +174,13 @@ initial_lexicon = Lexicon.fromstring(r"""
 # Evaluation data.
 L.info("Preparing evaluation data.")
 
-Rabbit = frozendict(type="rabbit")
-Duck = frozendict(type="duck")
+Sarah = frozendict(type="person", female=True)
+Toy = frozendict(type="toy")
+Donut = frozendict(type="toy", shape="donut")
+Wand = frozendict(type="toy", shape="rod")
+Pendulum = frozendict(type="toy", shape="rod")
+Globe = frozendict(type="toy", shape="sphere")
+Shade = frozendict(type="shade")
 
 class Scene(object):
   def __init__(self, objects, events, name=None, event_closure=False):
@@ -204,15 +225,44 @@ class Scene(object):
     if self.name: return "Scene<%s>" % self.name
     else: return super().__str__()
 
-scene1 = Scene([ Rabbit, Duck ], [Cause(Duck, Move(Rabbit, "bend"))], "scene1")
-scene2 = Scene([ Rabbit, Duck ], [Move(Rabbit, "lift"), Move(Duck, "lift")], "scene2")
+######
 
 examples = [
 
-  (("the duck gorps the bunny", scene1, scene2), scene1),
-  # (("the duck gorps the bunny", scene2, scene1), scene1),
+  (("she gorps the toy",
+    Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
+    Scene([Sarah, Toy], [Become(Toy, "active")])),
+   0),
 
-  (("the bunny florps", scene1, scene2), scene2),
+  # (("she doesn't gorps the toy",
+  #   Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
+  #   Scene([Sarah, Toy], [Become(Toy, "active")])),
+  #  1),
+
+  (("she gorps the toy",
+    Scene([Sarah, Donut], [Cause(Sarah, Become(Donut, "active"))]),
+    Scene([Sarah, Donut], [Become(Donut, "active")])),
+   0),
+
+  (("she gorps the toy",
+    Scene([Sarah, Wand], [Cause(Sarah, Become(Wand, "active"))]),
+    Scene([Sarah, Wand], [Become(Wand, "active")])),
+   0),
+
+  (("she gorps the toy",
+    Scene([Sarah, Pendulum], [Cause(Sarah, Move(Pendulum, "tilt"))]),
+    Scene([Sarah, Pendulum], [Move(Pendulum, "tilt")])),
+   0),
+
+  (("she gorps the toy",
+    Scene([Sarah, Globe], [Cause(Sarah, Become(Globe, "active"))]),
+    Scene([Sarah, Globe], [Become(Globe, "active")])),
+   0),
+
+  (("she gorps the shade",
+    Scene([Sarah, Shade], [Cause(Sarah, Move(Shade, "lift"))]),
+    Scene([Sarah, Shade], [Move(Shade, "lift")])),
+   0),
 
 ]
 
@@ -320,7 +370,7 @@ def eval_bootstrap_example(learner, example, token, expected_category,
 #     extra(token, None, posterior)
 
 
-def eval_2afc_zeroshot(learner, example, expected_scene, asserts=True):
+def eval_2afc_zeroshot(learner, example, expected_idx, asserts=True):
   """
   Evaluate a zero-shot 2AFC selection on the two scenes specified by `model1`
   and `model2`.
@@ -328,15 +378,14 @@ def eval_2afc_zeroshot(learner, example, expected_scene, asserts=True):
   sentence, model1, model2 = prep_example(learner, example)
   posterior = learner.predict_zero_shot_2afc(sentence, model1, model2)
   print(posterior)
-  assert expected_scene in [model1.scene, model2.scene], \
-    "`expected_scene` must be associated with one of provided models"
+  assert expected_idx in [0, 1]
 
   if asserts:
     _assert(abs(sum(posterior.values()) - 1) < 1e-7,
             "2AFC posterior is a valid probability distribution")
 
     top_model = posterior.argmax()
-    _assert(top_model.scene == expected_scene,
+    _assert(top_model.scene == [model1, model2][expected_idx].scene,
             "Top model is expected for \"%s\"" % " ".join(sentence))
 
 
@@ -352,8 +401,8 @@ def eval_model(bootstrap=True, **learner_kwargs):
 
   ###########
 
-  for example, expected in examples:
-    eval_2afc_zeroshot(learner, example, expected)
+  for example, expected_idx in examples:
+    eval_2afc_zeroshot(learner, example, expected_idx)
 
 
 
