@@ -147,17 +147,19 @@ class IntensionalModel(Model):
       return all(action in self.intensional_referents for action in ret.actions)
     if isinstance(ret, NegatedAction):
       return not self.evaluate(ret.action)
+    if not isinstance(ret, bool):
+      ret = ret in self.scene.objects
     return ret
 
 ######
 # Lexicon.
 
 initial_lexicon = Lexicon.fromstring(r"""
-  :- S, N
+  :- S:N
 
   the => N/N {\x.unique(x)}
+  an => N/N {\x.x}
   she => N {\x.female(x)}
-  toy => N {\x.toy(x)}
   shade => N {\x.shade(x)}
 
   doesn't => (S\N)/(S\N) {\a.not(a)}
@@ -178,6 +180,7 @@ initial_lexicon = Lexicon.fromstring(r"""
 # Evaluation data.
 L.info("Preparing evaluation data.")
 
+Ricky = frozendict(type="person", female=False)
 Sarah = frozendict(type="person", female=True)
 Toy = frozendict(type="toy")
 Donut = frozendict(type="toy", shape="donut")
@@ -233,6 +236,7 @@ class Scene(object):
 
 training_examples = [
   ("the toy", Scene([Sarah, Toy], [])),
+  ("the toy", Scene([Ricky, Toy], [])),
 ]
 
 test_2afc_examples = [
