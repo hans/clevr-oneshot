@@ -94,10 +94,12 @@ functions = [
 
   types.new_function("unique", (("agent", "boolean"), "agent"), fn_unique),
   types.new_function("nott", ("action", "action"), lambda a: NegatedAction(a)),
+  types.new_function("not", ("boolean", "boolean"), lambda a: not a),
 
   types.new_function("female", ("agent", "boolean"), lambda a: a["female"]),
   types.new_function("toy", ("agent", "boolean"), lambda a: a["type"] == "toy"),
   types.new_function("shade", ("agent", "boolean"), lambda a: a["type"] == "shade"),
+  types.new_function("shade", ("agent", "boolean"), lambda a: a["shape"] == "donut"),
 ]
 
 constants = [
@@ -237,6 +239,19 @@ class Scene(object):
 training_examples = [
   ("the toy", Scene([Sarah, Toy], [])),
   ("the toy", Scene([Ricky, Toy], [])),
+  ("she florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
+  ("she florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
+  ("the donut", Scene([Ricky, Donut], [])),
+  ("the donut", Scene([Sarah, Donut], [])),
+  ("he florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Ricky, Become(Toy, "active"))])),
+
+  ("the toy", Scene([Sarah, Toy], [])),
+  ("the toy", Scene([Ricky, Toy], [])),
+  ("she florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
+  ("the toy", Scene([Sarah, Toy], [])),
+  ("the toy", Scene([Ricky, Toy], [])),
+  ("she florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
+
 ]
 
 test_2afc_examples = [
@@ -423,9 +438,13 @@ def eval_model(bootstrap=True, **learner_kwargs):
 
   for example in training_examples:
     sentence, model, _ = prep_example(learner, example)
+    print("------ ", " ".join(sentence))
     learner.update_with_cross_situational(sentence, model)
+    learner.lexicon.debug_print()
 
   for example, expected_idx in test_2afc_examples:
+    sentence = example[0]
+    print("------ ", sentence)
     eval_2afc_zeroshot(learner, example, expected_idx)
 
 

@@ -213,7 +213,6 @@ class WordLearner(object):
     weighted_results = parser.parse(sentence, True)
     if len(weighted_results) == 0:
       L.warning("Parse failed for sentence '%s'", " ".join(sentence))
-      L.warning(e)
 
       aug_lexicon = self.do_lexical_induction(sentence, (model1, model2),
                                               augment_lexicon_fn=augment_lexicon_2afc)
