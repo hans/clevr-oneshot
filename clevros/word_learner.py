@@ -6,9 +6,10 @@ from clevros import chart
 from clevros.compression import Compressor
 from clevros.lexicon import predict_zero_shot, \
     get_candidate_categories, get_semantic_arity, \
-    augment_lexicon_distant, augment_lexicon_2afc, \
+    augment_lexicon_distant, augment_lexicon_cross_situational, augment_lexicon_2afc, \
     build_bootstrap_likelihood
-from clevros.perceptron import update_perceptron_distant, update_perceptron_2afc
+from clevros.perceptron import \
+    update_perceptron_distant, update_perceptron_cross_situational, update_perceptron_2afc
 from clevros.util import Distribution
 
 
@@ -116,6 +117,7 @@ class WordLearner(object):
 
       return query_tokens, query_token_syntaxes
 
+    L.info("No novel words; searching for new entries for known wordforms.")
     # Lexical entries are present for all words, but parse still failed.
     # That means we are missing entries for one or more wordforms.
     # For now: blindly try updating each word's entries.
@@ -300,6 +302,23 @@ class WordLearner(object):
         augment_lexicon_args=kwargs,
         update_perceptron_args=kwargs)
 
+  def update_with_cross_situational(self, sentence, model):
+    """
+    Observe a new `sentence` in the context of a scene reference `model`.
+    Assume that `sentence` is true of `model`, and use it to update learner
+    weights.
+
+    Args:
+      sentence: List of token strings
+      model: `Model` instance
+
+    Returns:
+      weighted_results: List of weighted parse results for the example.
+    """
+    return self._update_with_example(
+        sentence, model,
+        augment_lexicon_fn=augment_lexicon_cross_situational,
+        update_perceptron_fn=update_perceptron_cross_situational)
 
   def update_with_2afc(self, sentence, model1, model2):
     """

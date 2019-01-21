@@ -1017,6 +1017,28 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
                          **augment_kwargs)
 
 
+def augment_lexicon_cross_situational(old_lex, query_tokens, query_token_syntaxes,
+                                      sentence, ontology, model, likelihood_fns,
+                                      **augment_kwargs):
+  # Cache success results.
+  success_results = {}
+  def success_fn(expr, sentence_semantics, model):
+    success = success_results.get(sentence_semantics)
+    if success is None:
+      try:
+        success = model.evaluate(sentence_semantics) == True
+      except:
+        success = False
+
+      success_results[sentence_semantics] = success
+
+    return success
+
+  return augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
+                         sentence, ontology, model, success_fn, likelihood_fns,
+                         **augment_kwargs)
+
+
 def augment_lexicon_2afc(old_lex, query_tokens, query_token_syntaxes,
                          sentence, ontology, models, likelihood_fns,
                          **augment_kwargs):

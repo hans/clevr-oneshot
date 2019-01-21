@@ -139,6 +139,7 @@ class IntensionalModel(Model):
   def evaluate(self, expr, v=False):
     if isinstance(expr, l.NegatedExpression):
       return not self.evaluate(expr.term)
+
     ret = super().evaluate(expr)
     if type(ret) in self.intensional_types:
       return ret in self.intensional_referents
@@ -230,42 +231,46 @@ class Scene(object):
 
 ######
 
-examples = [
+training_examples = [
+  ("the toy", Scene([Sarah, Toy], [])),
+]
+
+test_2afc_examples = [
 
   (("she gorps the toy",
     Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
     Scene([Sarah, Toy], [Become(Toy, "active")])),
    0),
 
-  (("she doesn't gorps the toy",
-    Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
-    Scene([Sarah, Toy], [Become(Toy, "active")])),
-   1),
+  # (("she doesn't gorps the toy",
+  #   Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
+  #   Scene([Sarah, Toy], [Become(Toy, "active")])),
+  #  1),
 
-  (("she gorps the toy",
-    Scene([Sarah, Donut], [Cause(Sarah, Become(Donut, "active"))]),
-    Scene([Sarah, Donut], [Become(Donut, "active")])),
-   0),
+  # (("she gorps the toy",
+  #   Scene([Sarah, Donut], [Cause(Sarah, Become(Donut, "active"))]),
+  #   Scene([Sarah, Donut], [Become(Donut, "active")])),
+  #  0),
 
-  (("she gorps the toy",
-    Scene([Sarah, Wand], [Cause(Sarah, Become(Wand, "active"))]),
-    Scene([Sarah, Wand], [Become(Wand, "active")])),
-   0),
+  # (("she gorps the toy",
+  #   Scene([Sarah, Wand], [Cause(Sarah, Become(Wand, "active"))]),
+  #   Scene([Sarah, Wand], [Become(Wand, "active")])),
+  #  0),
 
-  (("she gorps the toy",
-    Scene([Sarah, Pendulum], [Cause(Sarah, Move(Pendulum, "tilt"))]),
-    Scene([Sarah, Pendulum], [Move(Pendulum, "tilt")])),
-   0),
+  # (("she gorps the toy",
+  #   Scene([Sarah, Pendulum], [Cause(Sarah, Move(Pendulum, "tilt"))]),
+  #   Scene([Sarah, Pendulum], [Move(Pendulum, "tilt")])),
+  #  0),
 
-  (("she gorps the toy",
-    Scene([Sarah, Globe], [Cause(Sarah, Become(Globe, "active"))]),
-    Scene([Sarah, Globe], [Become(Globe, "active")])),
-   0),
+  # (("she gorps the toy",
+  #   Scene([Sarah, Globe], [Cause(Sarah, Become(Globe, "active"))]),
+  #   Scene([Sarah, Globe], [Become(Globe, "active")])),
+  #  0),
 
-  (("she gorps the shade",
-    Scene([Sarah, Shade], [Cause(Sarah, Move(Shade, "lift"))]),
-    Scene([Sarah, Shade], [Move(Shade, "lift")])),
-   0),
+  # (("she gorps the shade",
+  #   Scene([Sarah, Shade], [Cause(Sarah, Move(Shade, "lift"))]),
+  #   Scene([Sarah, Shade], [Move(Shade, "lift")])),
+  #  0),
 
 ]
 
@@ -412,7 +417,11 @@ def eval_model(bootstrap=True, **learner_kwargs):
 
   ###########
 
-  for example, expected_idx in examples:
+  for example in training_examples:
+    sentence, model, _ = prep_example(learner, example)
+    learner.update_with_cross_situational(sentence, model)
+
+  for example, expected_idx in test_2afc_examples:
     eval_2afc_zeroshot(learner, example, expected_idx)
 
 

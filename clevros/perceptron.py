@@ -142,6 +142,23 @@ def update_perceptron_distant(lexicon, sentence, model, answer,
                            **update_perceptron_kwargs)
 
 
+def update_perceptron_cross_situational(lexicon, sentence, model,
+                                        **update_perceptron_kwargs):
+  def success_fn(parse_result, model):
+    root_token, _ = parse_result.label()
+    sentence_semantics = root_token.semantics()
+
+    try:
+      success = model.evaluate(sentence_semantics) == True
+    except:
+      success = False
+
+    return success
+
+  return update_perceptron(lexicon, sentence, model, success_fn,
+                           **update_perceptron_kwargs)
+
+
 def update_perceptron_2afc(lexicon, sentence, models,
                            **update_perceptron_kwargs):
   def success_fn(parse_result, models):
