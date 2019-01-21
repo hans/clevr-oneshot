@@ -299,6 +299,14 @@ def teardown_asserts():
 
 
 def prep_example(learner, example):
+  sentence, scene = example
+  sentence = sentence.split()
+  model = IntensionalModel(scene, learner.ontology,
+                           intensional_types=INTENSIONAL_TYPES)
+  return sentence, model, None
+
+
+def prep_example_2afc(learner, example):
   sentence, scene1, scene2 = example
   sentence = sentence.split()
   model1 = IntensionalModel(scene1, learner.ontology,
@@ -308,11 +316,11 @@ def prep_example(learner, example):
   return sentence, model1, model2
 
 
-def zero_shot(learner, example, token):
+def zero_shot(learner, example, token, prep_example_fn=prep_example):
   """
   Return zero-shot distributions p(syntax | example), p(syntax, meaning | example).
   """
-  sentence, _, _ = prep_example(learner, example)
+  sentence, _, _ = prep_example_fn(learner, example)
   syntaxes, joint_candidates = learner.predict_zero_shot_tokens(sentence)
 
   assert list(syntaxes.keys()) == [token]
@@ -378,7 +386,7 @@ def eval_2afc_zeroshot(learner, example, expected_idx, asserts=True):
   Evaluate a zero-shot 2AFC selection on the two scenes specified by `model1`
   and `model2`.
   """
-  sentence, model1, model2 = prep_example(learner, example)
+  sentence, model1, model2 = prep_example_2afc(learner, example)
   posterior = learner.predict_zero_shot_2afc(sentence, model1, model2)
   print(posterior)
   assert expected_idx in [0, 1]
