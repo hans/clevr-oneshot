@@ -1,5 +1,6 @@
 from nose.tools import *
 
+from clevros.chart import WeightedCCGChartParser
 from clevros.lexicon import *
 
 from nltk.ccg.lexicon import FunctionalCategory, PrimitiveCategory, Direction
@@ -24,6 +25,27 @@ def test_filter_lexicon_entry():
   assert len(entries) == 1
 
   eq_(str(entries[0].semantics()), "filter_shape(scene,sphere)")
+
+
+def test_multiple_starts():
+  """
+  Support lexicons which allow any of several root categories, signaled in
+  `fromstring` with a colon.
+  """
+  lex = Lexicon.fromstring(r"""
+    :- S:N,P
+
+    the => N/N
+    boy => N
+    eats => S\N
+    """)
+
+  eq_(len(lex.start_categories), 2)
+
+  parser = WeightedCCGChartParser(lex)
+
+  assert len(parser.parse("the boy".split())) > 0
+  assert len(parser.parse("the boy eats".split())) > 0
 
 
 def test_get_semantic_arity():

@@ -28,19 +28,21 @@ L = logging.getLogger(__name__)
 
 class Lexicon(ccg_lexicon.CCGLexicon):
 
-  def __init__(self, start, primitives, families, entries, ontology=None):
+  def __init__(self, starts, primitives, families, entries, ontology=None):
     """
     Create a new Lexicon.
 
     Args:
-      start: Start symbol. All valid parses must have a root node of this
-        category.
+      start: Start symbol(s). All valid parses must have a root node of this
+        category. Either a string (single start) or a sequence (multiple
+        allowed starts).
       primitives:
       families:
       entries: Lexical entries. Dict mapping from word strings to lists of
         `Token`s.
     """
-    self._start = ccg_lexicon.PrimitiveCategory(start)
+    starts = [starts] if isinstance(starts, str) else starts
+    self._starts = [ccg_lexicon.PrimitiveCategory(start) for start in starts]
     self._primitives = primitives
     self._families = families
     self._entries = entries
@@ -58,7 +60,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     Convert string representation into a lexicon for CCGs.
     """
     ccg_lexicon.CCGVar.reset_id()
-    primitives = []
+    primitives, starts = [], []
     families = {}
     entries = defaultdict(list)
     for line in lex_str.splitlines():
@@ -72,6 +74,11 @@ class Lexicon(ccg_lexicon.CCGLexicon):
         # The first one is the target category
         # ie, :- S, N, NP, VP
         primitives = primitives + [prim.strip() for prim in line[2:].strip().split(',')]
+
+        # But allow multiple target categories separated by a colon in the first element:
+        # ie, :- S:N,NP,VP
+        starts = primitives[0].split(":")
+        primitives = starts + primitives[1:]
       else:
         # Either a family definition, or a word definition
         (ident, sep, rhs) = ccg_lexicon.LEX_RE.match(line).groups()
@@ -96,7 +103,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
           # Word definition
           # ie, which => (N\N)/(S/NP)
           entries[ident].append(Token(ident, cat, semantics, weight=weight))
-    return cls(primitives[0], primitives, families, entries,
+    return cls(starts, primitives, families, entries,
                ontology=ontology)
 
   def clone(self, retain_semantics=True):
@@ -177,16 +184,16 @@ class Lexicon(ccg_lexicon.CCGLexicon):
       if token in exclude_tokens:
         continue
       for entry in entries:
-        if get_yield(entry.categ()) == self._start:
-          rooted_cats.add(entry.categ())
+        c_yield = get_yield(entry.categ())
+        if c_yield in self._starts:
+          rooted_cats.add((c_yield, entry.categ()))
 
         if entry.weight() > 0.0:
           ret[entry.categ()] += entry.weight()
 
     if soft_propagate_roots:
-      derived_root_cats = self._derived_categories_by_base[self._start]
-      for rooted_cat in rooted_cats:
-        for derived_root_cat in derived_root_cats:
+      for c_yield, rooted_cat in rooted_cats:
+        for derived_root_cat in self._derived_categories_by_base[c_yield]:
           soft_prop_cat = set_yield(rooted_cat, derived_root_cat)
           # Ensure key exists.
           ret.setdefault(soft_prop_cat, 0.0)
@@ -207,7 +214,9 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     """
     Return primitive categories which are valid root nodes.
     """
-    return [self._start] + list(self._derived_categories_by_base[self._start])
+    return self._starts + \
+        list(itertools.chain.from_iterable(self._derived_categories_by_base[start]
+                                           for start in self._starts))
 
   def start(self):
     raise NotImplementedError("use #start_categories instead.")
@@ -230,14 +239,13 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     ret = {}
     rooted_cats = set()
     for category, entries in entries_by_categ.items():
-      if get_yield(category) == self._start:
-        rooted_cats.add(category)
+      if get_yield(category) in self._starts:
+        rooted_cats.add((get_yield(category), category))
       ret[category] = set(get_arity(entry.semantics()) for entry in entries)
 
     if soft_propagate_roots:
-      derived_root_cats = self._derived_categories_by_base[self._start]
-      for rooted_cat in rooted_cats:
-        for derived_root_cat in derived_root_cats:
+      for c_yield, rooted_cat in rooted_cats:
+        for derived_root_cat in self._derived_categories_by_base[c_yield]:
           new_syn = set_yield(rooted_cat, derived_root_cat)
           ret.setdefault(new_syn, ret[rooted_cat])
 
@@ -379,11 +387,10 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     lf_support = lf_syntax_ngrams.support
 
     # Soft-propagate derived root categories.
-    derived_root_cats = self._derived_categories_by_base[self._start]
     for syntax in list(lf_syntax_ngrams.dists.keys()):
       syn_yield = get_yield(syntax)
-      if syn_yield == self._start:
-        for derived_root_cat in derived_root_cats:
+      if syn_yield in self._starts:
+        for derived_root_cat in self._derived_categories_by_base[syn_yield]:
           new_yield = set_yield(syntax, derived_root_cat)
           if new_yield not in lf_syntax_ngrams:
             lf_syntax_ngrams[new_yield] = Distribution.uniform(lf_support)
