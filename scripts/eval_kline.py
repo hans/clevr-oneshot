@@ -100,7 +100,7 @@ functions = [
 
   types.new_function("unique", (("agent", "boolean"), "agent"), fn_unique),
   types.new_function("nott", ("action", "action"), lambda a: NegatedAction(a)),
-  types.new_function("not", ("boolean", "boolean"), lambda a: not a),
+  types.new_function("not", ("boolean", "boolean"), fn_not),
 
   types.new_function("female", ("agent", "boolean"), lambda a: a["female"]),
   types.new_function("toy", ("agent", "boolean"), lambda a: a["type"] == "toy"),
@@ -153,13 +153,14 @@ class IntensionalModel(Model):
 
     ret = super().evaluate(expr)
     if type(ret) in self.intensional_types:
-      return ret in self.intensional_referents
-    if isinstance(ret, ComposedAction):
-      return all(action in self.intensional_referents for action in ret.actions)
-    if isinstance(ret, NegatedAction):
-      return not self.evaluate(ret.action)
-    if not isinstance(ret, bool):
+      ret = ret in self.intensional_referents
+    elif isinstance(ret, ComposedAction):
+      ret = all(action in self.intensional_referents for action in ret.actions)
+    elif isinstance(ret, NegatedAction):
+      ret = not self.evaluate(ret.action)
+    elif not isinstance(ret, bool):
       ret = ret in self.scene.objects
+
     return ret
 
 ######

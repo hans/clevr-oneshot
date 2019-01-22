@@ -173,6 +173,11 @@ def fn_eq(a, b):
   else:
     return a == b
 
+def fn_not(a):
+  if not isinstance(a, bool):
+    raise TypeError()
+  return not a
+
 ## Ops on collections
 def fn_set(a): return isinstance(a, Collection)
 def fn_characteristic(a): return a.characteristic
