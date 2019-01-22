@@ -787,7 +787,7 @@ def likelihood_2afc(token, category, expr, sentence_parse, models):
 
 def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
                       model, likelihood_fns,
-                      meaning_prior_smooth=1e-3, alpha=0.25,
+                      meaning_prior_smooth=1e-3, alpha=0.25, queue_limit=5,
                       cache_candidate_exprs=True):
   """
   Make zero-shot predictions of the posterior `p(syntax, meaning | sentence)`
@@ -836,7 +836,7 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
   dummy_var = None
 
   # TODO need to work on *product space* for multiple query words
-  queues = {token: UniquePriorityQueue(maxsize=5)
+  queues = {token: UniquePriorityQueue(maxsize=queue_limit)
             for token in tokens}
   category_parse_results = defaultdict(dict)
   for token, candidate_queue in queues.items():
@@ -894,7 +894,8 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
 def augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
                     sentence, ontology, model,
                     likelihood_fns, negative_samples=5,
-                    total_negative_mass=0.1, beta=3.0):
+                    total_negative_mass=0.1, beta=3.0,
+                    **predict_zero_shot_args):
   """
   Augment a lexicon with candidate meanings for a given word using an abstract
   success function. (The induced meanings for the queried words must yield
@@ -952,7 +953,7 @@ def augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
 
   ranked_candidates, category_parse_results, dummy_var = \
       predict_zero_shot(lex, query_tokens, query_token_syntaxes, sentence,
-                        ontology, model, likelihood_fns)
+                        ontology, model, likelihood_fns, **predict_zero_shot_args)
 
   for token in query_tokens:
     candidates = sorted(ranked_candidates[token].queue, key=lambda item: -item[0])

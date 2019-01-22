@@ -217,7 +217,8 @@ class WordLearner(object):
       L.warning("Parse failed for sentence '%s'", " ".join(sentence))
 
       aug_lexicon = self.do_lexical_induction(sentence, (model1, model2),
-                                              augment_lexicon_fn=augment_lexicon_2afc)
+                                              augment_lexicon_fn=augment_lexicon_2afc,
+                                              queue_limit=20)
       parser = chart.WeightedCCGChartParser(aug_lexicon)
       weighted_results = parser.parse(sentence, True)
 
