@@ -787,7 +787,8 @@ def likelihood_2afc(token, category, expr, sentence_parse, models):
 
 def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
                       model, likelihood_fns,
-                      meaning_prior_smooth=1e-3, alpha=0.25):
+                      meaning_prior_smooth=1e-3, alpha=0.25,
+                      cache_candidate_exprs=True):
   """
   Make zero-shot predictions of the posterior `p(syntax, meaning | sentence)`
   for each of `tokens`.
@@ -821,7 +822,14 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
 
   # Enumerate expressions just once! We'll bias the search over the enumerated
   # forms later.
-  candidate_exprs = set(ontology.iter_expressions(max_depth=4))
+  max_depth = 4
+  if cache_candidate_exprs:
+    candidate_exprs = getattr(predict_zero_shot, "candidate_exprs", None)
+    if candidate_exprs is None:
+      candidate_exprs = set(ontology.iter_expressions(max_depth=max_depth))
+    predict_zero_shot.candidate_exprs = candidate_exprs
+  else:
+    candidate_exprs = set(ontology.iter_expressions(max_depth=max_depth))
 
   # Shared dummy variable which is included in candidate semantic forms, to be
   # replaced by all candidate lexical expressions and evaluated.
