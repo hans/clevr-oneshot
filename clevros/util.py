@@ -28,7 +28,8 @@ class Distribution(Counter):
 
   def ensure_support(self, keys):
     for key in keys:
-      self[key]
+      if key not in self:
+        self[key] = 0.
 
     return self
 
