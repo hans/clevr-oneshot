@@ -1030,16 +1030,16 @@ def augment_lexicon_cross_situational(old_lex, query_tokens, query_token_syntaxe
   # Cache success results.
   success_results = {}
   def success_fn(expr, sentence_semantics, model):
-    success = success_results.get(sentence_semantics)
-    if success is None:
+    if sentence_semantics not in success_results:
       try:
         success = model.evaluate(sentence_semantics) == True
       except:
-        success = False
+        # Type violation or runtime error
+        success = None
 
       success_results[sentence_semantics] = success
 
-    return success
+    return success_results[sentence_semantics]
 
   return augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
                          sentence, ontology, model, success_fn, likelihood_fns,

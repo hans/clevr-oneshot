@@ -146,7 +146,10 @@ class IntensionalModel(Model):
 
   def evaluate(self, expr, v=False):
     if isinstance(expr, l.NegatedExpression):
-      return not self.evaluate(expr.term)
+      inner = self.evaluate(expr.term)
+      if isinstance(inner, bool):
+        return not inner
+      return None
 
     ret = super().evaluate(expr)
     if type(ret) in self.intensional_types:
