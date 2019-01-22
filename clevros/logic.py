@@ -23,7 +23,8 @@ class TypeSystem(object):
   def __init__(self, primitive_types):
     assert "?" not in primitive_types, "Cannot override ANY_TYPE name"
     assert "v" not in primitive_types, "Cannot override EVENT_TYPE name"
-    self._types = {primitive_type_name: l.BasicType(l.ENTITY_TYPE)
+    self._types = {primitive_type_name: l.BasicType(name=primitive_type_name,
+                                                    parent=l.ENTITY_TYPE)
                    for primitive_type_name in primitive_types}
     self._types["?"] = self.ANY_TYPE
     self._types["v"] = self.EVENT_TYPE
