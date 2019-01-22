@@ -280,6 +280,8 @@ class Contact(Constraint):
 
 class ComposedAction(Action):
   def __init__(self, *actions):
+    if not all(isinstance(a, Action) for a in actions):
+      raise TypeError()
     self.actions = actions
 
   def __hash__(self):
@@ -292,6 +294,8 @@ class ComposedAction(Action):
 
 class NegatedAction(Action):
   def __init__(self, action):
+    if not isinstance(action, Action):
+      raise TypeError()
     self.action = action
 
   def __hash__(self):
