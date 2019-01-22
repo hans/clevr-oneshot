@@ -115,6 +115,7 @@ class WeightedCCGChartParser(nchart.CCGChartParser):
         new_sem = l.NegatedExpression(l.ApplicationExpression(sem.pred.term, sem.args[0]))
 
       if new_sem is not None:
+        new_sem = new_sem.simplify()
         new_root = Token(root._token, root.categ(), new_sem, root.weight())
         result.set_label((new_root, operation))
 
