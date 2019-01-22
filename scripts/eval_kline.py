@@ -186,6 +186,7 @@ L.info("Preparing evaluation data.")
 
 Ricky = frozendict(type="person", female=False)
 Sarah = frozendict(type="person", female=True)
+Wanda = frozendict(type="person", female=True)
 Toy = frozendict(type="toy")
 Donut = frozendict(type="toy", shape="donut")
 Wand = frozendict(type="toy", shape="rod")
@@ -239,16 +240,21 @@ class Scene(object):
 ######
 
 training_examples = [
-  # ("the toy", Scene([Sarah, Toy], [])),
-  # ("the toy", Scene([Ricky, Toy], [])),
-  # ("she florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
-  # ("she florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
-  # ("the donut", Scene([Ricky, Donut], [])),
-  # ("the donut", Scene([Sarah, Donut], [])),
-  # ("he florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Ricky, Become(Toy, "active"))])),
+  ("the toy", Scene([Sarah, Toy], [])),
+  ("the toy", Scene([Ricky, Toy], [])),
+  ("she florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
+  ("she florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
+  ("the donut", Scene([Ricky, Donut], [])),
+  ("the donut", Scene([Sarah, Donut], [])),
+  ("he florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Ricky, Become(Toy, "active"))])),
+  ("she torps", Scene([Sarah], [Move(Sarah, "lift")])),
+  ("he torps", Scene([Ricky, Sarah], [Move(Ricky, "lift")])),
   ("she torps", Scene([Ricky, Sarah], [Move(Sarah, "lift")])),
-  # ("he torps", Scene([Ricky, Sarah], [Move(Ricky, "lift")])),
-  # ("he norps", Scene([Ricky, Sarah], [Move(Ricky, "bend")])),
+  ("he torps", Scene([Ricky], [Move(Ricky, "lift")])),
+
+  ("he norps", Scene([Ricky, Sarah], [Move(Ricky, "bend")])),
+  ("he norps", Scene([Ricky], [Move(Ricky, "bend")])),
+  ("she norps", Scene([Sarah, Ricky], [Move(Sarah, "bend")])),
 
   # ("the toy", Scene([Sarah, Toy], [])),
   # ("the toy", Scene([Ricky, Toy], [])),
@@ -261,15 +267,15 @@ training_examples = [
 
 test_2afc_examples = [
 
-  # (("she gorps the toy",
-  #   Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
-  #   Scene([Sarah, Toy], [Become(Toy, "active")])),
-  #  0),
+  (("she gorps the toy",
+    Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
+    Scene([Sarah, Toy], [Become(Toy, "active")])),
+   0),
 
-  # (("she doesn't gorps the toy",
-  #   Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
-  #   Scene([Sarah, Toy], [Become(Toy, "active")])),
-  #  1),
+  (("she doesn't gorps the toy",
+    Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
+    Scene([Sarah, Toy], [Become(Toy, "active")])),
+   1),
 
   # (("she gorps the toy",
   #   Scene([Sarah, Donut], [Cause(Sarah, Become(Donut, "active"))]),
@@ -464,7 +470,7 @@ if __name__ == "__main__":
     ("syntax_prior_smooth", True, 1e-5, 1e-1, 1e-3),
     ("meaning_prior_smooth", True, 1e-9, 1e-2, 1e-3),
     ("weight_init", True, 1e-4, 1e-1, 1e-2),
-    ("prune_weight", False, -0.1, 0.1, 1e-4),
+    ("prune_weight", False, -0.1, 0.1, 0),
   ]
 
   p = ArgumentParser()
