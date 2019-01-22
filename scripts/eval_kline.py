@@ -171,7 +171,6 @@ initial_lexicon = Lexicon.fromstring(r"""
 
   the => N/N {\x.unique(x)}
   an => N/N {\x.x}
-  she => N {\x.female(x)}
   shade => N {\x.shade(x)}
 
   doesn't => (S\N)/(S\N) {\a.not(a)}
@@ -242,37 +241,34 @@ class Scene(object):
 training_examples = [
   ("the toy", Scene([Sarah, Toy], [])),
   ("the toy", Scene([Ricky, Toy], [])),
-  ("she florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
-  ("she florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
+  ("the girl", Scene([Sarah, Toy], [])),
+  ("the girl", Scene([Sarah, Ricky], [])),
+  ("the boy", Scene([Ricky, Toy], [])),
+  ("the boy", Scene([Sarah, Ricky], [])),
+  ("the girl florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
+  ("the girl florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
   ("the donut", Scene([Ricky, Donut], [])),
   ("the donut", Scene([Sarah, Donut], [])),
-  ("he florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Ricky, Become(Toy, "active"))])),
-  ("she torps", Scene([Sarah], [Move(Sarah, "lift")])),
-  ("he torps", Scene([Ricky, Sarah], [Move(Ricky, "lift")])),
-  ("she torps", Scene([Ricky, Sarah], [Move(Sarah, "lift")])),
-  ("he torps", Scene([Ricky], [Move(Ricky, "lift")])),
+  ("the boy florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Ricky, Become(Toy, "active"))])),
+  ("the girl torps", Scene([Sarah], [Move(Sarah, "lift")])),
+  ("the boy doesn't torps", Scene([Ricky, Sarah], [Move(Sarah, "lift")])),
+  ("the boy torps", Scene([Ricky], [Move(Ricky, "lift")])),
 
-  ("he norps", Scene([Ricky, Sarah], [Move(Ricky, "bend")])),
-  ("he norps", Scene([Ricky], [Move(Ricky, "bend")])),
-  ("she norps", Scene([Sarah, Ricky], [Move(Sarah, "bend")])),
-
-  # ("the toy", Scene([Sarah, Toy], [])),
-  # ("the toy", Scene([Ricky, Toy], [])),
-  # ("she florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
-  # ("the toy", Scene([Sarah, Toy], [])),
-  # ("the toy", Scene([Ricky, Toy], [])),
-  # ("she florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
+  ("the boy norps", Scene([Ricky, Sarah], [Move(Ricky, "bend")])),
+  ("the girl doesn't norps", Scene([Ricky, Sarah], [Move(Ricky, "bend")])),
+  ("the girl norps", Scene([Sarah, Ricky], [Move(Sarah, "bend")])),
 
 ]
 
+
 test_2afc_examples = [
 
-  (("she gorps the toy",
+  (("the girl gorps the toy",
     Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
     Scene([Sarah, Toy], [Become(Toy, "active")])),
    0),
 
-  (("she doesn't gorps the toy",
+  (("the girl doesn't gorps the toy",
     Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
     Scene([Sarah, Toy], [Become(Toy, "active")])),
    1),
@@ -462,7 +458,7 @@ def eval_model(bootstrap=True, **learner_kwargs):
 
 if __name__ == "__main__":
   hparams = [
-    ("learning_rate", False, 0.1, 0.5, 0.3),
+    ("learning_rate", False, 0.1, 2.0, 1.0),
     ("bootstrap_alpha", False, 0.0, 1.0, 0.25),
     ("beta", False, 0.1, 1.1, 0.5),
     ("negative_samples", False, 5, 20, 7),
