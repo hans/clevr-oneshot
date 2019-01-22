@@ -773,9 +773,16 @@ def likelihood_2afc(token, category, expr, sentence_parse, models):
     log_likelihood:
   """
   model1, model2 = models
-  return 0. if model1.evaluate(sentence_parse) == True \
-            or model2.evaluate(sentence_parse) == True \
-      else -np.inf
+  try:
+    model1_success = model1.evaluate(sentence_parse) == True
+  except:
+    model1_success = None
+  try:
+    model2_success = model1.evaluate(sentence_parse) == True
+  except:
+    model2_success = None
+
+  return 0. if model1_success or model2_success else -np.inf
 
 
 def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
@@ -847,7 +854,9 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
         likelihood = 0.0
         # marginalizing over possible parses..
         for result in results:
-          sentence_semantics = result.label()[0].semantics().replace(dummy_var, expr).simplify()
+          sentence_semantics = result.label()[0].semantics() \
+              .replace(dummy_var, expr).simplify()
+
           # Compute p(meaning | syntax, sentence, parse)
           logp = sum(likelihood_fn(token, category, expr, sentence_semantics, model)
                      for likelihood_fn in likelihood_fns)
