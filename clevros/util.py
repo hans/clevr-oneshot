@@ -60,7 +60,8 @@ class Distribution(Counter):
     Z = sum(self.values())
     if Z > 0:
       return self * (1 / Z)
-    return self
+    elif Z == 0:
+      return Distribution.uniform(self.keys())
 
   def mix(self, other, alpha=0.5):
     assert alpha >= 0 and alpha <= 1
