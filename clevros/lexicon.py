@@ -954,37 +954,6 @@ def augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
       predict_zero_shot(lex, query_tokens, query_token_syntaxes, sentence,
                         ontology, model, likelihood_fns)
 
-  # successes = defaultdict(set)
-  # failures = defaultdict(set)
-  # for token, candidate_queue in ranked_candidates.items():
-  #   # NB not parallelizing anything below
-  #   candidates = sorted(candidate_queue.queue,
-  #                       key=lambda item: -item[0])
-  #   for joint_score, (category, expr) in candidates:
-  #     parse_results = category_parse_results[token][category]
-
-  #     # Parse succeeded -- check the candidate results.
-  #     for result in parse_results:
-  #       semantics = result.label()[0].semantics()
-  #       # TODO can we pre-compute the simplification?
-  #       semantics = semantics.replace(dummy_var, expr).simplify()
-
-  #       # TODO assumes single token
-  #       assignments = {
-  #         token: (category, expr)
-  #       }
-
-  #       # Evaluate success.
-  #       success = success_fn(assignments, semantics, model)
-
-  #       description = (joint_score, (category, expr))
-  #       if success:
-  #         # Parse succeeded with correct meaning. Add candidate lexical entry.
-  #         successes[token].add(description)
-  #       else:
-  #         if len(failures[token]) < negative_samples and description not in successes[token]:
-  #           failures[token].add(description)
-
   for token in query_tokens:
     candidates = sorted(ranked_candidates[token].queue, key=lambda item: -item[0])
     weights = np.array([weight for weight, _ in candidates])
