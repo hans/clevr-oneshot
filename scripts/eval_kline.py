@@ -158,7 +158,7 @@ class IntensionalModel(Model):
       ret = all(action in self.intensional_referents for action in ret.actions)
     elif isinstance(ret, NegatedAction):
       ret = not self.evaluate(ret.action)
-    elif not isinstance(ret, bool):
+    elif ret is not None and not isinstance(ret, bool):
       ret = ret in self.scene.objects
 
     return ret
