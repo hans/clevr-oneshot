@@ -466,8 +466,9 @@ if __name__ == "__main__":
     ("negative_samples", False, 5, 20, 7),
     ("total_negative_mass", False, 0.1, 1.0, 0.1),
     ("syntax_prior_smooth", True, 1e-5, 1e-1, 1e-3),
-    ("meaning_prior_smooth", True, 1e-9, 1e-5, 1e-8),
+    ("meaning_prior_smooth", True, 1e-9, 1e-2, 1e-3),
     ("weight_init", True, 1e-4, 1e-1, 1e-2),
+    ("prune_weight", False, -0.1, 0.1, 1e-4),
   ]
 
   p = ArgumentParser()
