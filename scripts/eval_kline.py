@@ -175,16 +175,8 @@ initial_lexicon = Lexicon.fromstring(r"""
 
   doesn't => (S\N)/(S\N) {\a.not(a)}
 
-  bends => S\N/N {\p a.cause(a,move(p,bend))}
-  lifts => S\N/N {\p a.cause(a,move(p,lift))}
-  tilts => S\N/N {\p a.cause(a,move(p,tilt))}
-  cleans => S\N/N {\p a.cause(a,become(p,clean))}
-  dirties => S\N/N {\p a.cause(a,become(p,dirty))}
-  switches => S\N/N {\p a.cause(a,become(p,active))}
-
-  ducks => S\N {\a.move(a,bend)}
-  jumps => S\N {\a.move(a,lift)}
-  spins => S\N {\a.move(a,tilt)}
+  abc => S\N/N {\p a.a}
+  xyz => S\N {\a.a}
 """, ontology, include_semantics=True)
 
 ######
@@ -246,29 +238,32 @@ class Scene(object):
 ######
 
 training_examples = [
-  ("the toy", Scene([Sarah, Toy], [])),
-  ("the toy", Scene([Ricky, Toy], [])),
-  ("she florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
-  ("she florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
-  ("the donut", Scene([Ricky, Donut], [])),
-  ("the donut", Scene([Sarah, Donut], [])),
-  ("he florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Ricky, Become(Toy, "active"))])),
+  # ("the toy", Scene([Sarah, Toy], [])),
+  # ("the toy", Scene([Ricky, Toy], [])),
+  # ("she florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
+  # ("she florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
+  # ("the donut", Scene([Ricky, Donut], [])),
+  # ("the donut", Scene([Sarah, Donut], [])),
+  # ("he florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Ricky, Become(Toy, "active"))])),
+  ("she torps", Scene([Ricky, Sarah], [Move(Sarah, "lift")])),
+  # ("he torps", Scene([Ricky, Sarah], [Move(Ricky, "lift")])),
+  # ("he norps", Scene([Ricky, Sarah], [Move(Ricky, "bend")])),
 
-  ("the toy", Scene([Sarah, Toy], [])),
-  ("the toy", Scene([Ricky, Toy], [])),
-  ("she florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
-  ("the toy", Scene([Sarah, Toy], [])),
-  ("the toy", Scene([Ricky, Toy], [])),
-  ("she florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
+  # ("the toy", Scene([Sarah, Toy], [])),
+  # ("the toy", Scene([Ricky, Toy], [])),
+  # ("she florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
+  # ("the toy", Scene([Sarah, Toy], [])),
+  # ("the toy", Scene([Ricky, Toy], [])),
+  # ("she florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
 
 ]
 
 test_2afc_examples = [
 
-  (("she gorps the toy",
-    Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
-    Scene([Sarah, Toy], [Become(Toy, "active")])),
-   0),
+  # (("she gorps the toy",
+  #   Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
+  #   Scene([Sarah, Toy], [Become(Toy, "active")])),
+  #  0),
 
   # (("she doesn't gorps the toy",
   #   Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
