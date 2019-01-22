@@ -705,7 +705,7 @@ def build_bootstrap_likelihood(lex, sentence, ontology,
            ", ".join("%.03f %s" % (prob, pred) for pred, prob
                      in sorted(lf_ngrams[category].items(), key=lambda x: x[1], reverse=True)))
 
-  def likelihood_fn(token, category, expr, sentence_parses, model):
+  def likelihood_fn(token, category, expr, sentence_parse, model):
     # Retrieve relevant bootstrap distribution p(meaning | syntax).
     cat_lf_ngrams = lf_ngrams[category]
     likelihood = 0.0
@@ -718,7 +718,7 @@ def build_bootstrap_likelihood(lex, sentence, ontology,
   return likelihood_fn
 
 
-def likelihood_scene(token, category, expr, sentence_parses, model):
+def likelihood_scene(token, category, expr, sentence_parse, model):
   """
   0-1 likelihood function, 1 when a sentence is true of the model and false
   otherwise.
@@ -733,11 +733,35 @@ def likelihood_scene(token, category, expr, sentence_parses, model):
   Returns:
     log_likelihood:
   """
-  return 0. if any(model.evaluate(parse) for parse in sentence_parses) \
-            else -np.inf
+  try:
+    return 0. if model.evaluate(sentence_parse) == True else -np.inf
+  except:
+    return -np.inf
 
 
-def likelihood_2afc(token, category, expr, sentence_parses, models):
+def build_distant_likelihood(answer):
+  """
+  Prepare a likelihood function `p(meaning | syntax, sentence)` based on
+  distant supervision.
+
+  Args:
+    answer: ground-truth answer
+
+  Returns:
+    likelihood_fn: A likelihood function to be used with `predict_zero_shot`.
+  """
+  def likelihood_fn(token, category, expr, sentence_parse, model):
+    try:
+      success = model.evaluate(sentence_parse) == answer
+    except:
+      success = None
+
+    return 0.0 if success == True else -np.inf
+
+  return likelihood_fn
+
+
+def likelihood_2afc(token, category, expr, sentence_parse, models):
   """
   0-1 likelihood function for the 2AFC paradigm, where an uttered
   sentence is known to be true of at least one of two scenes.
@@ -749,10 +773,9 @@ def likelihood_2afc(token, category, expr, sentence_parses, models):
     log_likelihood:
   """
   model1, model2 = models
-  return 0. if any(model1.evaluate(parse) == True
-                    or model2.evaluate(parse) == True
-                   for parse in sentence_parses) \
-            else -np.inf
+  return 0. if model1.evaluate(sentence_parse) == True \
+            or model2.evaluate(sentence_parse) == True \
+      else -np.inf
 
 
 def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
@@ -798,7 +821,7 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
   dummy_var = None
 
   # TODO need to work on *product space* for multiple query words
-  queues = {token: UniquePriorityQueue(maxsize=2500)
+  queues = {token: UniquePriorityQueue(maxsize=5)
             for token in tokens}
   category_parse_results = defaultdict(dict)
   for token, candidate_queue in queues.items():
@@ -821,17 +844,20 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
           # TODO rather than arity-checking post-hoc, form a type request
           continue
 
-        # Compute candidate sentence-level parses by substitution.
-        candidate_semantic_parses = [
-            result.label()[0].semantics().replace(dummy_var, expr).simplify()
-            for result in results
-        ]
+        likelihood = 0.0
+        # marginalizing over possible parses..
+        for result in results:
+          sentence_semantics = result.label()[0].semantics().replace(dummy_var, expr).simplify()
+          # Compute p(meaning | syntax, sentence, parse)
+          logp = sum(likelihood_fn(token, category, expr, sentence_semantics, model)
+                     for likelihood_fn in likelihood_fns)
+          likelihood += np.exp(logp)
 
-        likelihood = sum(likelihood_fn(token, category, expr,
-                                       candidate_semantic_parses, model)
-                         for likelihood_fn in likelihood_fns)
+        joint_score = np.log(category_weight) + np.log(likelihood)
+        if joint_score == -np.inf:
+          # Zero probability. Skip.
+          continue
 
-        joint_score = np.log(category_weight) + likelihood
         new_item = (joint_score, (category, expr))
         try:
           candidate_queue.put_nowait(new_item)
@@ -849,7 +875,7 @@ def predict_zero_shot(lex, tokens, candidate_syntaxes, sentence, ontology,
 
 
 def augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
-                    sentence, ontology, model, success_fn,
+                    sentence, ontology, model,
                     likelihood_fns, negative_samples=5,
                     total_negative_mass=0.1, beta=3.0):
   """
@@ -883,15 +909,6 @@ def augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
     ontology: Available logical ontology -- used to enumerate possible logical
       forms.
     model: Scene model which evaluates logical forms to answers.
-    success_fn: Function which accepts two arguments
-      `candidate_mapping, sentence_semantics, model`. `candidate_mapping` maps
-      each token in `query_tokens` to a tuple `(syntax, semantics)`;
-      `sentence_semantics` is a list of possible semantic representations of
-      the sentence given the joint assignment; `model` is simply the `model`
-      parameter provided to this function. Return `True` when the particular
-      assignment is "successful." For distant supervision, for example, a parse
-      is successful when it yields a prespecified "answer" after being
-      evaluated against `model`.
     likelihood_fns: Sequence of functions describing zero-shot likelihoods
       `p(meaning | syntax, sentence, model)`. See `predict_zero_shot` for more
       information.
@@ -920,70 +937,68 @@ def augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
       predict_zero_shot(lex, query_tokens, query_token_syntaxes, sentence,
                         ontology, model, likelihood_fns)
 
-  successes = defaultdict(set)
-  failures = defaultdict(set)
-  for token, candidate_queue in ranked_candidates.items():
-    # NB not parallelizing anything below
-    candidates = sorted(candidate_queue.queue,
-                        key=lambda item: -item[0])
-    for joint_score, (category, expr) in candidates:
-      parse_results = category_parse_results[token][category]
+  # successes = defaultdict(set)
+  # failures = defaultdict(set)
+  # for token, candidate_queue in ranked_candidates.items():
+  #   # NB not parallelizing anything below
+  #   candidates = sorted(candidate_queue.queue,
+  #                       key=lambda item: -item[0])
+  #   for joint_score, (category, expr) in candidates:
+  #     parse_results = category_parse_results[token][category]
 
-      # Parse succeeded -- check the candidate results.
-      for result in parse_results:
-        semantics = result.label()[0].semantics()
-        # TODO can we pre-compute the simplification?
-        semantics = semantics.replace(dummy_var, expr).simplify()
+  #     # Parse succeeded -- check the candidate results.
+  #     for result in parse_results:
+  #       semantics = result.label()[0].semantics()
+  #       # TODO can we pre-compute the simplification?
+  #       semantics = semantics.replace(dummy_var, expr).simplify()
 
-        # TODO assumes single token
-        assignments = {
-          token: (category, expr)
-        }
+  #       # TODO assumes single token
+  #       assignments = {
+  #         token: (category, expr)
+  #       }
 
-        # Evaluate success.
-        success = success_fn(assignments, semantics, model)
+  #       # Evaluate success.
+  #       success = success_fn(assignments, semantics, model)
 
-        description = (joint_score, (category, expr))
-        if success:
-          # Parse succeeded with correct meaning. Add candidate lexical entry.
-          successes[token].add(description)
-        else:
-          if len(failures[token]) < negative_samples and description not in successes[token]:
-            failures[token].add(description)
+  #       description = (joint_score, (category, expr))
+  #       if success:
+  #         # Parse succeeded with correct meaning. Add candidate lexical entry.
+  #         successes[token].add(description)
+  #       else:
+  #         if len(failures[token]) < negative_samples and description not in successes[token]:
+  #           failures[token].add(description)
 
   for token in query_tokens:
-    try:
-      successes_t = list(successes[token])
-    except KeyError:
-      raise RuntimeError("Failed to derive any meanings for token %s." % token)
-    if not successes_t:
+    candidates = sorted(ranked_candidates[token].queue, key=lambda item: -item[0])
+    weights = np.array([weight for weight, _ in candidates])
+    entries = [entry for _, entry in candidates]
+
+    if len(entries) == 0:
       raise RuntimeError("Failed to derive any meanings for token %s." % token)
 
     # Compute weights for competing entries by a stable softmax.
-    weights_t = np.array([weight for weight, _ in successes_t])
-    weights_t -= weights_t.max()
-    weights_t = np.exp(weights_t)
-    weights_t /= weights_t.sum()
-    weights_t *= beta
+    weights -= weights.max()
+    weights = np.exp(weights)
+    weights /= weights.sum()
+    weights *= beta
 
-    lex._entries[token] = [Token(token, category, expr, weight=softmax_weight)
-                           for (_, (category, expr)), softmax_weight
-                           in zip(successes_t, weights_t)]
+    lex._entries[token] = [Token(token, category, expr, weight=weight)
+                           for weight, (category, expr) in zip(weights, entries)]
 
-    # Negative-sample some top zero-shot candidates which failed
-    # parsing.
-    failures_t = failures[token]
-    negative_mass = total_negative_mass / len(failures_t)
-    lex._entries[token].extend(
-        [Token(token, category, expr, weight=negative_mass)
-         for _, (category, expr) in failures_t])
+    # # Negative-sample some top zero-shot candidates which failed
+    # # parsing.
+    # failures_t = failures[token]
+    # negative_mass = total_negative_mass / len(failures_t)
+    # lex._entries[token].extend(
+    #     [Token(token, category, expr, weight=negative_mass)
+    #      for _, (category, expr) in failures_t])
 
-    L.info("Inferred %i novel entries for token %s:", len(successes_t), token)
-    for (_, entry_info), weight in sorted(zip(successes_t, weights_t), key=lambda x: x[1], reverse=True):
-      L.info("%.4f %s", weight, entry_info)
-    L.info("Negatively sampled %i more novel entries for token %s:", len(failures_t), token)
-    for (_, entry_info) in failures_t:
-      L.info("%.4f %s", negative_mass, entry_info)
+    L.info("Inferred %i novel entries for token %s:", len(entries), token)
+    for entry, weight in sorted(zip(entries, weights), key=lambda x: x[1], reverse=True):
+      L.info("%.4f %s", weight, entry)
+    # L.info("Negatively sampled %i more novel entries for token %s:", len(failures_t), token)
+    # for (_, entry_info) in failures_t:
+    #   L.info("%.4f %s", negative_mass, entry_info)
 
 
   return lex
@@ -999,50 +1014,20 @@ def augment_lexicon_distant(old_lex, query_tokens, query_token_syntaxes,
 
   For argument documentation, see `augment_lexicon`.
   """
-  # Cache success results.
-  success_results = {}
-  def success_fn(_, sentence_semantics, model):
-    success = success_results.get(sentence_semantics)
-    if success is None:
-      try:
-        pred_answer = model.evaluate(sentence_semantics)
-        success = pred_answer == answer
-      except (TypeError, AttributeError) as e:
-        # Type inconsistency. TODO catch this in the iter_expression
-        # stage, or typecheck before evaluating.
-        success = False
-      except AssertionError as e:
-        # Precondition of semantics failed to pass.
-        success = False
-
-      success_results[sentence_semantics] = success
-
-    return success
+  likelihood_fns = (build_distant_likelihood(answer),) + \
+      tuple(likelihood_fns)
 
   return augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
-                         sentence, ontology, model, success_fn, likelihood_fns,
+                         sentence, ontology, model, likelihood_fns,
                          **augment_kwargs)
 
 
 def augment_lexicon_cross_situational(old_lex, query_tokens, query_token_syntaxes,
                                       sentence, ontology, model, likelihood_fns,
                                       **augment_kwargs):
-  # Cache success results.
-  success_results = {}
-  def success_fn(expr, sentence_semantics, model):
-    if sentence_semantics not in success_results:
-      try:
-        success = model.evaluate(sentence_semantics) == True
-      except:
-        # Type violation or runtime error
-        success = None
-
-      success_results[sentence_semantics] = success
-
-    return success_results[sentence_semantics]
-
+  likelihood_fns = (likelihood_scene,) + tuple(likelihood_fns)
   return augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
-                         sentence, ontology, model, success_fn, likelihood_fns,
+                         sentence, ontology, model, likelihood_fns,
                          **augment_kwargs)
 
 
@@ -1056,28 +1041,9 @@ def augment_lexicon_2afc(old_lex, query_tokens, query_token_syntaxes,
 
   For argument documentation, see `augment_lexicon`.
   """
-  # Cache success results.
-  success_results = {}
-  def success_fn(_, sentence_semantics, models):
-    success = success_results.get(sentence_semantics)
-    if success is None:
-      model1, model2 = models
-      try:
-        model1_success = model1.evaluate(sentence_semantics) == True
-      except:
-        model1_success = False
-      try:
-        model2_success = model2.evaluate(sentence_semantics) == True
-      except:
-        model2_success = False
-
-      success = model1_success or model2_success
-      success_results[sentence_semantics] = success
-
-    return success
-
+  likelihood_fns = (likelihood_2afc,) + tuple(likelihood_fns)
   return augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
-                         sentence, ontology, models, success_fn, likelihood_fns,
+                         sentence, ontology, models, likelihood_fns,
                          **augment_kwargs)
 
 
