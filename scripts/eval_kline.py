@@ -29,7 +29,9 @@ L = logging.getLogger(__name__)
 class Cause(Action):
   def __init__(self, agent, behavior):
     if not isinstance(agent, frozendict):
-      raise ValueError()
+      raise TypeError()
+    if not isinstance(behavior, Action):
+      raise TypeError()
     self.agent = agent
     self.behavior = behavior
 
@@ -49,12 +51,14 @@ class Cause(Action):
 class Move(Action):
   def __init__(self, agent, manner):
     if not isinstance(agent, frozendict):
-      raise ValueError()
+      raise TypeError()
+    if not isinstance(manner, str):
+      raise TypeError()
     self.agent = agent
     self.manner = manner
 
   def __hash__(self):
-    return hash((self.agent, self.manner))
+    return hash(("move", self.agent, self.manner))
 
   def __str__(self):
     return "Move(%s, %s)" % (self.agent, self.manner)
@@ -66,11 +70,13 @@ class Become(Action):
   def __init__(self, agent, state):
     if not isinstance(agent, frozendict):
       raise ValueError()
+    if not isinstance(state, str):
+      raise ValueError()
     self.agent = agent
     self.state = state
 
   def __hash__(self):
-    return hash((self.agent, self.state))
+    return hash(("become", self.agent, self.state))
 
   def __str__(self):
     return "Become(%s -> %s)" % (self.agent, self.state)
