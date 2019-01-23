@@ -281,12 +281,12 @@ test_2afc_examples = [
 
   (("the girl gorps the toy",
     Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active")), Contact(Sarah, Toy)], name="scene1"),
-    Scene([Sarah, Toy], [Become(Toy, "active")], name="scene2")),
+    Scene([Sarah, Toy], [Become(Toy, "active"), Move(Sarah, "lift")], name="scene2")),
    0),
 
   (("the girl doesn't gorps the toy",
     Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active")), Contact(Sarah, Toy)]),
-    Scene([Sarah, Toy], [Become(Toy, "active")])),
+    Scene([Sarah, Toy], [Become(Toy, "active"), Move(Sarah, "lift")])),
    1),
 
   # (("she gorps the toy",
