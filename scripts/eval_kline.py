@@ -84,7 +84,23 @@ class Become(Action):
   __repr__ = __str__
 
 
-INTENSIONAL_TYPES = [Action, Cause, Move, Become]
+class Contact(Action):
+  def __init__(self, a1, a2):
+    if not isinstance(a1, frozendict) or not isinstance(a2, frozendict):
+      raise TypeError()
+    self.a1 = a1
+    self.a2 = a2
+
+  def __hash__(self):
+    return hash(("contact", self.a1, self.a2))
+
+  def __str__(self):
+    return "Contact(%s -> %s)" % (self.a1, self.a2)
+
+  __repr__ = __str__
+
+
+INTENSIONAL_TYPES = [Action, Cause, Move, Become, Contact]
 """
 Logical types which, when evaluated on a scene, should be compared to a stored
 collection of intentional referents. (In other words, these types have truth
@@ -97,6 +113,7 @@ functions = [
   types.new_function("cause", ("agent", "action", "action"), Cause),
   types.new_function("move", ("agent", "manner", "action"), Move),
   types.new_function("become", ("agent", "state", "action"), Become),
+  types.new_function("contact", ("agent", "agent", "action"), Contact),
 
   types.new_function("unique", (("agent", "boolean"), "agent"), fn_unique),
   types.new_function("nott", ("action", "action"), lambda a: NegatedAction(a)),
@@ -105,7 +122,6 @@ functions = [
   types.new_function("female", ("agent", "boolean"), lambda a: a["female"]),
   types.new_function("toy", ("agent", "boolean"), lambda a: a["type"] == "toy"),
   types.new_function("shade", ("agent", "boolean"), lambda a: a["type"] == "shade"),
-  types.new_function("shade", ("agent", "boolean"), lambda a: a["shape"] == "donut"),
 ]
 
 constants = [
@@ -264,12 +280,12 @@ training_examples = [
 test_2afc_examples = [
 
   (("the girl gorps the toy",
-    Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
-    Scene([Sarah, Toy], [Become(Toy, "active")])),
+    Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active")), Contact(Sarah, Toy)], name="scene1"),
+    Scene([Sarah, Toy], [Become(Toy, "active")], name="scene2")),
    0),
 
   (("the girl doesn't gorps the toy",
-    Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))]),
+    Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active")), Contact(Sarah, Toy)]),
     Scene([Sarah, Toy], [Become(Toy, "active")])),
    1),
 

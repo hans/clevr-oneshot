@@ -218,7 +218,7 @@ class WordLearner(object):
 
       aug_lexicon = self.do_lexical_induction(sentence, (model1, model2),
                                               augment_lexicon_fn=augment_lexicon_2afc,
-                                              queue_limit=20)
+                                              queue_limit=50)
       parser = chart.WeightedCCGChartParser(aug_lexicon)
       weighted_results = parser.parse(sentence, True)
 
