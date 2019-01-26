@@ -3,7 +3,8 @@ from copy import copy
 import logging
 import math
 from pathlib import Path
-from pprint import pprint
+import pprint
+import random
 import sys
 from traceback import print_exc
 
@@ -252,30 +253,70 @@ class Scene(object):
     if self.name: return "Scene<%s>" % self.name
     else: return super().__str__()
 
+  def __repr__(self):
+    return "Scene%s{\n\tobjects=%s,\n\tevents=%s}" % \
+      ("<%s>" % self.name if self.name else "",
+       pprint.pformat(self.objects), pprint.pformat(self.events))
+
 ######
 
-training_examples = [
-  ("the toy", Scene([Sarah, Toy], [])),
-  ("the toy", Scene([Ricky, Toy], [])),
-  ("the girl", Scene([Sarah, Toy], [])),
-  ("the girl", Scene([Sarah, Ricky], [])),
-  ("the boy", Scene([Ricky, Toy], [])),
-  ("the boy", Scene([Sarah, Ricky], [])),
-  ("the girl florps the toy", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
-  ("the girl florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Sarah, Become(Toy, "active"))])),
-  ("the donut", Scene([Ricky, Donut], [])),
-  ("the donut", Scene([Sarah, Donut], [])),
-  ("the boy florps the donut", Scene([Ricky, Sarah, Toy], [Cause(Ricky, Become(Toy, "active"))])),
-  ("the girl torps", Scene([Sarah], [Move(Sarah, "lift")])),
-  ("the boy doesn't torps", Scene([Ricky, Sarah], [Move(Sarah, "lift")])),
-  ("the boy torps", Scene([Ricky], [Move(Ricky, "lift")])),
-
-  ("the boy norps", Scene([Ricky, Sarah], [Move(Ricky, "bend")])),
-  ("the girl doesn't norps", Scene([Ricky, Sarah], [Move(Ricky, "bend")])),
-  ("the girl norps", Scene([Sarah, Ricky], [Move(Sarah, "bend")])),
-
+# TODO constrain relations between objects (e.g. disallow toy causation events)
+training_objects = [
+  (Sarah, ["the girl"]),
+  (Ricky, ["the boy"]),
+  (Toy, ["the toy"]),
 ]
+training_transitive_events = [
+  (lambda a, b: Cause(a, Become(b, "active")), ["florps"]),
+  (lambda a, b: Cause(a, Move(b, "lift")), ["norps"]),
+  (lambda a, b: Contact(a, b), ["torps"]),
+]
+training_intransitive_events = [
+  (lambda a: Move(a, "lift"), ["sorps"]),
+  (lambda a: Move(a, "bend"), ["worps"]),
+]
+training_events = training_transitive_events + training_intransitive_events
 
+def sample_observation():
+  # Sample scene (objects and events).
+  n_objects = np.random.randint(2, 4)
+  objects = random.sample(training_objects, n_objects)
+
+  n_events = np.random.randint(1, 3)
+  events = random.sample(training_events, n_events)
+  # Construct each event between present objects.
+  event_instances = []
+  for event_fn, terms in events:
+    import inspect
+    arity = len(inspect.signature(event_fn).parameters)
+    arguments = random.sample(objects, arity)
+    argument_objs = [obj for obj, _ in arguments]
+    argument_strs = [str for _, str in arguments]
+    event_instances.append((event_fn(*argument_objs),
+                           (terms,) + tuple(argument_strs)))
+
+  scene = Scene([obj for obj, _ in objects],
+                [event for event, _ in event_instances])
+
+  # Sample an utterance.
+  refer_to_event = np.random.random() > 0.5 # TODO magic number
+  if refer_to_event:
+    event, terms = random.choice(event_instances)
+    verb = random.choice(terms[0])
+    v_subject = random.choice(terms[1])
+    constituents = [v_subject, verb]
+    if len(terms) > 2:
+      # Add object.
+      constituents.append(random.choice(terms[2]))
+
+    utterance = " ".join(constituents)
+  else:
+    obj, utterances = random.choice(objects)
+    utterance = random.choice(utterances)
+
+  return utterance, scene
+
+training_examples = [sample_observation() for _ in range(20)]
 
 test_2afc_examples = [
 
@@ -449,7 +490,7 @@ def eval_2afc_zeroshot(learner, example, expected_idx, asserts=True):
 
 def eval_model(bootstrap=True, **learner_kwargs):
   L.info("Building model.")
-  pprint(learner_kwargs)
+  pprint.pprint(learner_kwargs)
 
   default_weight = learner_kwargs.pop("weight_init")
   lexicon = initial_lexicon.clone()
@@ -462,7 +503,12 @@ def eval_model(bootstrap=True, **learner_kwargs):
   for example in training_examples:
     sentence, model, _ = prep_example(learner, example)
     print("------ ", " ".join(sentence))
-    learner.update_with_cross_situational(sentence, model)
+    try:
+      learner.update_with_cross_situational(sentence, model)
+    except:
+      L.info("Abandoning cross-situational update for sentence.")
+      # Parse failed. That's okay.
+      continue
     learner.lexicon.debug_print()
 
   for example, expected_idx in test_2afc_examples:
