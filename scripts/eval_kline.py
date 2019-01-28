@@ -349,7 +349,8 @@ training_examples = [sample_observation() for _ in range(200)]
 test_2afc_examples = [
 
   (("the girl gorps the toy",
-    Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active")), Contact(Sarah, Toy)], name="scene1"),
+    Scene([Sarah, Toy], [Cause(Sarah, Become(Toy, "active")), Contact(Sarah, Toy), Move(Sarah, "lift")],
+          name="scene1"),
     Scene([Sarah, Toy], [Become(Toy, "active"), Move(Sarah, "lift")], name="scene2")),
    0),
 

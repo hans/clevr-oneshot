@@ -780,7 +780,7 @@ def likelihood_2afc(token, category, expr, sentence_parse, models):
   except:
     model1_success = None
   try:
-    model2_success = model1.evaluate(sentence_parse) == True
+    model2_success = model2.evaluate(sentence_parse) == True
   except:
     model2_success = None
 
