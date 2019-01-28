@@ -55,6 +55,13 @@ class Move(Action):
       raise TypeError()
     if not isinstance(manner, str):
       raise TypeError()
+    try:
+      if ontology.constants_dict[manner].type.name != "manner":
+        raise ValueError()
+    except:
+      # lookup failed
+      raise ValueError()
+
     self.agent = agent
     self.manner = manner
 
@@ -73,6 +80,13 @@ class Become(Action):
       raise ValueError()
     if not isinstance(state, str):
       raise ValueError()
+    try:
+      if ontology.constants_dict[state].type.name != "state":
+        raise ValueError()
+    except:
+      # lookup failed
+      raise ValueError()
+
     self.agent = agent
     self.state = state
 

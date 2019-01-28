@@ -278,10 +278,11 @@ class Ontology(object):
 
     self.functions = []
     self.functions_dict = {}
+    self.constants, self.constants_dict = [], {}
     self.variable_weight = variable_weight
 
     self.add_functions(functions)
-    self.constants = constants
+    self.add_constants(constants)
 
     self._prepare()
 
@@ -310,6 +311,10 @@ class Ontology(object):
               function.name, function.arity, self.get_expr_arity(function.defn),
               function.defn)
       assert function.arity == self.get_expr_arity(function.defn), function.name
+
+  def add_constants(self, constants):
+    self.constants = constants
+    self.constants_dict = {c.name: c for c in constants}
 
   def _prepare(self):
     self._nltk_type_signature = self._make_nltk_type_signature()
