@@ -296,29 +296,43 @@ def sample_observation():
   n_objects = np.random.randint(2, 4)
   objects = random.sample(training_objects, n_objects)
 
+  def sample_events(n_events):
+    events = random.sample(training_events, n_events)
+
+    # Construct each event between present objects.
+    event_instances = []
+    for event_fn, terms in events:
+      import inspect
+      arity = len(inspect.signature(event_fn).parameters)
+      arguments = random.sample(objects, arity)
+      argument_objs = [obj for obj, _ in arguments]
+      argument_strs = [str for _, str in arguments]
+      event_instances.append((event_fn(*argument_objs),
+                            (terms,) + tuple(argument_strs)))
+
+    return event_instances
+
   n_events = np.random.randint(1, 3)
-  events = random.sample(training_events, n_events)
-  # Construct each event between present objects.
-  event_instances = []
-  for event_fn, terms in events:
-    import inspect
-    arity = len(inspect.signature(event_fn).parameters)
-    arguments = random.sample(objects, arity)
-    argument_objs = [obj for obj, _ in arguments]
-    argument_strs = [str for _, str in arguments]
-    event_instances.append((event_fn(*argument_objs),
-                           (terms,) + tuple(argument_strs)))
+  n_negative_events = 3
+  events = sample_events(n_events + n_negative_events)
+  events, negative_events = events[:n_events], events[n_events + 1:]
 
   scene = Scene([obj for obj, _ in objects],
-                [event for event, _ in event_instances])
+                [event for event, _ in events])
 
   # Sample an utterance.
   refer_to_event = np.random.random() > 0.5 # TODO magic number
   if refer_to_event:
-    event, terms = random.choice(event_instances)
+    negative = np.random.random() > 0.5
+    if negative:
+      event, terms = random.choice(negative_events)
+    else:
+      event, terms = random.choice(events)
+
     verb = random.choice(terms[0])
     v_subject = random.choice(terms[1])
-    constituents = [v_subject, verb]
+    modifier = ["doesn't"] if negative else []
+    constituents = [v_subject] + modifier + [verb]
     if len(terms) > 2:
       # Add object.
       constituents.append(random.choice(terms[2]))
@@ -330,7 +344,7 @@ def sample_observation():
 
   return utterance, scene
 
-training_examples = [sample_observation() for _ in range(20)]
+training_examples = [sample_observation() for _ in range(200)]
 
 test_2afc_examples = [
 
@@ -520,6 +534,7 @@ def eval_model(bootstrap=True, **learner_kwargs):
     try:
       learner.update_with_cross_situational(sentence, model)
     except:
+      print_exc()
       L.info("Abandoning cross-situational update for sentence.")
       # Parse failed. That's okay.
       continue
@@ -536,7 +551,7 @@ if __name__ == "__main__":
   hparams = [
     ("learning_rate", False, 0.1, 2.0, 1.0),
     ("bootstrap_alpha", False, 0.0, 1.0, 0.25),
-    ("beta", False, 0.1, 1.1, 0.5),
+    ("beta", False, 0.1, 1.1, 1.0),
     ("negative_samples", False, 5, 20, 7),
     ("total_negative_mass", False, 0.1, 1.0, 0.1),
     ("syntax_prior_smooth", True, 1e-5, 1e-1, 1e-3),
