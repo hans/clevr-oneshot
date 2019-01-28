@@ -89,8 +89,8 @@ def update_perceptron(lexicon, sentence, model, success_fn,
     return weighted_results, 0.0
 
   # Sort results by descending parse score.
-  correct_results = sorted(correct_results, key=lambda r: r[0], reverse=True)
-  incorrect_results = sorted(incorrect_results, key=lambda r: r[0], reverse=True)
+  correct_results = sorted(correct_results, key=lambda r: r[0], reverse=True)[:1]
+  incorrect_results = sorted(incorrect_results, key=lambda r: r[0], reverse=True)[:1]
 
   # TODO margin?
 
