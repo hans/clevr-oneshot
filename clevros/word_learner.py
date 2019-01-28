@@ -22,7 +22,7 @@ class WordLearner(object):
                learning_rate=10.0, beta=3.0, negative_samples=5,
                total_negative_mass=0.1, syntax_prior_smooth=1e-3,
                meaning_prior_smooth=1e-3, bootstrap_alpha=0.25,
-               prune_weight=0.0):
+               prune_weight=0.0, limit_induction=False):
 
     """
     Args:
@@ -44,6 +44,7 @@ class WordLearner(object):
     self.meaning_prior_smooth = meaning_prior_smooth
     self.bootstrap_alpha = bootstrap_alpha
     self.prune_weight = prune_weight
+    self.limit_induction = limit_induction
 
   @property
   def ontology(self):
@@ -124,18 +125,19 @@ class WordLearner(object):
     # That means we are missing entries for one or more wordforms.
     # For now: blindly try updating each word's entries.
     #
-    # TODO: Does not handle case where multiple words need an update.
-    query_tokens, query_token_syntaxes = [], []
+    # TODO: Does not handle case where multiple words need a joint update.
+    query_tokens, query_token_syntaxes = list(set(sentence)), {}
     for token in sentence:
-      query_tokens = [token]
-      query_token_syntaxes = get_candidate_categories(
-          self.lexicon, query_tokens, sentence,
-          smooth=self.syntax_prior_smooth)
+      query_token_syntaxes.update(
+          get_candidate_categories(self.lexicon, [token], sentence,
+                                   smooth=self.syntax_prior_smooth))
 
-      if query_token_syntaxes:
-        # Found candidate parses! Let's try adding entries for this token,
-        # then.
-        return query_tokens, query_token_syntaxes
+    # Sort query token list by increasing maximum weight of existing lexical
+    # entry. This is a little hack to help the learner prefer to try to infer
+    # new meanings for words it is currently more uncertain about.
+    query_tokens = sorted(query_tokens,
+        key=lambda tok: max(self.lexicon._entries[tok], key=lambda entry: entry.weight()).weight())
+    return query_tokens, query_token_syntaxes
 
     raise ValueError(
         "unable to find new entries which will make the sentence parse: %s" % sentence)
@@ -157,13 +159,27 @@ class WordLearner(object):
     # Augment the lexicon with all entries for novel words which yield the
     # correct answer to the sentence under some parse. Restrict the search by
     # the supported syntaxes for the novel words (`query_token_syntaxes`).
-    return augment_lexicon_fn(
-        self.lexicon, query_tokens, query_token_syntaxes, sentence,
-        self.ontology, model, self._build_likelihood_fns(sentence, model),
-        beta=self.beta,
-        negative_samples=self.negative_samples,
-        total_negative_mass=self.total_negative_mass,
-        **augment_lexicon_args)
+    #
+    # HACK: For now, only induce one word meaning at a time.
+    lex = self.lexicon
+    for query_token in query_tokens:
+      try:
+        lex = augment_lexicon_fn(
+            lex, [query_token], query_token_syntaxes, sentence,
+            self.ontology, model, self._build_likelihood_fns(sentence, model),
+            beta=self.beta,
+            negative_samples=self.negative_samples,
+            total_negative_mass=self.total_negative_mass,
+            **augment_lexicon_args)
+      except NoParsesError:
+        # No way to fix this token. That might be okay -- let's keep going.
+        pass
+      else:
+        # Something got added.
+        if self.limit_induction:
+          break
+
+    return lex
 
   def _build_likelihood_fns(self, sentence, model):
     ret = []
@@ -280,10 +296,13 @@ class WordLearner(object):
       self.compress_lexicon()
 
       # Attempt a new parameter update.
-      weighted_results, _ = update_perceptron_fn(
-          self.lexicon, sentence, model,
-          learning_rate=self.learning_rate,
-          **update_perceptron_args)
+      try:
+        weighted_results, _ = update_perceptron_fn(
+            self.lexicon, sentence, model,
+            learning_rate=self.learning_rate,
+            **update_perceptron_args)
+      except NoParsesError:
+        return []
 
     prune_count = self.lexicon.prune(min_weight=self.prune_weight)
     L.info("Pruned %i entries from lexicon.", prune_count)

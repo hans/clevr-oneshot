@@ -970,8 +970,9 @@ def augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
     weights /= weights.sum()
     weights *= beta
 
-    lex._entries[token] = [Token(token, category, expr, weight=weight)
-                           for weight, (category, expr) in zip(weights, entries)]
+    lex._entries[token] = old_lex._entries[token] + \
+        [Token(token, category, expr, weight=weight)
+         for weight, (category, expr) in zip(weights, entries)]
 
     # # Negative-sample some top zero-shot candidates which failed
     # # parsing.

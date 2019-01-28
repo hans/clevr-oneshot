@@ -524,7 +524,7 @@ def eval_model(bootstrap=True, **learner_kwargs):
   lexicon = initial_lexicon.clone()
 
   learner = WordLearner(lexicon, compressor=None, bootstrap=bootstrap,
-                        **learner_kwargs)
+                        limit_induction=True, **learner_kwargs)
 
   ###########
 
