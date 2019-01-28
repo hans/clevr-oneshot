@@ -67,7 +67,7 @@ class Distribution(Counter):
 
   def normalize(self):
     Z = sum(self.values())
-    if Z > 0:
+    if Z != 0:
       return self * (1 / Z)
     elif Z == 0:
       return Distribution.uniform(self.keys())
