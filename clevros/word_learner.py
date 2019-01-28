@@ -50,6 +50,12 @@ class WordLearner(object):
   def ontology(self):
     return self.lexicon.ontology
 
+  def make_parser(self, ruleset=chart.DefaultRuleSet):
+    """
+    Construct a CCG parser from the current learner state.
+    """
+    return chart.WeightedCCGChartParser(self.lexicon, ruleset=ruleset)
+
   def compress_lexicon(self):
     if self.compressor is None:
       return

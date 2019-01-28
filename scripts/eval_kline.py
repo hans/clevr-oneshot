@@ -175,7 +175,10 @@ class IntensionalModel(Model):
           "Intensional referent %s is not one of prescribed intensional types" % ref
     self.intensional_referents = set(intensional_referents or [])
 
-  def evaluate(self, expr, v=False):
+  def evaluate(self, expr, no_lookup=False):
+    if no_lookup:
+      return super().evaluate(expr)
+
     if isinstance(expr, l.NegatedExpression):
       inner = self.evaluate(expr.term)
       if isinstance(inner, bool):
@@ -338,13 +341,16 @@ def sample_observation():
       constituents.append(random.choice(terms[2]))
 
     utterance = " ".join(constituents)
+    lf = NegatedAction(event) if negative else event
   else:
     obj, utterances = random.choice(objects)
     utterance = random.choice(utterances)
+    lf = obj
 
-  return utterance, scene
+  return utterance, lf, scene
 
 training_examples = [sample_observation() for _ in range(200)]
+dev_examples = [sample_observation() for _ in range(50)]
 
 test_2afc_examples = [
 
@@ -416,7 +422,7 @@ def teardown_asserts():
 
 
 def prep_example(learner, example):
-  sentence, scene = example
+  sentence, _, scene = example
   sentence = sentence.split()
   model = IntensionalModel(scene, learner.ontology,
                            intensional_types=INTENSIONAL_TYPES)
@@ -529,6 +535,41 @@ def eval_model(bootstrap=True, **learner_kwargs):
 
   ###########
 
+  # Prepare online evaluation.
+  #
+  # Track 1) correct LF computation on arbitrary sentences, and 2) 2AFC
+  # syntactic bootstrapping performance.
+  eval_results_generic = []
+  eval_results_bootstrap = []
+
+  def do_online_eval():
+    parser = learner.make_parser()
+
+    n_generic_correct = 0
+    for example in dev_examples:
+      sentence, model, _ = prep_example(learner, example)
+      ground_truth = example[1]
+      results = parser.parse(sentence)
+      try:
+        if results and model.evaluate(results[0].label()[0].semantics(), no_lookup=True) == ground_truth:
+          n_generic_correct += 1
+      except: continue
+
+    n_bootstrap_correct = 0
+    for example, expected_idx in test_2afc_examples:
+      sentence, model1, model2 = prep_example_2afc(learner, example)
+      posterior = learner.predict_zero_shot_2afc(sentence, model1, model2)
+      if posterior.argmax().scene == [model1, model2][expected_idx].scene:
+        n_bootstrap_correct += 1
+
+    print(n_generic_correct / len(dev_examples))
+    print(n_bootstrap_correct / len(test_2afc_examples))
+
+    eval_results_generic.append(n_generic_correct / len(dev_examples))
+    eval_results_bootstrap.append(n_bootstrap_correct / len(test_2afc_examples))
+
+  ###########
+
   for example in training_examples:
     sentence, model, _ = prep_example(learner, example)
     print("------ ", " ".join(sentence))
@@ -540,6 +581,11 @@ def eval_model(bootstrap=True, **learner_kwargs):
       # Parse failed. That's okay.
       continue
     learner.lexicon.debug_print()
+
+    do_online_eval()
+
+  print("Online general accuracies:", eval_results_generic)
+  print("Online bootstrap accuracies:", eval_results_bootstrap)
 
   for example, expected_idx in test_2afc_examples:
     sentence = example[0]
