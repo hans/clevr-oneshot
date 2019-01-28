@@ -7,6 +7,7 @@ import logging
 import numpy as np
 
 from clevros import chart
+from clevros.util import NoParsesError
 
 L = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ def update_perceptron_batch(lexicon, data, learning_rate=0.1, parser=None):
         correct_result, correct_score = result, score
         break
     else:
-      raise ValueError("no valid parse derived")
+      raise NoParsesError("no valid parse derived", x)
 
     if correct_score < max_score:
       for result, sign in zip([correct_result, max_result], [1, -1]):
@@ -62,7 +63,7 @@ def update_perceptron(lexicon, sentence, model, success_fn,
   norm = 0.0
   weighted_results = parser.parse(sentence, return_aux=True)
   if not weighted_results:
-    raise ValueError("No successful parses computed.")
+    raise NoParsesError("No successful parses computed.", sentence)
 
   max_score, max_incorrect_score = -np.inf, -np.inf
   correct_results, incorrect_results = [], []
@@ -82,7 +83,7 @@ def update_perceptron(lexicon, sentence, model, success_fn,
         incorrect_results.append((score, result))
 
   if not correct_results:
-    raise ValueError("No parses derived are successful.")
+    raise NoParsesError("No parses derived are successful.", sentence)
   elif not incorrect_results:
     L.warning("No incorrect parses. Skipping update.")
     return weighted_results, 0.0

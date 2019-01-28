@@ -10,7 +10,7 @@ from clevros.lexicon import predict_zero_shot, \
     build_bootstrap_likelihood
 from clevros.perceptron import \
     update_perceptron_distant, update_perceptron_cross_situational, update_perceptron_2afc
-from clevros.util import Distribution
+from clevros.util import Distribution, NoParsesError
 
 
 L = logging.getLogger(__name__)
@@ -267,7 +267,7 @@ class WordLearner(object):
           self.lexicon, sentence, model,
           learning_rate=self.learning_rate,
           **update_perceptron_args)
-    except ValueError as e:
+    except NoParsesError as e:
       # No parse succeeded -- attempt lexical induction.
       L.warning("Parse failed for sentence '%s'", " ".join(sentence))
       L.warning(e)

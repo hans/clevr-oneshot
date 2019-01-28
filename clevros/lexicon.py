@@ -20,7 +20,8 @@ from clevros.combinator import category_search_replace, \
     type_raised_category_search_replace
 from clevros.clevr import scene_candidate_referents
 from clevros.logic import get_arity
-from clevros.util import ConditionalDistribution, Distribution, UniquePriorityQueue
+from clevros.util import ConditionalDistribution, Distribution, UniquePriorityQueue, \
+    NoParsesError
 
 
 L = logging.getLogger(__name__)
@@ -961,7 +962,7 @@ def augment_lexicon(old_lex, query_tokens, query_token_syntaxes,
     entries = [entry for _, entry in candidates]
 
     if len(entries) == 0:
-      raise RuntimeError("Failed to derive any meanings for token %s." % token)
+      raise NoParsesError("Failed to derive any meanings for token %s." % token, sentence)
 
     # Compute weights for competing entries by a stable softmax.
     weights -= weights.max()

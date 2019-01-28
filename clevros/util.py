@@ -10,6 +10,15 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 
+class NoParsesError(Exception):
+  """
+  No parses were computed for the given sentence.
+  """
+  def __init__(self, message, sentence):
+    super().__init__(message)
+    self.sentence = sentence
+
+
 class Distribution(Counter):
   """
   Weight distribution with discrete support.
