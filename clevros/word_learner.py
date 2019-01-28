@@ -22,7 +22,7 @@ class WordLearner(object):
                learning_rate=10.0, beta=3.0, negative_samples=5,
                total_negative_mass=0.1, syntax_prior_smooth=1e-3,
                meaning_prior_smooth=1e-3, bootstrap_alpha=0.25,
-               prune_weight=0.0, limit_induction=False):
+               prune_entries=3, limit_induction=False):
 
     """
     Args:
@@ -43,7 +43,7 @@ class WordLearner(object):
     self.syntax_prior_smooth = syntax_prior_smooth
     self.meaning_prior_smooth = meaning_prior_smooth
     self.bootstrap_alpha = bootstrap_alpha
-    self.prune_weight = prune_weight
+    self.prune_entries = prune_entries
     self.limit_induction = limit_induction
 
   @property
@@ -304,7 +304,7 @@ class WordLearner(object):
       except NoParsesError:
         return []
 
-    prune_count = self.lexicon.prune(min_weight=self.prune_weight)
+    prune_count = self.lexicon.prune(max_entries=self.prune_entries)
     L.info("Pruned %i entries from lexicon.", prune_count)
 
     return weighted_results

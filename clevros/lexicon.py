@@ -120,7 +120,7 @@ class Lexicon(ccg_lexicon.CCGLexicon):
 
     return ret
 
-  def prune(self, min_weight=0.0):
+  def prune(self, max_entries=3):
     """
     Prune low-weight entries from the lexicon in-place.
 
@@ -132,10 +132,10 @@ class Lexicon(ccg_lexicon.CCGLexicon):
     """
     prune_count = 0
     for token in self._entries:
-      entries_t = self._entries[token]
-      self._entries[token] = [entry for entry in entries_t
-                              if entry.weight() >= min_weight]
-      prune_count += len(entries_t) - len(self._entries[token])
+      entries_t = [token for token in self._entries[token] if token.weight() > 0]
+      entries_t = sorted(entries_t, key=lambda t: t.weight())[:max_entries]
+      prune_count += len(self._entries[token]) - len(entries_t)
+      self._entries[token] = entries_t
 
     return prune_count
 

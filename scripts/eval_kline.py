@@ -524,7 +524,7 @@ def eval_model(bootstrap=True, **learner_kwargs):
   lexicon = initial_lexicon.clone()
 
   learner = WordLearner(lexicon, compressor=None, bootstrap=bootstrap,
-                        limit_induction=True, **learner_kwargs)
+                        limit_induction=True, prune_entries=3, **learner_kwargs)
 
   ###########
 
@@ -557,7 +557,6 @@ if __name__ == "__main__":
     ("syntax_prior_smooth", True, 1e-5, 1e-1, 1e-3),
     ("meaning_prior_smooth", True, 1e-9, 1e-2, 1e-3),
     ("weight_init", True, 1e-4, 1e-1, 1e-2),
-    ("prune_weight", False, -0.1, 0.1, 0),
   ]
 
   p = ArgumentParser()
