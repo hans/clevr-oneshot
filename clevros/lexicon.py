@@ -618,7 +618,8 @@ def get_candidate_categories(lex, tokens, sentence, smooth=1e-3):
 
 
 def attempt_candidate_parse(lexicon, token, candidate_category,
-                            candidate_expressions, sentence, dummy_var=None):
+                            candidate_expressions, sentence, dummy_var=None,
+                            allow_composition=True):
   """
   Attempt to parse a sentence, mapping `token` to a new candidate lexical
   entry.
@@ -642,7 +643,7 @@ def attempt_candidate_parse(lexicon, token, candidate_category,
   # First attempt a parse with only function application rules.
   results = chart.WeightedCCGChartParser(lexicon, ruleset=chart.ApplicationRuleSet) \
       .parse(sentence)
-  if results:
+  if results or not allow_composition:
     lexicon._entries[token] = []
     return results, sub_target
 
