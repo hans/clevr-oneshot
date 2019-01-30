@@ -176,14 +176,17 @@ class IntensionalModel(Model):
     self.intensional_referents = set(intensional_referents or [])
 
   def evaluate(self, expr, no_lookup=False):
-    if no_lookup:
-      return super().evaluate(expr)
-
     if isinstance(expr, l.NegatedExpression):
-      inner = self.evaluate(expr.term)
+      inner = self.evaluate(expr.term, no_lookup=no_lookup)
+      if no_lookup:
+        return NegatedAction(inner)
       if isinstance(inner, bool):
         return not inner
       return None
+
+    ret = super().evaluate(expr)
+    if no_lookup:
+      return ret
 
     ret = super().evaluate(expr)
     if type(ret) in self.intensional_types:
@@ -551,9 +554,15 @@ def eval_model(bootstrap=True, **learner_kwargs):
       ground_truth = example[1]
       results = parser.parse(sentence)
       try:
-        if results and model.evaluate(results[0].label()[0].semantics(), no_lookup=True) == ground_truth:
+        result = model.evaluate(results[0].label()[0].semantics(), no_lookup=True)
+        # print("\t", result == ground_truth, ground_truth, result)
+        if result == ground_truth:
           n_generic_correct += 1
-      except: continue
+      except: pass
+      # except:
+      #   print("\t\t=-=-=-=---=-=-=here", ground_truth, results[0].label()[0].semantics())
+      #   print_exc()
+        # continue
 
     n_bootstrap_correct = 0
     for example, expected_idx in test_2afc_examples:
