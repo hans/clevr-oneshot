@@ -22,7 +22,8 @@ class WordLearner(object):
                learning_rate=10.0, beta=3.0, negative_samples=5,
                total_negative_mass=0.1, syntax_prior_smooth=1e-3,
                meaning_prior_smooth=1e-3, bootstrap_alpha=0.25,
-               prune_entries=3, limit_induction=False):
+               prune_entries=3, zero_shot_limit=5,
+               limit_induction=False):
 
     """
     Args:
@@ -44,6 +45,7 @@ class WordLearner(object):
     self.meaning_prior_smooth = meaning_prior_smooth
     self.bootstrap_alpha = bootstrap_alpha
     self.prune_entries = prune_entries
+    self.zero_shot_limit = zero_shot_limit
     self.limit_induction = limit_induction
 
   @property
@@ -157,6 +159,9 @@ class WordLearner(object):
     Returns:
       aug_lexicon: augmented lexicon, a modified copy of `self.lexicon`
     """
+    if "queue_limit" not in augment_lexicon_args:
+      augment_lexicon_args["queue_limit"] = self.zero_shot_limit
+
     # Find tokens for which we need to insert lexical entries.
     query_tokens, query_token_syntaxes = \
         self.prepare_lexical_induction(sentence)

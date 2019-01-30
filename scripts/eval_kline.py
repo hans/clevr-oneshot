@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 from copy import copy
+import json
 import logging
 import math
 from pathlib import Path
@@ -352,8 +353,8 @@ def sample_observation():
 
   return utterance, lf, scene
 
-training_examples = [sample_observation() for _ in range(200)]
-dev_examples = [sample_observation() for _ in range(50)]
+training_examples = [sample_observation() for _ in range(300)]
+dev_examples = [sample_observation() for _ in range(75)]
 
 test_2afc_examples = [
 
@@ -528,13 +529,19 @@ def eval_2afc_zeroshot(learner, example, expected_idx, asserts=True):
 
 def eval_model(bootstrap=True, **learner_kwargs):
   L.info("Building model.")
+
+  learner_kwargs["limit_induction"] = True
   pprint.pprint(learner_kwargs)
+
+  lexical_limit = learner_kwargs.pop("lexical_limit", 1000)
+  learner_kwargs["prune_entries"] = lexical_limit
+  learner_kwargs["zero_shot_limit"] = lexical_limit
 
   default_weight = learner_kwargs.pop("weight_init")
   lexicon = initial_lexicon.clone()
 
   learner = WordLearner(lexicon, compressor=None, bootstrap=bootstrap,
-                        limit_induction=True, prune_entries=3, **learner_kwargs)
+                        **learner_kwargs)
 
   ###########
 
@@ -601,18 +608,25 @@ def eval_model(bootstrap=True, **learner_kwargs):
     print("------ ", sentence)
     eval_2afc_zeroshot(learner, example, expected_idx)
 
+  with (args.out_dir / "results.jsonl").open("a") as out_f:
+    json.dump({"params": learner_kwargs,
+               "accuracies": {"general": eval_results_generic,
+                              "bootstrap": eval_results_bootstrap}},
+              out_f)
+
 
 
 if __name__ == "__main__":
   hparams = [
-    ("learning_rate", False, 0.1, 2.0, 1.0),
-    ("bootstrap_alpha", False, 0.0, 1.0, 0.25),
-    ("beta", False, 0.1, 1.1, 1.0),
-    ("negative_samples", False, 5, 20, 7),
-    ("total_negative_mass", False, 0.1, 1.0, 0.1),
-    ("syntax_prior_smooth", True, 1e-5, 1e-1, 1e-3),
-    ("meaning_prior_smooth", True, 1e-9, 1e-2, 1e-3),
-    ("weight_init", True, 1e-4, 1e-1, 1e-2),
+    ("learning_rate", False, 1.0, 1.0, 1.0),
+    ("bootstrap_alpha", False, 0.25, 0.25, 0.25),
+    ("beta", False, 1.0, 1.0, 1.0),
+    ("negative_samples", False, 7, 7, 7),
+    ("total_negative_mass", False, 0.1, 0.1, 0.1),
+    ("syntax_prior_smooth", True, 1e-3, 1e-3, 1e-3),
+    ("meaning_prior_smooth", True, 1e-3, 1e-3, 1e-3),
+    ("weight_init", True, 1e-2, 1e-2, 1e-2),
+    ("lexical_limit", False, 1, 10, 3),
   ]
 
   p = ArgumentParser()
